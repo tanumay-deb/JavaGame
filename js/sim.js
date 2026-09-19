@@ -1,0 +1,401 @@
+/* Game state: clock, money, ride cycles, visitor flow, statistics, save/load. */
+
+const SAVE_KEY = 'prehistoric-fun-park-save-v1';
+
+const sim = {
+  money: 6000,
+  time: 0,               // seconds of game time since the park opened
+  month: 0,
+  speed: 1,
+  paused: false,
+  entranceFee: 0,
+  visitors: [],
+  staff: [],
+  effects: [],
+  toasts: [],
+  stats: [],             // one record per finished month
+  unlocked: new Set(),
+  selected: null,
+  spawnAcc: 0,
+  monthIncome: 0,
+  monthOutlay: 0,
+  totalEarned: 0,
+  won: false,
+  fights: 0,
+
+  /* ------------------------------------------------------------- setup */
+  newGame() {
+    park.reset();
+    this.money = 6000; this.time = 0; this.month = 0; this.speed = 1; this.paused = false;
+    this.entranceFee = 0;
+    this.visitors.length = 0; this.staff.length = 0; this.effects.length = 0;
+    this.stats.length = 0; this.toasts.length = 0;
+    this.unlocked = new Set();
+    this.selected = null; this.monthIncome = 0; this.monthOutlay = 0; this.totalEarned = 0;
+    this.won = false; this.fights = 0;
+    this.refreshUnlocks(true);
+    this.toast('🦴 Welcome to your park! Lay a path, then build a ride.');
+  },
+
+  refreshUnlocks(silent) {
+    for (const key in ITEMS) {
+      if (this.unlocked.has(key)) continue;
+      if ((ITEMS[key].unlock || 0) <= this.month) {
+        this.unlocked.add(key);
+        if (!silent) this.toast('💡 New invention: ' + ITEMS[key].name + '!');
+      }
+    }
+  },
+
+  isUnlocked(key) { return this.unlocked.has(key); },
+
+  /* ------------------------------------------------------------ money */
+  income(amount, b, x, y) {
+    this.money += amount;
+    this.monthIncome += amount;
+    this.totalEarned += amount;
+    if (x !== undefined) this.effect(x, y, '+' + money(amount), '#ffe08a');
+  },
+  spend(amount) { this.money -= amount; this.monthOutlay += amount; },
+  fairPrice(b) { return b.item.fee !== undefined ? b.item.fee : (b.item.price || 0); },
+
+  /* --------------------------------------------------------- feedback */
+  toast(msg) {
+    this.toasts.push({ msg, t: 4.5 });
+    if (this.toasts.length > 4) this.toasts.shift();
+  },
+  effect(x, y, text, color) {
+    this.effects.push({ x, y, text, color, life: 1.6, max: 1.6, type: 'text' });
+  },
+  puff(x, y, n) {
+    if (this.effects.length > 220) return;
+    for (let i = 0; i < (n || 7); i++)
+      this.effects.push({ x, y, vx: rnd(-0.5, 0.5), vy: rnd(-0.6, -0.1), life: 0.7, max: 0.7, type: 'dust', r: rnd(2, 5) });
+  },
+
+  /* ------------------------------------------------------------- loop */
+  update(dtReal) {
+    if (this.paused) { this.decayToasts(dtReal); return; }
+    const dt = dtReal * this.speed;
+    const prevMonth = Math.floor(this.time / MONTH_SECONDS);
+    this.time += dt;
+    const nowMonth = Math.floor(this.time / MONTH_SECONDS);
+    if (nowMonth !== prevMonth) this.endOfMonth();
+
+    this.updateRides(dt);
+    this.updateAgents(dt);
+    this.spawn(dt);
+    this.updateEffects(dt);
+    this.decayToasts(dtReal);
+    this.checkObjectives();
+  },
+
+  decayToasts(dt) {
+    for (let i = this.toasts.length - 1; i >= 0; i--) {
+      this.toasts[i].t -= dt;
+      if (this.toasts[i].t <= 0) this.toasts.splice(i, 1);
+    }
+  },
+
+  updateEffects(dt) {
+    for (let i = this.effects.length - 1; i >= 0; i--) {
+      const e = this.effects[i];
+      e.life -= dt;
+      if (e.type === 'dust') { e.x += (e.vx || 0) * dt; e.y += (e.vy || 0) * dt; }
+      if (e.life <= 0) this.effects.splice(i, 1);
+    }
+  },
+
+  updateRides(dt) {
+    for (const b of park.buildings.values()) {
+      if (b.item.cat !== 'ride') continue;
+      if (b.timer > 0) {
+        b.timer -= dt;
+        if (b.timer <= 0) this.unload(b);
+        continue;
+      }
+      if (!b.open || !b.powered || b.brokeDown) continue;
+      if (!b.queue.length) continue;
+      /* load the queue */
+      const take = Math.min(b.item.cap, b.queue.length);
+      b.riders = b.queue.splice(0, take);
+      for (const v of b.riders) {
+        v.state = 'riding';
+        v.queuedFor = null;
+        v.money -= b.fee; v.spent += b.fee;
+        b.earned += b.fee; b.visits++;
+        this.income(b.fee, b, b.x + b.w / 2, b.y + b.h / 2);
+      }
+      b.timer = b.item.dur;
+      b.cycle++;
+      b.condition = clamp(b.condition - rnd(0.5, 1.6), 0, 100);
+      if (b.condition < 62 && chance((62 - b.condition) / 100 * 0.22)) {
+        b.brokeDown = true;
+        this.toast('⚠️ The ' + b.item.name + ' has broken down!');
+      }
+    }
+    /* wear on stalls too */
+    for (const b of park.buildings.values()) {
+      if (b.item.cat === 'stall' || b.item.cat === 'engine') b.condition = clamp(b.condition - dt * 0.15, 0, 100);
+    }
+  },
+
+  unload(b) {
+    const exit = park.accessTiles(b.ext)[0] || park.accessTiles(b.ent)[0] || { x: b.x, y: b.y };
+    for (const v of b.riders) {
+      v.x = exit.x; v.y = exit.y;
+      v.state = 'idle'; v.timer = rnd(0.2, 0.9);
+      v.path = null; v.target = null;
+      v.needs.joy = clamp(v.needs.joy + b.item.rating * 9, 0, 100);
+      v.needs.energy = clamp(v.needs.energy - 4, 0, 100);
+      const value = b.item.rating * 1.15 - b.fee;   /* good value cheers people up */
+      v.happiness = clamp(v.happiness + 9 + value * 1.5, 0, 100);
+      v.rides++;
+      v.ridden = v.ridden || {};
+      v.ridden[b.id] = (v.ridden[b.id] || 0) + 1;
+      v.thought = 'That was fun!';
+      v.say(value > 0 ? '😀' : '😐');
+    }
+    b.riders = [];
+  },
+
+  updateAgents(dt) {
+    for (let i = this.visitors.length - 1; i >= 0; i--) {
+      const v = this.visitors[i];
+      v.update(dt);
+      if (v.dead) this.visitors.splice(i, 1);
+    }
+    for (const s of this.staff) s.update(dt);
+    this.maybeFight(dt);
+  },
+
+  maybeFight(dt) {
+    if (!chance(dt * 0.35)) return;
+    const angry = this.visitors.filter(v => v.happiness < 18 && v.state !== 'riding' && v.fightT <= 0);
+    if (angry.length < 2) return;
+    const a = pick(angry);
+    const b = angry.find(o => o !== a && dist2(o.x, o.y, a.x, a.y) < 4);
+    if (!b) return;
+    const guarded = this.staff.some(s => s.role === 'guard' && dist2(s.x, s.y, a.x, a.y) < 36);
+    if (guarded) return;
+    a.fightT = b.fightT = 3.5;
+    a.state = b.state = 'fight';
+    a.say('💢', 3.5); b.say('💢', 3.5);
+    this.fights++;
+    this.toast('💢 A fight broke out! Hire a guard.');
+    for (const v of this.visitors) if (dist2(v.x, v.y, a.x, a.y) < 25) v.happiness = clamp(v.happiness - 12, 0, 100);
+  },
+
+  /* ---------------------------------------------------------- visitors */
+  avgHappiness() {
+    if (!this.visitors.length) return 50;
+    let s = 0;
+    for (const v of this.visitors) s += v.happiness;
+    return s / this.visitors.length;
+  },
+
+  dayLight() {
+    /* one day/night cycle per month, like the moon icon in the original.
+       The park opens at noon and only about a quarter of the moon is dark. */
+    const p = (this.time % MONTH_SECONDS) / MONTH_SECONDS;
+    const u = Math.abs(p - 0.5) / 0.5;          // 1 at noon, 0 at midnight
+    return clamp((u - 0.22) / 0.34, 0, 1);
+  },
+
+  spawn(dt) {
+    const rating = park.rating(this.avgHappiness());
+    const gateOpen = park.isPath(park.gate.x, park.gate.y);
+    if (!gateOpen) return;
+    const night = 0.35 + 0.65 * this.dayLight();
+    const perMonth = rating * 0.95 * night;
+    if (perMonth <= 0) return;
+    this.spawnAcc += dt * (perMonth / MONTH_SECONDS);
+    while (this.spawnAcc >= 1) {
+      this.spawnAcc -= 1;
+      if (this.visitors.length >= 150) break;
+      const v = new Visitor(park.gate.x, park.gate.y);
+      if (this.entranceFee > 0) {
+        if (v.money < this.entranceFee * 3) continue;    /* too dear, they walk away */
+        v.money -= this.entranceFee;
+        this.income(this.entranceFee, null, v.x, v.y);
+        v.happiness -= this.entranceFee * 0.35;
+      }
+      this.visitors.push(v);
+    }
+  },
+
+  visitorLeft(v) {
+    if (this.selected === v) this.selected = null;
+  },
+
+  /* ------------------------------------------------------------ month */
+  endOfMonth() {
+    this.month++;
+    let salaries = 0;
+    for (const s of this.staff) salaries += s.def.salary;
+    let upkeep = 0;
+    for (const b of park.buildings.values()) upkeep += b.item.upkeep || 0;
+    this.spend(salaries + upkeep);
+
+    const income = Math.round(this.monthIncome);
+    const outlay = Math.round(this.monthOutlay);   // build costs + wages + upkeep
+    this.stats.push({
+      month: this.month,
+      income, outlay,
+      profit: income - outlay,
+      visitors: this.visitors.length,
+      happiness: Math.round(this.avgHappiness()),
+      rating: Math.round(park.rating(this.avgHappiness()))
+    });
+    if (this.stats.length > 24) this.stats.shift();
+
+    this.monthIncome = 0; this.monthOutlay = 0;
+    this.refreshUnlocks(false);
+    this.toast('🌙 New moon — wages ' + money(salaries) + ', upkeep ' + money(upkeep));
+    if (this.money < 0) this.toast('❗ You are in debt. Raise prices or cut staff.');
+    this.autoSave();
+  },
+
+  /* -------------------------------------------------------- objectives */
+  objectiveState() {
+    const rides = park.list('ride').filter(b => b.powered && !b.brokeDown && park.reachable(b));
+    return {
+      cash: Math.max(0, Math.round(this.money)),
+      visitors: this.visitors.length,
+      happiness: Math.round(this.avgHappiness()),
+      rides: rides.length
+    };
+  },
+
+  checkObjectives() {
+    if (this.won) return;
+    const s = this.objectiveState();
+    if (OBJECTIVES.every(o => s[o.id] >= o.target)) {
+      this.won = true;
+      this.toast('🏆 Objectives complete — your tribe made you chief!');
+      for (let i = 0; i < 40; i++)
+        this.effects.push({ x: park.gate.x + rnd(-6, 6), y: park.gate.y - rnd(0, 8), vx: rnd(-1, 1), vy: rnd(-1.6, -0.4), life: rnd(1, 2), max: 2, type: 'spark', r: rnd(2, 4), color: pick(['#ffd54a', '#ff7b54', '#6fe3c1', '#8ab6ff']) });
+    }
+  },
+
+  /* ------------------------------------------------------------- staff */
+  hire(role) {
+    const def = STAFF[role];
+    if (this.money < def.salary) { this.toast('Not enough money to hire a ' + def.name); return null; }
+    this.spend(def.salary);
+    const s = new Staff(role, park.gate.x, park.gate.y);
+    this.staff.push(s);
+    this.toast('🧑 Hired a ' + def.name + ' (' + money(def.salary) + ' per moon)');
+    park.recomputePower();
+    return s;
+  },
+
+  fire(s) {
+    const i = this.staff.indexOf(s);
+    if (i < 0) return;
+    this.staff.splice(i, 1);
+    if (s.assigned) {
+      const b = park.buildings.get(s.assigned);
+      if (b) b.worker = null;
+    }
+    if (this.selected === s) this.selected = null;
+    park.recomputePower();
+    this.toast('Fired the ' + s.def.name);
+  },
+
+  staffFor(b) { return this.staff.find(s => s.assigned === b.id) || null; },
+
+  /* -------------------------------------------------------------- build */
+  build(key, x, y, rot) {
+    const item = ITEMS[key];
+    const check = park.canPlace(key, x, y, rot);
+    if (!check.ok) { this.toast(check.why); return false; }
+    if (this.money < item.cost) { this.toast('Not enough money for a ' + item.name); return false; }
+    this.spend(item.cost);
+    const b = park.place(key, x, y, rot);
+    /* a puff of dust for a building; paving a tile is too frequent to warrant one */
+    if (item.cat !== 'path') this.puff(x + ((item.w || 1) / 2), y + ((item.h || 1) / 2));
+    if (b && b.item.worker && !this.staff.some(s => !s.assigned && s.role === b.item.worker))
+      this.toast('The ' + item.name + ' needs a ' + STAFF[b.item.worker].name);
+    if (b && b.item.power && !b.powered)
+      this.toast('The ' + item.name + ' has no power — build a Dino Treadmill nearby');
+    /* an unemployed worker may now have a job */
+    for (const s of this.staff) if (!s.assigned && s.role !== 'guard' && s.role !== 'repairman' && s.state === 'idle') s.station();
+    return true;
+  },
+
+  sell(b) {
+    const refund = Math.round(b.item.cost * 0.5);
+    for (const v of this.visitors) {
+      if (v.queuedFor === b) { v.queuedFor = null; v.state = 'idle'; v.timer = 0.3; }
+      if (v.target && v.target.b === b) { v.target = null; v.path = null; v.state = 'idle'; v.timer = 0.3; }
+      if (b.riders.includes(v)) { v.state = 'idle'; v.timer = 0.3; v.x = b.x; v.y = b.y; }
+    }
+    for (const s of this.staff) if (s.assigned === b.id) { s.assigned = null; s.state = 'idle'; s.timer = 0.2; }
+    if (this.selected === b) this.selected = null;
+    park.demolish(b);
+    this.money += refund;
+    this.puff(b.x + b.w / 2, b.y + b.h / 2);
+    this.toast('Sold the ' + b.item.name + ' for ' + money(refund));
+  },
+
+  /* --------------------------------------------------------- save/load */
+  serialize() {
+    return {
+      v: 1,
+      money: this.money, time: this.time, month: this.month, fee: this.entranceFee,
+      totalEarned: this.totalEarned, stats: this.stats, won: this.won,
+      ground: Array.from(park.ground),
+      buildings: Array.from(park.buildings.values()).map(b => ({
+        key: b.key, x: b.x, y: b.y, rot: b.rot, fee: b.fee, open: b.open,
+        condition: b.condition, broke: b.brokeDown, earned: b.earned, visits: b.visits
+      })),
+      staff: this.staff.map(s => s.role)
+    };
+  },
+
+  save() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(this.serialize()));
+      this.toast('💾 Park saved');
+      return true;
+    } catch (e) { this.toast('Could not save (storage blocked)'); return false; }
+  },
+
+  autoSave() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.serialize())); } catch (e) { /* ignore */ }
+  },
+
+  hasSave() {
+    try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+  },
+
+  load() {
+    let raw;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+    if (!raw) { this.toast('No saved park found'); return false; }
+    let d;
+    try { d = JSON.parse(raw); } catch (e) { this.toast('Saved park is damaged'); return false; }
+    this.newGame();
+    this.money = d.money; this.time = d.time || 0; this.month = d.month || 0;
+    this.entranceFee = d.fee || 0; this.totalEarned = d.totalEarned || 0;
+    this.stats = d.stats || []; this.won = !!d.won;
+    if (d.ground) for (let i = 0; i < park.ground.length && i < d.ground.length; i++) park.ground[i] = d.ground[i];
+    park.buildings.clear(); park.occ.fill(-1); park.nextId = 1;
+    for (const s of d.buildings || []) {
+      const b = park.place(s.key, s.x, s.y, s.rot);
+      if (!b) continue;
+      b.fee = s.fee; b.open = s.open; b.condition = s.condition;
+      b.brokeDown = s.broke; b.earned = s.earned || 0; b.visits = s.visits || 0;
+    }
+    for (const role of d.staff || []) {
+      const s = new Staff(role, park.gate.x, park.gate.y);
+      this.staff.push(s);
+    }
+    this.refreshUnlocks(true);
+    park.recomputePower();
+    park.version++;
+    this.toast('📂 Park loaded');
+    return true;
+  }
+};

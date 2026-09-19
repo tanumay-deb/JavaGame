@@ -1,0 +1,518 @@
+/* HUD, build sheet, inspector panels and the statistics modals. */
+
+const CHART = { profit: '#3AA98F', loss: '#D06B4A', visitors: '#5D8FD6', happy: '#B07BD0' };
+
+const ui = {
+  build: { key: null, rot: 0 },
+  tab: 'path',
+  el: {},
+  lastInspect: 0,
+
+  init() {
+    const $ = id => document.getElementById(id);
+    this.el = {
+      money: $('hud-money'), happy: $('hud-happy'), visitors: $('hud-visitors'),
+      rating: $('hud-rating'), month: $('hud-month'), moon: $('moon'),
+      toasts: $('toasts'), inspector: $('inspector'), sheet: $('sheet'),
+      tabs: $('sheet-tabs'), cards: $('sheet-cards'), modal: $('modal'), modalBody: $('modal-body'),
+      buildbar: $('buildbar'), buildbarName: $('buildbar-name'), dock: $('dock')
+    };
+
+    $('speeds').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      const s = +b.dataset.speed;
+      sim.paused = s === 0;
+      if (s > 0) sim.speed = s;
+      for (const x of $('speeds').children) x.classList.toggle('on', +x.dataset.speed === (sim.paused ? 0 : sim.speed));
+    });
+
+    $('btn-build').addEventListener('click', () => this.toggleSheet());
+    $('btn-staff').addEventListener('click', () => this.staffModal());
+    $('btn-stats').addEventListener('click', () => this.statsModal());
+    $('btn-goals').addEventListener('click', () => this.goalsModal());
+    $('btn-menu').addEventListener('click', () => this.menuModal());
+    $('btn-rotate').addEventListener('click', () => this.rotate());
+    $('btn-cancel-build').addEventListener('click', () => this.setBuild(null));
+
+    document.addEventListener('click', e => {
+      const c = e.target.closest('[data-close]');
+      if (c) this.close(c.dataset.close);
+    });
+
+    this.buildTabs();
+    this.selectTab('path');
+  },
+
+  close(id) {
+    document.getElementById(id).classList.add('hidden');
+    if (id === 'sheet') document.getElementById('btn-build').classList.remove('on');
+  },
+
+  /* ------------------------------------------------------------ build UI */
+  toggleSheet() {
+    const s = this.el.sheet;
+    const open = s.classList.contains('hidden');
+    s.classList.toggle('hidden', !open);
+    document.getElementById('btn-build').classList.toggle('on', open);
+    if (open) this.renderCards();
+  },
+
+  buildTabs() {
+    this.el.tabs.innerHTML = '';
+    for (const t of BUILD_TABS) {
+      const b = document.createElement('button');
+      b.textContent = t.label;
+      b.onclick = () => this.selectTab(t.id);
+      b.dataset.tab = t.id;
+      this.el.tabs.appendChild(b);
+    }
+  },
+
+  selectTab(id) {
+    this.tab = id;
+    for (const b of this.el.tabs.children) b.classList.toggle('on', b.dataset.tab === id);
+    this.renderCards();
+  },
+
+  renderCards() {
+    const tab = BUILD_TABS.find(t => t.id === this.tab);
+    const box = this.el.cards;
+    box.innerHTML = '';
+    for (const key of tab.items) {
+      const item = ITEMS[key];
+      const card = document.createElement('button');
+      card.className = 'card';
+      const locked = !sim.isUnlocked(key);
+      const poor = sim.money < item.cost;
+      if (locked) card.classList.add('locked');
+      if (poor) card.classList.add('poor');
+      if (this.build.key === key) card.classList.add('on');
+
+      const cv = document.createElement('canvas');
+      cv.width = 240; cv.height = 112;
+      card.appendChild(cv);
+
+      const nm = document.createElement('div');
+      nm.className = 'nm'; nm.textContent = item.name;
+      card.appendChild(nm);
+
+      const pr = document.createElement('div');
+      pr.className = 'price'; pr.textContent = money(item.cost);
+      card.appendChild(pr);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      if (item.cat === 'ride') meta.textContent = '★' + item.rating + ' · seats ' + item.cap + (item.power ? ' · ⚡' : '');
+      else if (item.cat === 'engine') meta.textContent = 'powers ' + item.radius + ' tiles · needs rider';
+      else if (item.worker) meta.textContent = 'needs a ' + STAFF[item.worker].name;
+      else if (item.need) meta.textContent = NEED_INFO[item.need] ? NEED_INFO[item.need].label : '';
+      else if (item.beauty) meta.textContent = 'beauty +' + item.beauty;
+      else meta.textContent = item.desc ? '' : '';
+      card.appendChild(meta);
+
+      if (locked) {
+        const l = document.createElement('div');
+        l.className = 'lock';
+        l.textContent = '🔒 invented at moon ' + item.unlock;
+        card.appendChild(l);
+      }
+      card.onclick = () => { if (!locked) this.setBuild(key); };
+      box.appendChild(card);
+      this.thumb(cv, key);
+    }
+  },
+
+  /* draw the real sprite into a card so the menu shows what you get */
+  thumb(cv, key) {
+    const item = ITEMS[key];
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (item.cat === 'path') {
+      const g = makeCanvas(TILE_W * 2, TILE_H * 2);
+      const c2 = g.getContext('2d');
+      for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) {
+        diamond(c2, TILE_W / 2 + isoX(x, y), TILE_H + isoY(x, y), TILE_W, TILE_H);
+        c2.fillStyle = item.ground === GROUND.STONE ? PALETTE.stone : PALETTE.gravel;
+        c2.fill();
+        c2.strokeStyle = 'rgba(0,0,0,.18)'; c2.lineWidth = 1; c2.stroke();
+      }
+      const s = Math.min(cv.width / g.width, cv.height / g.height) * 0.9;
+      ctx.drawImage(g, (cv.width - g.width * s) / 2, (cv.height - g.height * s) / 2, g.width * s, g.height * s);
+      return;
+    }
+    const spr = getSprite(item.art, item.w || 1, item.h || 1, 0);
+    const s = Math.min(cv.width / spr.c.width, cv.height / spr.c.height) * 0.92;
+    ctx.drawImage(spr.c, (cv.width - spr.c.width * s) / 2, (cv.height - spr.c.height * s) / 2, spr.c.width * s, spr.c.height * s);
+  },
+
+  setBuild(key) {
+    this.build.key = key;
+    this.build.rot = 0;
+    const on = !!key;
+    this.el.buildbar.classList.toggle('hidden', !on);
+    if (on) {
+      this.el.buildbarName.textContent = ITEMS[key].name + ' · ' + money(ITEMS[key].cost);
+      sim.selected = null;
+      this.el.inspector.classList.add('hidden');
+    }
+    this.renderCards();
+  },
+
+  rotate() {
+    if (!this.build.key) return;
+    this.build.rot = (this.build.rot + 1) % 4;
+  },
+
+  /* ------------------------------------------------------------ HUD tick */
+  update(dt) {
+    this.el.money.textContent = money(sim.money);
+    this.el.money.style.color = sim.money < 0 ? CHART.loss : '';
+    this.el.happy.textContent = Math.round(sim.avgHappiness()) + '%';
+    this.el.visitors.textContent = sim.visitors.length;
+    this.el.rating.textContent = Math.round(park.rating(sim.avgHappiness()));
+    this.el.month.textContent = 'Moon ' + (sim.month + 1);
+    this.drawMoon();
+    this.renderToasts();
+    if (sim.selected && performance.now() - this.lastInspect > 250) this.renderInspector();
+  },
+
+  drawMoon() {
+    const c = this.el.moon, ctx = c.getContext('2d');
+    const p = (sim.time % MONTH_SECONDS) / MONTH_SECONDS;
+    ctx.clearRect(0, 0, c.width, c.height);
+    const cx = c.width / 2, cy = c.height / 2, r = 11;
+    ctx.fillStyle = '#2a2318';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, r - 1, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#efe3c2';
+    ctx.beginPath(); ctx.arc(cx, cy, r - 1, 0, Math.PI * 2); ctx.fill();
+    /* shadow disc slides across to show the phase */
+    ctx.fillStyle = '#17130d';
+    const off = (p * 2 - 1) * (r * 2.1);
+    ctx.beginPath(); ctx.arc(cx + off, cy, r - 1, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath(); ctx.arc(cx - 3, cy - 3, 2, 0, Math.PI * 2); ctx.arc(cx + 3, cy + 2, 1.6, 0, Math.PI * 2); ctx.fill();
+  },
+
+  renderToasts() {
+    const box = this.el.toasts;
+    const want = sim.toasts.map(t => t.msg).join('|');
+    if (box.dataset.k === want) return;
+    box.dataset.k = want;
+    box.innerHTML = '';
+    for (const t of sim.toasts) {
+      const d = document.createElement('div');
+      d.className = 'toast';
+      d.textContent = t.msg;
+      box.appendChild(d);
+    }
+  },
+
+  /* --------------------------------------------------------- inspector */
+  select(target) {
+    sim.selected = target;
+    if (!target) { this.el.inspector.classList.add('hidden'); return; }
+    this.renderInspector();
+    this.el.inspector.classList.remove('hidden');
+  },
+
+  bar(v, max, col) {
+    const p = clamp(v / max * 100, 0, 100);
+    return '<div class="bar"><i style="width:' + p.toFixed(0) + '%;background:' + col + '"></i></div>';
+  },
+
+  needColor(v) { return v > 60 ? '#3aa98f' : v > 30 ? '#e8a53c' : '#d06b4a'; },
+
+  renderInspector() {
+    this.lastInspect = performance.now();
+    const s = sim.selected;
+    if (!s) { this.el.inspector.classList.add('hidden'); return; }
+    let html = '<button class="close-x" onclick="ui.select(null)">✕</button>';
+    if (s.kind === 'visitor') html += this.visitorHtml(s);
+    else if (s.kind === 'staff') html += this.staffHtml(s);
+    else html += this.buildingHtml(s);
+    this.el.inspector.innerHTML = html;
+  },
+
+  visitorHtml(v) {
+    const mood = v.happiness > 66 ? 'happy' : v.happiness > 33 ? 'so-so' : 'miserable';
+    let h = '<h3>Visitor #' + v.id + '</h3><div class="role">Feeling ' + mood + '</div>';
+    h += '<div class="thought">“' + v.thought + '”</div>';
+    h += '<div class="row"><span class="k">Happiness</span><span class="v">' + Math.round(v.happiness) + '%</span></div>';
+    h += this.bar(v.happiness, 100, this.needColor(v.happiness));
+    h += '<div class="row"><span class="k">Money left</span><span class="v">' + money(v.money) + '</span></div>';
+    h += '<div class="row"><span class="k">Spent here</span><span class="v">' + money(v.spent) + '</span></div>';
+    h += '<div class="row"><span class="k">Rides taken</span><span class="v">' + v.rides + '</span></div>';
+    h += '<div class="needs">';
+    for (const k of ['hunger', 'thirst', 'bladder', 'energy', 'joy', 'health']) {
+      const n = NEED_INFO[k];
+      h += '<div class="need">' + n.icon + ' ' + n.label + this.bar(v.needs[k], 100, this.needColor(v.needs[k])) + '</div>';
+    }
+    h += '</div>';
+    h += '<div class="btns"><button onclick="ui.follow()">🎯 Follow</button></div>';
+    return h;
+  },
+
+  staffHtml(s) {
+    const b = s.assigned ? park.buildings.get(s.assigned) : null;
+    let h = '<h3>' + s.def.name + '</h3><div class="role">' + s.def.desc + '</div>';
+    h += '<div class="thought">“' + s.thought + '”</div>';
+    h += '<div class="row"><span class="k">Wage each moon</span><span class="v">' + money(s.def.salary) + '</span></div>';
+    h += '<div class="row"><span class="k">Posted at</span><span class="v">' + (b ? b.item.name : '—') + '</span></div>';
+    h += '<div class="btns"><button onclick="ui.follow()">🎯 Follow</button>'
+      + '<button class="danger" onclick="ui.fireSelected()">Fire</button></div>';
+    return h;
+  },
+
+  buildingHtml(b) {
+    const it = b.item;
+    let h = '<h3>' + it.name + '</h3><div class="role">' + (it.desc || (it.cat === 'ride' ? 'Ride · rating ' + it.rating : it.cat)) + '</div>';
+    const flags = [];
+    if (it.power && !b.powered) flags.push('<span class="tag bad">no power</span>');
+    if (it.worker && !b.worker) flags.push('<span class="tag warn">needs a ' + STAFF[it.worker].name + '</span>');
+    if (b.brokeDown) flags.push('<span class="tag bad">broken down</span>');
+    if (it.cat === 'ride' && !park.reachable(b)) flags.push('<span class="tag warn">no path to IN/OUT</span>');
+    if (!b.open) flags.push('<span class="tag">closed</span>');
+    if (!flags.length) flags.push('<span class="tag ok">running</span>');
+    h += '<div style="margin:4px 0 8px">' + flags.join(' ') + '</div>';
+
+    if (it.cat === 'ride') {
+      h += '<div class="row"><span class="k">Condition</span><span class="v">' + Math.round(b.condition) + '%</span></div>';
+      h += this.bar(b.condition, 100, this.needColor(b.condition));
+      h += '<div class="row"><span class="k">Queue</span><span class="v">' + b.queue.length + ' waiting</span></div>';
+      h += '<div class="row"><span class="k">Riders so far</span><span class="v">' + b.visits + '</span></div>';
+      h += '<div class="row"><span class="k">Earned</span><span class="v">' + money(b.earned) + '</span></div>';
+      h += '<div class="row"><span class="k">Ticket price</span><div class="stepper">'
+        + '<button onclick="ui.price(-1)">−</button><b>' + money(b.fee) + '</b><button onclick="ui.price(1)">+</button></div></div>';
+      h += '<div class="row"><span class="k">Worth paying</span><span class="v">' + money(it.rating) + '</span></div>';
+      h += '<div class="btns"><button onclick="ui.toggleOpen()">' + (b.open ? '⛔ Close' : '▶ Open') + '</button>'
+        + '<button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
+    } else if (it.cat === 'stall' || (it.cat === 'service' && it.price)) {
+      h += '<div class="row"><span class="k">Price</span><div class="stepper">'
+        + '<button onclick="ui.price(-1)">−</button><b>' + money(b.fee) + '</b><button onclick="ui.price(1)">+</button></div></div>';
+      h += '<div class="row"><span class="k">Served</span><span class="v">' + b.visits + '</span></div>';
+      h += '<div class="row"><span class="k">Earned</span><span class="v">' + money(b.earned) + '</span></div>';
+      h += '<div class="btns"><button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
+    } else if (b.key === 'gate') {
+      h += '<div class="row"><span class="k">Entrance fee</span><div class="stepper">'
+        + '<button onclick="ui.fee(-1)">−</button><b>' + money(sim.entranceFee) + '</b><button onclick="ui.fee(1)">+</button></div></div>';
+      h += '<div class="role">A high fee keeps poorer visitors away.</div>';
+      h += '<div class="btns"><button class="danger" onclick="ui.sellSelected()">Sell</button></div>';
+    } else if (it.cat === 'engine') {
+      const powered = park.list('ride').filter(r => r.item.power && r.powered).length;
+      h += '<div class="row"><span class="k">Dino rider</span><span class="v">' + (b.worker ? 'on the wheel' : 'none!') + '</span></div>';
+      h += '<div class="row"><span class="k">Powered rides</span><span class="v">' + powered + '</span></div>';
+      h += '<div class="btns"><button class="danger" onclick="ui.sellSelected()">Sell</button></div>';
+    } else {
+      h += '<div class="btns"><button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
+    }
+    return h;
+  },
+
+  follow() {
+    const s = sim.selected;
+    if (s) renderer.centerOn(s.x, s.y);
+  },
+  price(d) {
+    const b = sim.selected;
+    if (!b || !b.item) return;
+    b.fee = clamp(b.fee + d, 0, 40);
+    this.renderInspector();
+  },
+  fee(d) { sim.entranceFee = clamp(sim.entranceFee + d, 0, 30); this.renderInspector(); },
+  toggleOpen() { const b = sim.selected; if (b) { b.open = !b.open; this.renderInspector(); } },
+  sellSelected() { const b = sim.selected; if (b && b.item) { sim.sell(b); this.select(null); } },
+  fireSelected() { const s = sim.selected; if (s && s.kind === 'staff') { sim.fire(s); this.select(null); } },
+
+  /* ------------------------------------------------------------- modals */
+  modal(html) {
+    this.el.modalBody.innerHTML = html;
+    this.el.modal.classList.remove('hidden');
+  },
+
+  staffModal() {
+    let h = '<h2>Staff</h2><h3>Hire</h3><div class="cards" style="padding:0;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">';
+    for (const role in STAFF) {
+      const d = STAFF[role];
+      h += '<button class="card" onclick="ui.hire(\'' + role + '\')">'
+        + '<div class="nm">' + d.name + '</div>'
+        + '<div class="price">' + money(d.salary) + ' / moon</div>'
+        + '<div class="meta">' + d.desc + '</div></button>';
+    }
+    h += '</div><h3>On the payroll (' + sim.staff.length + ')</h3>';
+    if (!sim.staff.length) h += '<div class="role">Nobody yet. Stalls and treadmills do not run themselves.</div>';
+    for (const s of sim.staff) {
+      const b = s.assigned ? park.buildings.get(s.assigned) : null;
+      h += '<div class="staff-row"><span class="dot" style="background:' + s.def.color + '"></span>'
+        + '<span class="nm">' + s.def.name + '<div class="sub">' + (b ? 'at the ' + b.item.name : s.thought) + '</div></span>'
+        + '<button onclick="ui.fireById(' + s.id + ')" class="tag bad" style="cursor:pointer">Fire</button></div>';
+    }
+    const total = sim.staff.reduce((a, s) => a + s.def.salary, 0);
+    h += '<div class="row" style="margin-top:8px"><span class="k">Wages each moon</span><span class="v">' + money(total) + '</span></div>';
+    this.modal(h);
+  },
+
+  hire(role) { sim.hire(role); this.staffModal(); },
+  fireById(id) { const s = sim.staff.find(x => x.id === id); if (s) { sim.fire(s); this.staffModal(); } },
+
+  goalsModal() {
+    const st = sim.objectiveState();
+    let h = '<h2>Objectives</h2><div class="role">Meet all four and the tribe makes you chief.</div>';
+    for (const o of OBJECTIVES) {
+      const v = st[o.id], done = v >= o.target;
+      h += '<div class="goal"><span>' + (done ? '✅' : '⬜') + '</span><span style="min-width:112px">' + o.label + '</span>'
+        + this.bar(v, o.target, done ? CHART.profit : '#e8a53c')
+        + '<span class="n">' + Math.round(v) + ' / ' + o.target + '</span></div>';
+    }
+    h += '<h3>Park</h3>';
+    h += '<div class="row"><span class="k">Rides built</span><span class="v">' + park.list('ride').length + '</span></div>';
+    h += '<div class="row"><span class="k">Shops & services</span><span class="v">' + (park.list('stall').length + park.list('service').length) + '</span></div>';
+    h += '<div class="row"><span class="k">Path tiles</span><span class="v">' + park.pathTiles() + '</span></div>';
+    h += '<div class="row"><span class="k">Earned all time</span><span class="v">' + money(sim.totalEarned) + '</span></div>';
+    h += '<div class="row"><span class="k">Fights broken out</span><span class="v">' + sim.fights + '</span></div>';
+    this.modal(h);
+  },
+
+  menuModal() {
+    const h = '<h2>Menu</h2>'
+      + '<div class="btns">'
+      + '<button onclick="sim.save()">💾 Save park</button>'
+      + '<button onclick="ui.doLoad()">📂 Load park</button>'
+      + '<button class="danger" onclick="ui.doNew()">🌱 New park</button>'
+      + '</div>'
+      + '<h3>Controls</h3>'
+      + '<div class="role">Drag to scroll · pinch or scroll wheel to zoom · tap to select · <b>R</b> rotates · '
+      + '<b>Space</b> pauses · <b>Esc</b> cancels building · <b>Delete</b> removes what is selected.</div>'
+      + '<h3>How it works</h3>'
+      + '<div class="role">Visitors walk only on paths. A ride earns money when its IN and OUT tiles touch a path, '
+      + 'it has power, and the price is not more than the ride is worth. Rides wear out and break; a repairman fixes them. '
+      + 'Wages and upkeep are paid every new moon.</div>'
+      + '<h3>About</h3>'
+      + '<div class="role">A from-scratch tribute to the 2007 J2ME park builder <i>Prehistoric Fun Park</i> '
+      + '(THQ Wireless / Gear Games). No original code or artwork is used — all the artwork here is drawn by code.</div>';
+    this.modal(h);
+  },
+
+  doNew() { if (confirm('Start a brand new park? The current one is lost.')) { sim.newGame(); renderer.centerOn(park.gate.x, park.gate.y - 5); this.close('modal'); } },
+  doLoad() { if (sim.load()) { renderer.centerOn(park.gate.x, park.gate.y - 5); this.close('modal'); } },
+
+  /* ------------------------------------------------------------- charts */
+  statsModal() {
+    const s = sim.stats;
+    let h = '<h2>Statistics</h2>';
+    if (!s.length) {
+      h += '<div class="role">Nothing yet — the first figures arrive at the next new moon.</div>';
+      this.modal(h);
+      return;
+    }
+    const last = s[s.length - 1];
+    h += this.chartBlock('Profit each moon', money(last.profit), 'c-profit');
+    h += '<div class="legend"><span><i style="background:' + CHART.profit + '"></i>profit</span>'
+      + '<span><i style="background:' + CHART.loss + '"></i>loss</span></div>';
+    h += this.chartBlock('Visitors each moon', last.visitors + ' people', 'c-vis');
+    h += this.chartBlock('Average happiness', last.happiness + '%', 'c-hap');
+    h += '<h3>The last months</h3><table class="data"><thead><tr><th>Moon</th><th>Income</th><th>Outlay</th><th>Profit</th><th>Visitors</th><th>Happy</th></tr></thead><tbody>';
+    for (const r of s.slice(-8)) {
+      h += '<tr><td>' + r.month + '</td><td>' + money(r.income) + '</td><td>' + money(r.outlay) + '</td>'
+        + '<td style="color:' + (r.profit < 0 ? CHART.loss : CHART.profit) + '">' + money(r.profit) + '</td>'
+        + '<td>' + r.visitors + '</td><td>' + r.happiness + '%</td></tr>';
+    }
+    h += '</tbody></table>';
+    this.modal(h);
+    requestAnimationFrame(() => {
+      this.barChart(document.getElementById('c-profit'), s.map(r => r.profit), true);
+      this.barChart(document.getElementById('c-vis'), s.map(r => r.visitors), false, CHART.visitors);
+      this.lineChart(document.getElementById('c-hap'), s.map(r => r.happiness));
+    });
+  },
+
+  chartBlock(title, headline, id) {
+    return '<div class="chart"><div class="ct"><span>' + title + '</span><b>' + headline + '</b></div>'
+      + '<canvas id="' + id + '"></canvas></div>';
+  },
+
+  fitCanvas(cv) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const r = cv.getBoundingClientRect();
+    cv.width = Math.max(1, Math.round(r.width * dpr));
+    cv.height = Math.max(1, Math.round(r.height * dpr));
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w: r.width, h: r.height };
+  },
+
+  /* bars grow from a zero baseline; sign is shown by direction as well as hue */
+  barChart(cv, data, diverging, color) {
+    if (!cv) return;
+    const { ctx, w, h } = this.fitCanvas(cv);
+    ctx.clearRect(0, 0, w, h);
+    const pad = { l: 2, r: 2, t: 8, b: 14 };
+    const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+    const maxV = Math.max(1, ...data.map(v => Math.abs(v)));
+    const zeroY = diverging && Math.min(...data) < 0 ? pad.t + ih / 2 : pad.t + ih;
+    const scale = diverging && Math.min(...data) < 0 ? (ih / 2) / maxV : ih / maxV;
+    const n = data.length;
+    const bw = Math.max(3, iw / n - 2);
+
+    ctx.strokeStyle = 'rgba(255,255,255,.14)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, zeroY + .5); ctx.lineTo(w - pad.r, zeroY + .5); ctx.stroke();
+
+    data.forEach((v, i) => {
+      const x = pad.l + i * (iw / n) + 1;
+      const len = Math.abs(v) * scale;
+      const up = v >= 0;
+      const y = up ? zeroY - len : zeroY;
+      ctx.fillStyle = color || (up ? CHART.profit : CHART.loss);
+      const drawLen = Math.max(4, len);            /* keep small months visible */
+      const r = Math.min(4, bw / 2, drawLen / 2);
+      roundRect(ctx, x, up ? zeroY - drawLen : zeroY, bw, drawLen, r);
+      ctx.fill();
+    });
+
+    /* direct label on the most recent value only */
+    const lastV = data[data.length - 1];
+    ctx.fillStyle = 'rgba(243,233,216,.8)';
+    ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(Math.round(lastV).toLocaleString('en-US'), w - pad.r, h - 3);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(243,233,216,.45)';
+    ctx.fillText('moon ' + (sim.month - data.length + 1) + ' → ' + sim.month, pad.l, h - 3);
+  },
+
+  lineChart(cv, data) {
+    if (!cv) return;
+    const { ctx, w, h } = this.fitCanvas(cv);
+    ctx.clearRect(0, 0, w, h);
+    const pad = { l: 2, r: 20, t: 10, b: 14 };
+    const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+    const X = i => pad.l + (data.length === 1 ? iw / 2 : (i / (data.length - 1)) * iw);
+    const Y = v => pad.t + ih - (clamp(v, 0, 100) / 100) * ih;
+
+    ctx.strokeStyle = 'rgba(255,255,255,.12)';
+    ctx.setLineDash([3, 4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, Y(50)); ctx.lineTo(w - pad.r, Y(50)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(243,233,216,.4)';
+    ctx.font = '9px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText('50%', pad.l + 2, Y(50) - 3);
+
+    ctx.strokeStyle = CHART.happy;
+    ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    data.forEach((v, i) => i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)));
+    ctx.stroke();
+
+    const li = data.length - 1;
+    ctx.fillStyle = CHART.happy;
+    ctx.beginPath(); ctx.arc(X(li), Y(data[li]), 4.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(243,233,216,.85)';
+    ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(data[li] + '%', w - pad.r, Y(data[li]) - 8);
+    ctx.textAlign = 'left';
+  }
+};
