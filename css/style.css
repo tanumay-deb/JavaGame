@@ -23,6 +23,7 @@
 button { touch-action: manipulation; font-family: inherit; }
 html, body { height: 100%; margin: 0; overflow: hidden; }
 body {
+  -webkit-touch-callout: none;          /* no iOS/Android long-press menu */
   background: var(--bg);
   color: var(--ink);
   font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -32,7 +33,10 @@ body {
 }
 
 #app { position: fixed; inset: 0; }
-#game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+#game {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab;
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+}
 #game.dragging { cursor: grabbing; }
 
 /* ------------------------------------------------------------------ HUD */
@@ -101,6 +105,21 @@ body {
 #dock button span { font-size: 18px; line-height: 1.1; }
 #dock button:active { transform: translateY(1px); }
 #dock button.on { background: var(--accent); border-color: var(--accent); color: #241a08; }
+
+/* ------------------------------------------------- place / cancel buttons */
+.confirm { position: absolute; inset: 0; pointer-events: none; z-index: 7; }
+.confirm button {
+  position: absolute; width: 54px; height: 54px; margin: -27px 0 0 -27px;
+  border-radius: 50%; border: 2px solid rgba(0,0,0,.35);
+  font-size: 24px; font-weight: 700; line-height: 1;
+  display: grid; place-items: center; cursor: pointer; pointer-events: auto;
+  box-shadow: 0 6px 18px rgba(0,0,0,.45);
+  transition: transform .09s;
+}
+.confirm button:active { transform: scale(.92); }
+.confirm .yes { background: linear-gradient(180deg, #5fd06a, #34a248); color: #06230d; }
+.confirm .no  { background: linear-gradient(180deg, #e8756a, #c0402f); color: #2c0a06; }
+.confirm .yes.muted { background: linear-gradient(180deg, #8d9a8f, #66736a); color: #29302b; }
 
 /* -------------------------------------------------------------- buildbar */
 .buildbar {

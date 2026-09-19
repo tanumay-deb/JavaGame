@@ -4,6 +4,7 @@ const CHART = { profit: '#3AA98F', loss: '#D06B4A', visitors: '#5D8FD6', happy: 
 
 const ui = {
   build: { key: null, rot: 0 },
+  pending: null,          /* a spot picked out, waiting for the green tick */
   landMode: false,
   tab: 'path',
   el: {},
@@ -16,8 +17,12 @@ const ui = {
       rating: $('hud-rating'), month: $('hud-month'), moon: $('moon'),
       toasts: $('toasts'), inspector: $('inspector'), sheet: $('sheet'),
       tabs: $('sheet-tabs'), cards: $('sheet-cards'), modal: $('modal'), modalBody: $('modal-body'),
-      buildbar: $('buildbar'), buildbarName: $('buildbar-name'), dock: $('dock')
+      buildbar: $('buildbar'), buildbarName: $('buildbar-name'), dock: $('dock'),
+      confirm: $('confirm'), yes: $('confirm-yes'), no: $('confirm-no')
     };
+
+    this.el.yes.addEventListener('click', () => this.confirmPlace());
+    this.el.no.addEventListener('click', () => this.clearPending());
 
     $('speeds').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -206,13 +211,31 @@ const ui = {
     if (cancelled && sim.moving) sim.cancelMove();
     this.build.moving = false;
     this.build.key = null;
+    this.clearPending();
     this.el.buildbar.classList.add('hidden');
     this.renderCards();
+  },
+
+  /* long-press on the map picks a building up and carries it */
+  grab(b, tx, ty) {
+    if (!b || !b.item || this.build.key || this.landMode) return false;
+    if (!sim.startMove(b)) return false;
+    this.select(null);
+    this.build.key = sim.moving.key;
+    this.build.rot = sim.moving.rot;
+    this.build.moving = true;
+    this.el.buildbar.classList.remove('hidden');
+    document.getElementById('btn-rotate').classList.remove('hidden');
+    this.el.buildbarName.textContent = 'Moving ' + ITEMS[this.build.key].name;
+    this.setPending(tx, ty);
+    if (navigator.vibrate) { try { navigator.vibrate(18); } catch (e) { /* ignore */ } }
+    return true;
   },
 
   setBuild(key) {
     if (this.build.moving) this.endMove(true);
     if (key && this.landMode) this.stopLand();
+    this.clearPending();
     this.build.key = key;
     this.build.rot = 0;
     const on = !!key;
@@ -228,6 +251,70 @@ const ui = {
   rotate() {
     if (!this.build.key) return;
     this.build.rot = (this.build.rot + 1) % 4;
+    if (this.pending) this.setPending(this.pending.x, this.pending.y);
+  },
+
+  /* ------------------------------------------------- confirm a placement */
+  /* Picking a spot does not build anything: it parks a ghost there with a
+     tick and a cross either side of it, so nothing is built by a stray tap. */
+  setPending(x, y) {
+    const key = this.build.key;
+    if (!key) return;
+    const item = ITEMS[key];
+    const [w, h] = park.rotDims(item, this.build.rot);
+    /* the footprint sits under the finger, not down and to the right of it */
+    const ox = clamp(x - ((w - 1) >> 1), -0, GRID_W - w);
+    const oy = clamp(y - ((h - 1) >> 1), 0, GRID_H - h);
+    this.pending = { key, rot: this.build.rot, x: ox, y: oy, w, h };
+    this.el.confirm.classList.remove('hidden');
+    this.positionConfirm();
+  },
+
+  clearPending() {
+    this.pending = null;
+    this.el.confirm.classList.add('hidden');
+  },
+
+  pendingOk() {
+    const p = this.pending;
+    if (!p) return false;
+    if (!park.canPlace(p.key, p.x, p.y, p.rot).ok) return false;
+    return this.build.moving || sim.money >= ITEMS[p.key].cost;
+  },
+
+  confirmPlace() {
+    const p = this.pending;
+    if (!p) return;
+    if (!this.pendingOk()) {
+      const why = park.canPlace(p.key, p.x, p.y, p.rot);
+      sim.toast(why.ok ? 'Not enough money for a ' + ITEMS[p.key].name : why.why);
+      return;
+    }
+    if (this.build.moving) {
+      if (sim.placeMoved(p.x, p.y, p.rot)) { this.clearPending(); this.endMove(false); }
+      return;
+    }
+    if (sim.build(p.key, p.x, p.y, p.rot)) {
+      this.clearPending();
+      this.setBuild(null);
+    }
+  },
+
+  /* keep the two buttons pinned either side of the ghost */
+  positionConfirm() {
+    const p = this.pending;
+    if (!p) return;
+    const [wx, wy] = [isoX(p.x + p.w / 2, p.y + p.h / 2), isoY(p.x + p.w / 2, p.y + p.h / 2)];
+    const [sx, sy] = renderer.worldToScreen(wx, wy);
+    const spread = Math.max(64, (p.w + p.h) * (TILE_W / 4) * view.zoom + 44);
+    const top = clamp(sy, 78, renderer.H - 96);
+    this.el.no.style.left = clamp(sx - spread, 40, renderer.W - 40) + 'px';
+    this.el.no.style.top = top + 'px';
+    this.el.yes.style.left = clamp(sx + spread, 40, renderer.W - 40) + 'px';
+    this.el.yes.style.top = top + 'px';
+    const ok = this.pendingOk();
+    this.el.yes.classList.toggle('muted', !ok);
+    this.el.yes.title = ok ? 'Build here' : (park.canPlace(p.key, p.x, p.y, p.rot).why || 'Not enough money');
   },
 
   /* ------------------------------------------------------------ HUD tick */
@@ -240,6 +327,7 @@ const ui = {
     this.el.month.textContent = 'Moon ' + (sim.month + 1);
     this.drawMoon();
     this.renderToasts();
+    if (this.pending) this.positionConfirm();
     if (sim.selected && performance.now() - this.lastInspect > 250) this.renderInspector();
   },
 

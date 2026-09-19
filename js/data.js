@@ -22,8 +22,8 @@ const DAYS_PER_MONTH = 28;
 
 /* ---------------------------------------------------------------- palettes */
 const PALETTE = {
-  grass:      ['#5d9f46', '#66aa4e', '#579840', '#61a54a'],
-  grassAlt:   ['#79b155', '#4f8d3d', '#6ba84f', '#8ab95e'],
+  grass:      ['#5fa148', '#64a74c', '#5c9d45', '#62a44a'],
+  grassAlt:   ['#72ad52', '#569444', '#69a64e', '#7cb257'],
   grassDark:  '#477c33',
   gravel:     '#b39a6c',
   gravelEdge: '#8f7a52',

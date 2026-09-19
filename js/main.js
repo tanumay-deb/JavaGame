@@ -3,6 +3,7 @@
 (function () {
   const canvas = document.getElementById('game');
   let dragging = false, dragged = false, painting = false;
+  let pressTimer = null, pressAt = null, dragMove = false;
   let lastPt = { x: 0, y: 0 };
   const pointers = new Map();
   let pinchDist = 0, pinchZoom = 1, pinchMid = null;
@@ -35,14 +36,19 @@
   function placeAt(t) {
     if (!park.inBounds(t.x, t.y)) return;
     const key = ui.build.key;
-    if (ui.build.moving) {
-      if (sim.placeMoved(t.x, t.y, ui.build.rot)) ui.endMove(false);
+    if (!key) return;
+    /* paths are painted straight down; everything else is parked as a ghost
+       with a tick and a cross, so nothing gets built by accident */
+    if (!ui.build.moving && ITEMS[key].cat === 'path') {
+      if (sim.build(key, t.x, t.y, ui.build.rot)) ui.renderCards();
       return;
     }
-    if (sim.build(key, t.x, t.y, ui.build.rot)) {
-      if (ITEMS[key].cat !== 'path') ui.setBuild(null);   /* one-shot for buildings, keep painting paths */
-      else ui.renderCards();
-    }
+    ui.setPending(t.x, t.y);
+  }
+
+  function cancelPress() {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    pressAt = null;
   }
 
   /* -------------------------------------------------------------- input */
@@ -52,7 +58,7 @@
   }
 
   canvas.addEventListener('pointerdown', e => {
-    canvas.setPointerCapture(e.pointerId);
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* synthetic or stale pointer */ }
     const p = localPt(e);
     pointers.set(e.pointerId, p);
     if (pointers.size === 2) {
@@ -67,9 +73,20 @@
     lastPt = p;
     renderer.hover = renderer.screenToTile(p.x, p.y);
     /* drag-paint paths */
-    if (ui.build.key && ITEMS[ui.build.key].cat === 'path') {
+    if (ui.build.key && !ui.build.moving && ITEMS[ui.build.key].cat === 'path') {
       painting = true;
       placeAt(renderer.hover);
+    } else if (!ui.build.key && !ui.landMode) {
+      /* hold on a building to pick it up and carry it */
+      const t = renderer.hover;
+      const b = park.buildingAt(t.x, t.y);
+      if (b) {
+        pressAt = { x: p.x, y: p.y };
+        pressTimer = setTimeout(() => {
+          pressTimer = null;
+          if (ui.grab(b, t.x, t.y)) { dragMove = true; dragged = true; painting = false; }
+        }, 420);
+      }
     }
     canvas.classList.add('dragging');
   });
@@ -96,6 +113,12 @@
       pinchMid = mid;
       return;
     }
+    if (pressAt && (Math.abs(p.x - pressAt.x) + Math.abs(p.y - pressAt.y) > 12)) cancelPress();
+    if (dragMove) {
+      /* carrying a building: the ghost follows the finger, the map stays put */
+      ui.setPending(renderer.hover.x, renderer.hover.y);
+      return;
+    }
     if (!dragging) return;
     const dx = p.x - lastPt.x, dy = p.y - lastPt.y;
     if (Math.abs(dx) + Math.abs(dy) > 3) dragged = true;
@@ -111,6 +134,14 @@
 
   function endPointer(e) {
     const p = localPt(e);
+    cancelPress();
+    if (dragMove) {
+      /* dropped: the tick and cross are showing, so leave them to decide */
+      dragMove = false; dragging = false; painting = false;
+      pointers.delete(e.pointerId);
+      canvas.classList.remove('dragging');
+      return;
+    }
     const wasPinching = pointers.size >= 2;
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinchDist = 0;
@@ -129,7 +160,10 @@
   }
   canvas.addEventListener('pointerup', endPointer);
   canvas.addEventListener('pointercancel', endPointer);
-  canvas.addEventListener('contextmenu', e => { e.preventDefault(); ui.setBuild(null); });
+  canvas.addEventListener('contextmenu', e => { e.preventDefault(); ui.clearPending(); ui.setBuild(null); });
+  /* belt and braces against the browser's own long-press behaviour */
+  canvas.addEventListener('touchstart', e => { if (e.touches.length === 1) e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('selectstart', e => e.preventDefault());
 
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
@@ -150,7 +184,8 @@
     else if (k === 'arrowup' || k === 'w') { view.y -= pan; }
     else if (k === 'arrowdown' || k === 's') { view.y += pan; }
     else if (k === 'r') ui.rotate();
-    else if (k === 'escape') { ui.setBuild(null); ui.stopLand(); ui.select(null); ui.close('modal'); ui.close('sheet'); }
+    else if (k === 'escape') { ui.clearPending(); ui.setBuild(null); ui.stopLand(); ui.select(null); ui.close('modal'); ui.close('sheet'); }
+    else if (k === 'enter') { if (ui.pending) ui.confirmPlace(); }
     else if (k === 'b') ui.toggleSheet();
     else if (k === ' ') { e.preventDefault(); sim.paused = !sim.paused; syncSpeedButtons(); }
     else if (k === 'delete' || k === 'backspace') {

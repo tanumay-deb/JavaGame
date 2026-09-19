@@ -19,9 +19,10 @@ gateway; nothing on wheels comes inside the park:
 
 ![Vehicles at the gate dropping visitors off](docs/screenshots/gate.png)
 
-Every moon brings a night, when the torches and stalls light the paths:
+Nothing is built by a stray tap: picking a spot parks a ghost there, with the
+footprint outlined and a tick and a cross either side of it.
 
-![The same park at night, lit by torches and stalls](docs/screenshots/night.png)
+![A carousel ghost waiting to be confirmed, with tick and cross buttons](docs/screenshots/place.png)
 
 ## Play it
 
@@ -42,7 +43,8 @@ The game saves to `localStorage` automatically at every new moon, and from
 | Zoom | pinch, scroll wheel, or `+` / `-` |
 | Build | **Build** button, then tap the map. Paths can be painted by dragging |
 | Buy land | **Build → 🌄 Land**, then tap a marked plot |
-| Move something | select it, then **✥ Move** and tap a new spot (free) |
+| Place it | tap the spot, then the green ✓ (or `Enter`). The red ✕ picks a different spot |
+| Move something | **press and hold it, then drag** — or select it and use **✥ Move**. Free, either way |
 | Rotate a ride | **Rotate** in the build bar, or `R` |
 | Inspect | tap a ride, a shop, a worker — or any visitor |
 | Cancel | `Esc`, or right-click |
@@ -75,6 +77,7 @@ The game saves to `localStorage` automatically at every new moon, and from
 * **Rides wear out and break down.** A repairman walks over and fixes them.
 * **Anything can be picked up and moved** — ride, shop, treadmill or bench — with
   its takings, price and condition intact, and put back if you change your mind.
+  Press and hold it to lift it, drag it where you want it, then confirm.
 * **Every new moon is a month**: wages and upkeep come out, and the month's
   figures land in the Statistics panel. New rides get invented as the months pass.
 * **Park rating** — built from size, ride variety and quality, comfort and average
@@ -111,6 +114,10 @@ put), and the build sheet gets out of the way once you have picked something. Th
 HUD, dock, panels and build sheet have their own phone, tablet and landscape
 layouts, and everything clears the notch and home indicator.
 
+Long-press belongs to the game, not the browser: the callout menu, text selection
+and magnifier are all suppressed over the map, and holding a building picks it up
+instead.
+
 ### Notes on the rendering
 
 Everything you see is drawn with canvas primitives — there are no image files in
@@ -118,10 +125,17 @@ this project. Each building is rendered once into an offscreen canvas and cached
 by art id, footprint and rotation; moving parts (wheels, swings, water, the
 coaster train) are drawn live on top. The ground is baked into a single canvas
 and repainted one tile at a time when you build, which keeps path painting smooth
-on a phone (~0.2 ms per tile versus ~7 ms for a full rebake). The land beyond the
-park — forest, lakes, the volcano and the road — is baked into the same layer and
-fades into the distance, and the scenery standing on it is depth-sorted into the
-same pass as the rides and the crowd.
+on a phone (~0.2 ms per tile versus ~7 ms for a full rebake).
+
+That layer only covers the land you own plus a ring of wild country around it, and
+is rebuilt a size larger when you buy a plot — a new park bakes 1792×904 px rather
+than the 3712×1864 px the whole valley would need. The fade that dissolves the
+land into the sky is sized to that rectangle, so the ground never ends on a hard
+line however big the park gets, and the scenery standing on it is depth-sorted
+into the same pass as the rides and the crowd.
+
+Nights are switched off for the moment (`sim.nightCycle = false`); the lighting
+pass and the torch glows are still there behind the flag.
 
 ## Provenance
 

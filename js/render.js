@@ -6,11 +6,14 @@ const view = { x: 0, y: 0, zoom: 1, minZoom: 0.45, maxZoom: 1.9 };
 const renderer = {
   canvas: null, ctx: null, W: 0, H: 0, dpr: 1,
   groundCanvas: null, groundVersion: -1,
-  /* the baked ground covers the park plus MARGIN tiles of wild country */
-  gox: (GRID_H + 2 * MARGIN) * (TILE_W / 2), goy: MARGIN * TILE_H,
+  /* The baked ground covers the land you own plus a ring of wild country, and
+     grows with the park instead of always covering the whole valley. */
+  RING: 8,
+  rect: { x0: 0, y0: 0, x1: GRID_W, y1: GRID_H },
+  gox: 0, goy: 0,
   waterTiles: [],
-  fadeIn: (GRID_W + GRID_H) * (TILE_W / 4) * 0.92,
-  fadeOut: (GRID_W + GRID_H + 3 * MARGIN) * (TILE_W / 4),
+  fadeIn: 400, fadeOut: 900,
+  fadeCx: 0, fadeCy: 0,
   hover: { x: -1, y: -1 },
   time: 0,
 
@@ -56,10 +59,9 @@ const renderer = {
   /* --------------------------------------------------------- ground bake */
   /* how much the distance-fade darkens a tile (baked, so it is free at runtime) */
   tileFade(x, y) {
-    const d = Math.hypot(isoX(x + .5, y + .5) - isoX(GRID_W / 2, GRID_H / 2),
-                        (isoY(x + .5, y + .5) - isoY(GRID_W / 2, GRID_H / 2)) * 2);
-    const t = clamp((d - TILE_W * 12) / (TILE_W * 18), 0, 1);
-    return t * 0.42;
+    const d = Math.hypot(isoX(x + .5, y + .5) - this.fadeCx, (isoY(x + .5, y + .5) - this.fadeCy) * 1.45);
+    const t = clamp((d - this.fadeIn * 0.72) / Math.max(1, this.fadeOut - this.fadeIn * 0.72), 0, 1);
+    return t * 0.34;
   },
 
   drawTile(ctx, x, y) {
@@ -225,29 +227,45 @@ const renderer = {
   },
 
   groundCtx() {
-    const w = (GRID_W + GRID_H + 4 * MARGIN) * (TILE_W / 2);
-    const h = (GRID_W + GRID_H + 4 * MARGIN) * (TILE_H / 2) + 8;
-    if (!this.groundCanvas) this.groundCanvas = makeCanvas(w, h);
+    const r = this.rect;
+    const w = ((r.x1 - r.x0) + (r.y1 - r.y0)) * (TILE_W / 2);
+    const h = ((r.x1 - r.x0) + (r.y1 - r.y0)) * (TILE_H / 2) + 8;
+    if (!this.groundCanvas || this.groundCanvas.width !== Math.ceil(w) || this.groundCanvas.height !== Math.ceil(h))
+      this.groundCanvas = makeCanvas(w, h);
     return this.groundCanvas.getContext('2d');
   },
 
   buildGround() {
+    const r = this.computeRect();
     const ctx = this.groundCtx();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.groundCanvas.width, this.groundCanvas.height);
     ctx.setTransform(1, 0, 0, 1, this.gox, this.goy);
     this.waterTiles.length = 0;
-    for (let y = -MARGIN; y < GRID_H + MARGIN; y++)
-      for (let x = -MARGIN; x < GRID_W + MARGIN; x++) {
+    for (let y = r.y0; y < r.y1; y++)
+      for (let x = r.x0; x < r.x1; x++) {
         this.drawTile(ctx, x, y);
         if (park.terrainAt(x, y) === GROUND.WATER) this.waterTiles.push(x, y);
       }
+    /* a soft shaft of sunlight from the north-west, so big flat areas of grass
+       are not one dead colour */
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-atop';
+    const sun = ctx.createLinearGradient(
+      this.fadeCx - this.fadeOut, this.fadeCy - this.fadeOut * 0.6,
+      this.fadeCx + this.fadeOut, this.fadeCy + this.fadeOut * 0.6);
+    sun.addColorStop(0, 'rgba(255,246,214,.16)');
+    sun.addColorStop(0.5, 'rgba(255,246,214,.03)');
+    sun.addColorStop(1, 'rgba(20,40,20,.10)');
+    ctx.fillStyle = sun;
+    ctx.fillRect(-this.gox, -this.goy, this.groundCanvas.width, this.groundCanvas.height);
+    ctx.restore();
+
     /* dissolve the far edge of the land into the sky instead of ending on a
        hard diamond; iso space is 2:1, so fade in a vertically squashed circle */
-    const cx = isoX(GRID_W / 2, GRID_H / 2), cy = isoY(GRID_W / 2, GRID_H / 2);
     ctx.save();
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.translate(cx, cy);
+    ctx.translate(this.fadeCx, this.fadeCy);
     ctx.scale(1, 1 / 1.45);
     const fade = ctx.createRadialGradient(0, 0, this.fadeIn, 0, 0, this.fadeOut);
     fade.addColorStop(0, 'rgba(0,0,0,0)');
@@ -265,9 +283,39 @@ const renderer = {
 
   /* how solid the land (and anything standing on it) is at a world point */
   edgeAlpha(wx, wy) {
-    const cx = isoX(GRID_W / 2, GRID_H / 2), cy = isoY(GRID_W / 2, GRID_H / 2);
-    const d = Math.hypot(wx - cx, (wy - cy) * 1.45);
+    const d = Math.hypot(wx - this.fadeCx, (wy - this.fadeCy) * 1.45);
     return clamp(1 - (d - this.fadeIn) / (this.fadeOut - this.fadeIn), 0, 1);
+  },
+
+  /* the tile rectangle worth drawing: owned land plus a ring of wild country */
+  computeRect() {
+    let x0 = GRID_W, y0 = GRID_H, x1 = 0, y1 = 0, any = false;
+    for (let py = 0; py < PLOTS_Y; py++) for (let px = 0; px < PLOTS_X; px++) {
+      if (!park.ownsPlot(px, py)) continue;
+      any = true;
+      x0 = Math.min(x0, px * PLOT); y0 = Math.min(y0, py * PLOT);
+      x1 = Math.max(x1, (px + 1) * PLOT); y1 = Math.max(y1, (py + 1) * PLOT);
+    }
+    if (!any) { x0 = park.gate.x - PLOT; y0 = park.gate.y - PLOT; x1 = park.gate.x + PLOT; y1 = GRID_H; }
+    /* always keep the road and its verge in view below the park */
+    const r = this.RING;
+    const rect = {
+      x0: Math.max(-MARGIN, x0 - r), y0: Math.max(-MARGIN, y0 - r),
+      x1: Math.min(GRID_W + MARGIN, x1 + r), y1: Math.min(GRID_H + MARGIN, Math.max(y1 + r, ROAD_Y + 3))
+    };
+    this.rect = rect;
+    this.gox = (rect.y1 - rect.x0) * (TILE_W / 2);
+    this.goy = -(rect.x0 + rect.y0) * (TILE_H / 2);
+    /* fade from the middle of the land you own out into the ring */
+    this.fadeCx = isoX((x0 + x1) / 2, (y0 + y1) / 2);
+    this.fadeCy = isoY((x0 + x1) / 2, (y0 + y1) / 2);
+    /* the baked area is a diamond; fade out before its nearest edge so the land
+       never ends on a hard line */
+    const unit = Math.hypot(TILE_W / 2, 1.45 * TILE_H / 2);
+    const rw = rect.x1 - rect.x0, rh = rect.y1 - rect.y0;
+    this.fadeOut = (Math.min(rw, rh) / 2) * unit * 0.97;
+    this.fadeIn = Math.max(TILE_W * 1.5, this.fadeOut - r * 0.85 * unit);
+    return rect;
   },
 
   /* repaint only the tiles that changed (plus their neighbours, whose edge
@@ -339,6 +387,7 @@ const renderer = {
     ctx.restore();
 
     this.drawLighting(ctx, light, t);
+    this.drawBirds(ctx, t);
     this.drawLabels(ctx);
   },
 
@@ -491,34 +540,52 @@ const renderer = {
   /* translucent preview of what is about to be built */
   drawGhost(ctx, build) {
     const item = ITEMS[build.key];
-    const h = this.hover;
+    const pend = ui.pending;
+    const h = pend ? { x: pend.x, y: pend.y } : this.hover;
+    const rot = pend ? pend.rot : build.rot;
     if (!park.inBounds(h.x, h.y)) return;
-    const ok = park.canPlace(build.key, h.x, h.y, build.rot).ok && sim.money >= item.cost;
-    const [w, hh] = park.rotDims(item, build.rot);
+    const ok = park.canPlace(build.key, h.x, h.y, rot).ok && (build.moving || sim.money >= item.cost);
+    const [w, hh] = park.rotDims(item, rot);
 
+    const pulse = pend ? 0.55 + Math.sin(this.time * 4) * 0.16 : 0.45;
     ctx.save();
-    ctx.globalAlpha = 0.45;
+    ctx.globalAlpha = pulse;
     ctx.fillStyle = ok ? 'rgba(110,235,120,.55)' : 'rgba(240,90,80,.55)';
-    for (let dy = 0; dy < (item.cat === 'path' ? 1 : hh); dy++)
-      for (let dx = 0; dx < (item.cat === 'path' ? 1 : w); dx++) {
+    const fw = item.cat === 'path' ? 1 : w, fh = item.cat === 'path' ? 1 : hh;
+    for (let dy = 0; dy < fh; dy++)
+      for (let dx = 0; dx < fw; dx++) {
         const cx = isoX(h.x + dx + 0.5, h.y + dy + 0.5), cy = isoY(h.x + dx + 0.5, h.y + dy + 0.5);
         diamond(ctx, cx, cy, TILE_W - 3, TILE_H - 1.5);
         ctx.fill();
       }
+    /* a bright outline round the whole footprint so the spot is unmistakable */
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = ok ? 'rgba(150,255,165,.95)' : 'rgba(255,140,120,.95)';
+    ctx.lineWidth = pend ? 3 : 2;
+    ctx.beginPath();
+    ctx.moveTo(isoX(h.x, h.y), isoY(h.x, h.y));
+    ctx.lineTo(isoX(h.x + fw, h.y), isoY(h.x + fw, h.y));
+    ctx.lineTo(isoX(h.x + fw, h.y + fh), isoY(h.x + fw, h.y + fh));
+    ctx.lineTo(isoX(h.x, h.y + fh), isoY(h.x, h.y + fh));
+    ctx.closePath();
+    ctx.stroke();
     ctx.restore();
 
     if (item.cat !== 'path') {
-      const spr = getSprite(item.art, w, hh, build.rot, item);
+      const spr = getSprite(item.art, w, hh, rot, item);
+      const gx = isoX(h.x, h.y) - spr.ox, gy = isoY(h.x, h.y) - spr.oy;
       ctx.save();
-      ctx.globalAlpha = ok ? 0.75 : 0.4;
-      ctx.drawImage(spr.c, isoX(h.x, h.y) - spr.ox, isoY(h.x, h.y) - spr.oy);
+      ctx.globalAlpha = ok ? 0.8 : 0.42;
+      ctx.drawImage(spr.c, gx, gy);
+      const anim = ANIM[item.art];
+      if (anim) anim(ctx, gx, gy, spr, this.time, GHOST_BUILDING);
       ctx.restore();
     }
 
     /* show where the entrance and exit will land, and whether a path reaches them */
     if (item.cat === 'ride') {
-      const e = park.rotPoint(item.ent[0], item.ent[1], item.w, item.h, build.rot);
-      const x2 = park.rotPoint(item.ext[0], item.ext[1], item.w, item.h, build.rot);
+      const e = park.rotPoint(item.ent[0], item.ent[1], item.w, item.h, rot);
+      const x2 = park.rotPoint(item.ext[0], item.ext[1], item.w, item.h, rot);
       const doors = [[h.x + e[0], h.y + e[1], '#5fd06a', 'IN'], [h.x + x2[0], h.y + x2[1], '#e06a5f', 'OUT']];
       for (const [dx, dy, col, label] of doors) {
         const linked = park.accessTiles({ x: dx, y: dy }).length > 0;
@@ -588,7 +655,7 @@ const renderer = {
 
   drawProp(ctx, p, t, b) {
     if (p.wx < b.l || p.wx > b.r || p.wy < b.t || p.wy > b.b) return;
-    if (p.alpha === undefined) p.alpha = this.edgeAlpha(p.wx, p.wy);
+    if (p.alphaGen !== this.fadeGen) { p.alpha = this.edgeAlpha(p.wx, p.wy); p.alphaGen = this.fadeGen; }
     if (p.alpha < 0.02) return;
     const spr = p.spr || (p.spr = getSprite(p.art, p.art === 'volcano' ? 9 : 1, p.art === 'volcano' ? 9 : 1, 0));
     const s = p.s || 1;
@@ -815,6 +882,32 @@ const renderer = {
       g.addColorStop(1, 'rgba(255,170,90,0)');
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  },
+
+  /* a few birds wheeling over the park, purely for company */
+  drawBirds(ctx, t) {
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.strokeStyle = 'rgba(40,40,50,.45)';
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 5; i++) {
+      const sp = 0.05 + i * 0.012;
+      const a = t * sp + i * 1.7;
+      const rx = 260 + i * 70, ry = 90 + i * 22;
+      const wx = this.fadeCx + Math.cos(a) * rx;
+      const wy = this.fadeCy - 260 - i * 30 + Math.sin(a) * ry;
+      const [sx, sy] = this.worldToScreen(wx, wy);
+      if (sx < -30 || sy < -30 || sx > this.W + 30 || sy > this.H + 30) continue;
+      const flap = Math.sin(t * 6 + i * 2) * 3;
+      const s = 4 + i * 0.6;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(sx - s, sy + flap);
+      ctx.quadraticCurveTo(sx - s * 0.4, sy - 2, sx, sy);
+      ctx.quadraticCurveTo(sx + s * 0.4, sy - 2, sx + s, sy + flap);
+      ctx.stroke();
     }
     ctx.restore();
   },

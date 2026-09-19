@@ -197,9 +197,11 @@ const sim = {
     return s / this.visitors.length;
   },
 
+  nightCycle: false,     /* nights are switched off for now — always daylight */
+
   dayLight() {
-    /* one day/night cycle per month, like the moon icon in the original.
-       The park opens at noon and only about a quarter of the moon is dark. */
+    if (!this.nightCycle) return 1;
+    /* one day/night cycle per month, like the moon icon in the original */
     const p = (this.time % MONTH_SECONDS) / MONTH_SECONDS;
     const u = Math.abs(p - 0.5) / 0.5;          // 1 at noon, 0 at midnight
     return clamp((u - 0.22) / 0.34, 0, 1);
@@ -209,8 +211,7 @@ const sim = {
     const rating = park.rating(this.avgHappiness());
     const gateOpen = park.isPath(park.gate.x, park.gate.y);
     if (!gateOpen) return;
-    const night = 0.35 + 0.65 * this.dayLight();
-    const perMonth = rating * 0.95 * night;
+    const perMonth = rating * 0.95 * (0.35 + 0.65 * this.dayLight());
     if (perMonth <= 0) return;
     this.spawnAcc += dt * (perMonth / MONTH_SECONDS);
     while (this.spawnAcc >= 1) {
