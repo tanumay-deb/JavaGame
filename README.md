@@ -14,8 +14,8 @@ You begin with four plots — a clearing, a gateway and the road:
 
 ![The starting clearing, fenced, with forest all around](docs/screenshots/start.png)
 
-Carts, wagons and mammoth buses queue on the road and set visitors down at the
-gateway; nothing on wheels comes inside the park:
+Carts, wagons and mammoth buses queue on the tarmac outside and set visitors down
+at the gateway; nothing on wheels comes inside the park:
 
 ![Vehicles at the gate dropping visitors off](docs/screenshots/gate.png)
 
@@ -56,9 +56,10 @@ The game saves to `localStorage` automatically at every new moon, and from
 * **You only own a clearing to begin with.** Land is bought a 6×6 plot at a time
   from the **Land** tab; each plot costs more than the last, and buying one clears
   the forest and moves the palisade out. You can only build on land you own.
-* **Visitors arrive by road.** Dino carts, hide wagons and mammoth buses pull up
-  at the gateway, set their passengers down and queue behind one another while
-  they unload. Visitors walk in under the banner; vehicles never come inside.
+* **Visitors arrive by road.** A metalled two-lane road runs past the park, with
+  kerbs, edge lines and a dashed centre line, and an apron up to the gateway.
+  Dino carts, hide wagons and mammoth buses pull up there, set their passengers
+  down and queue behind one another while they unload. Visitors walk in under the banner; vehicles never come inside.
   People going home walk back out and wait at the roadside for a lift.
 * **Visitors only walk on paths.** Pave a route out of the gate first. Stone paths
   are more comfortable than gravel.

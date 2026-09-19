@@ -64,6 +64,32 @@ const renderer = {
     return t * 0.34;
   },
 
+  /* the two world-space corners of one edge of a tile, pulled `inset` of the
+     way toward the tile centre (0 = on the edge, 0.5 = at the middle) */
+  tileEdge(x, y, dx, dy, inset) {
+    const c = (tx, ty) => [isoX(tx, ty), isoY(tx, ty)];
+    let a, b;
+    if (dx === 1) { a = c(x + 1, y); b = c(x + 1, y + 1); }
+    else if (dx === -1) { a = c(x, y); b = c(x, y + 1); }
+    else if (dy === 1) { a = c(x, y + 1); b = c(x + 1, y + 1); }
+    else { a = c(x, y); b = c(x + 1, y); }
+    const mid = [isoX(x + 0.5, y + 0.5), isoY(x + 0.5, y + 0.5)];
+    const pull = (p) => [lerp(p[0], mid[0], inset), lerp(p[1], mid[1], inset)];
+    return [pull(a), pull(b)];
+  },
+
+  /* a stroke along part of a tile edge — used for kerbs and road markings */
+  edgeStroke(ctx, x, y, dx, dy, inset, from, to, width, color, round) {
+    const [a, b] = this.tileEdge(x, y, dx, dy, inset);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = round ? 'round' : 'butt';
+    ctx.beginPath();
+    ctx.moveTo(lerp(a[0], b[0], from), lerp(a[1], b[1], from));
+    ctx.lineTo(lerp(a[0], b[0], to), lerp(a[1], b[1], to));
+    ctx.stroke();
+  },
+
   drawTile(ctx, x, y) {
     const g = park.terrainAt(x, y);
     const cx = isoX(x + 0.5, y + 0.5), cy = isoY(x + 0.5, y + 0.5);
@@ -155,34 +181,68 @@ const renderer = {
         ctx.restore();
       }
     } else if (g === GROUND.ROAD) {
-      /* packed earth with cart ruts */
-      ctx.fillStyle = '#b79a6d';
-      diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.fill();
+      const isRoad = (tx, ty) => park.terrainAt(tx, ty) === GROUND.ROAD;
+      const n = isRoad(x, y - 1), so = isRoad(x, y + 1), e = isRoad(x + 1, y), w = isRoad(x - 1, y);
+
+      /* tarmac — drawn a shade oversized so no seam shows between tiles */
+      ctx.fillStyle = '#3b3e44';
+      diamond(ctx, cx, cy, TILE_W + 1.5, TILE_H + 1); ctx.fill();
       ctx.save();
       diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
-      ctx.strokeStyle = 'rgba(124,100,66,.45)'; ctx.lineWidth = 3;
-      for (const off of [-6, 6]) {
+      /* aggregate: a little light and dark grit so it is not flat black */
+      for (let i = 0; i < 14; i++) {
+        const a = hash2(x * 17 + i, y * 23 + i), b2 = hash2(x * 11 + i, y * 7 + i);
+        ctx.fillStyle = i % 3 ? 'rgba(255,255,255,.055)' : 'rgba(0,0,0,.22)';
         ctx.beginPath();
-        ctx.moveTo(cx - TILE_W / 2, cy + off * 0.5); ctx.lineTo(cx + TILE_W / 2, cy + off * 0.5 - TILE_H / 2 + TILE_H / 2);
-        ctx.stroke();
-      }
-      ctx.fillStyle = 'rgba(255,255,255,.10)';
-      ctx.beginPath(); ctx.ellipse(cx - 8, cy - 3, 12, 5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,.10)';
-      for (let i = 0; i < 6; i++) {
-        const a = hash2(x * 9 + i, y * 5 + i), b2 = hash2(x * 4 + i, y * 8 + i);
-        ctx.beginPath();
-        ctx.ellipse(cx + (a - 0.5) * 40, cy + (b2 - 0.5) * 18, 2, 1.2, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx + (a - 0.5) * 56, cy + (b2 - 0.5) * 26, 1.5, 0.9, 0, 0, Math.PI * 2);
         ctx.fill();
       }
+      /* faint worn wheel tracks along the direction of travel */
+      ctx.globalAlpha = 0.5;
+      const along = (e || w) ? 1 : 0;
+      for (const off of [-0.22, 0.22]) {
+        ctx.strokeStyle = 'rgba(180,182,188,.13)';
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        if (along) {
+          ctx.moveTo(isoX(x, y + 0.5 + off), isoY(x, y + 0.5 + off));
+          ctx.lineTo(isoX(x + 1, y + 0.5 + off), isoY(x + 1, y + 0.5 + off));
+        } else {
+          ctx.moveTo(isoX(x + 0.5 + off, y), isoY(x + 0.5 + off, y));
+          ctx.lineTo(isoX(x + 0.5 + off, y + 1), isoY(x + 0.5 + off, y + 1));
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
       ctx.restore();
-      for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        if (park.terrainAt(x + d[0], y + d[1]) === GROUND.ROAD) continue;
+
+      /* kerb and a strip of worn verge wherever the tarmac meets open ground */
+      for (const [dx, dy, has] of [[0, -1, n], [0, 1, so], [1, 0, e], [-1, 0, w]]) {
+        if (has) continue;
+        this.edgeStroke(ctx, x, y, dx, dy, 0.03, 0, 1, 5, '#8e9299');
+        this.edgeStroke(ctx, x, y, dx, dy, 0.10, 0, 1, 2, 'rgba(0,0,0,.28)');
+        this.edgeStroke(ctx, x, y, dx, dy, 0.17, 0.05, 0.95, 2.2, 'rgba(236,236,230,.75)');
+      }
+
+      /* centre line: dashes down the middle of a two-lane carriageway */
+      const twoLane = (e || w) && (n !== so);
+      if (twoLane) {
+        const dir = so ? 1 : -1;                    /* the lane divider side */
+        this.edgeStroke(ctx, x, y, 0, dir, 0.015, 0.18, 0.72, 2.6, 'rgba(240,236,214,.85)', true);
+      }
+      /* the apron in front of the gateway gets a crossing instead */
+      if ((n || so) && !e && !w) {
         ctx.save();
         diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
-        ctx.fillStyle = 'rgba(70,55,30,.18)';
-        const ex = cx + (d[0] - d[1]) * TILE_W * 0.34, ey = cy + (d[0] + d[1]) * TILE_H * 0.34;
-        diamond(ctx, ex, ey, TILE_W, TILE_H); ctx.fill();
+        ctx.strokeStyle = 'rgba(238,238,230,.7)';
+        ctx.lineWidth = 5;
+        for (let i = 0; i < 4; i++) {
+          const f = 0.18 + i * 0.22;
+          ctx.beginPath();
+          ctx.moveTo(isoX(x + f, y), isoY(x + f, y));
+          ctx.lineTo(isoX(x + f, y + 1), isoY(x + f, y + 1));
+          ctx.stroke();
+        }
         ctx.restore();
       }
     } else if (g === GROUND.WATER) {
@@ -395,9 +455,9 @@ const renderer = {
      valley feels like it continues past the edge of the land. */
   drawHorizon(ctx, light) {
     const layers = [
-      { amp: 34, base: 0.40, seed: 2.3, par: 0.035, col: mixColor('#1b2740', '#8fb3c9', light) },
-      { amp: 26, base: 0.46, seed: 7.1, par: 0.065, col: mixColor('#1f2c3c', '#7aa08e', light) },
-      { amp: 20, base: 0.52, seed: 4.7, par: 0.10, col: mixColor('#22302c', '#5d8a63', light) }
+      { amp: 34, base: 0.40, seed: 2.3, par: 0.035, col: mixColor('#243049', '#b3cddc', light) },
+      { amp: 26, base: 0.46, seed: 7.1, par: 0.065, col: mixColor('#28374a', '#a2c1b8', light) },
+      { amp: 20, base: 0.52, seed: 4.7, par: 0.10, col: mixColor('#2b3a3a', '#8fb493', light) }
     ];
     for (const L of layers) {
       const yBase = this.H * L.base - (view.y - 600) * L.par * view.zoom;
@@ -940,7 +1000,8 @@ const renderer = {
     for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) {
       const g = park.ground[park.idx(x, y)];
       if (g === GROUND.GRASS) continue;
-      ctx.fillStyle = g === GROUND.WATER ? '#2f7fb5' : g === GROUND.SAND ? '#d9c48a' : g === GROUND.STONE ? '#b9bcc4' : '#b39a6c';
+      ctx.fillStyle = g === GROUND.WATER ? '#2f7fb5' : g === GROUND.SAND ? '#d9c48a'
+        : g === GROUND.STONE ? '#b9bcc4' : g === GROUND.ROAD ? '#3b3e44' : '#b39a6c';
       ctx.fillRect(x * s, y * s, s, s);
     }
     for (const b of park.buildings.values()) {
