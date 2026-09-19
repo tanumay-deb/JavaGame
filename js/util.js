@@ -16,6 +16,18 @@ function hash2(x, y) {
   return ((h ^ (h >> 16)) >>> 0) / 4294967295;
 }
 
+/* smooth value noise built on hash2 — used for the landscape beyond the park */
+function noise2(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  return lerp(lerp(hash2(xi, yi), hash2(xi + 1, yi), u),
+              lerp(hash2(xi, yi + 1), hash2(xi + 1, yi + 1), u), v);
+}
+function fbm(x, y) {
+  return noise2(x, y) * 0.55 + noise2(x * 2.1, y * 2.1) * 0.3 + noise2(x * 4.3, y * 4.3) * 0.15;
+}
+
 /* ------------------------------------------------------- iso projection */
 function isoX(tx, ty) { return (tx - ty) * (TILE_W / 2); }
 function isoY(tx, ty) { return (tx + ty) * (TILE_H / 2); }

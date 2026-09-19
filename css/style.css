@@ -20,6 +20,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+button { touch-action: manipulation; font-family: inherit; }
 html, body { height: 100%; margin: 0; overflow: hidden; }
 body {
   background: var(--bg);
@@ -242,6 +243,30 @@ table.data th { color: var(--ink-mute); font-weight: 600; }
 
 .hidden { display: none !important; }
 
+/* ------------------------------------------------------------- tablets */
+@media (min-width: 620px) and (max-width: 1180px) {
+  #dock button { padding: 9px 6px 8px; font-size: 12px; }
+  #dock button span { font-size: 21px; }
+  .cards { grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); }
+  .card canvas { height: 62px; }
+  .panel { width: min(360px, calc(100vw - 20px)); }
+  .sheet { max-height: min(52vh, 460px); }
+  .tabs button { padding: 9px 16px; font-size: 13px; }
+  .btns button, .stepper button { padding: 9px 13px; font-size: 13px; }
+  .buildbar { padding: 8px 10px 8px 16px; font-size: 14px; }
+  .buildbar button { padding: 9px 14px; font-size: 13px; }
+}
+
+/* landscape on a phone: keep the map visible, shrink the furniture */
+@media (max-height: 460px) and (orientation: landscape) {
+  #dock button { flex-direction: row; gap: 5px; padding: 6px 10px; }
+  #dock button span { font-size: 15px; }
+  .sheet { max-height: 62vh; }
+  .panel { max-height: 62vh; }
+  #toasts { top: 42px; }
+  .toast:nth-child(n+2) { display: none; }
+}
+
 @media (max-width: 620px) {
   #hud { gap: 4px; padding-left: 6px; padding-right: 6px; }
   #hud .hide-sm { display: none; }
@@ -261,7 +286,10 @@ table.data th { color: var(--ink-mute); font-weight: 600; }
   .card canvas { height: 48px; }
   .sheet { max-height: 56vh; }
   .buildbar { font-size: 12px; padding: 5px 6px 5px 11px; gap: 6px; }
-  .buildbar button { padding: 6px 9px; font-size: 11px; }
+  .buildbar button { padding: 9px 11px; font-size: 11px; }
+  .tabs button { padding: 9px 14px; }
+  .btns button, .stepper button { padding: 9px 12px; font-size: 12px; }
+  .panel .close-x { font-size: 20px; padding: 4px 8px; top: 4px; right: 4px; }
 }
 
 @media (max-width: 380px) {

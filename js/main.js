@@ -5,7 +5,7 @@
   let dragging = false, dragged = false, painting = false;
   let lastPt = { x: 0, y: 0 };
   const pointers = new Map();
-  let pinchDist = 0, pinchZoom = 1;
+  let pinchDist = 0, pinchZoom = 1, pinchMid = null;
 
   /* ------------------------------------------------------------- picking */
   function worldOf(p) { return renderer.screenToTile(p.x, p.y); }
@@ -24,6 +24,7 @@
 
   function tap(sx, sy) {
     const t = renderer.screenToTile(sx, sy);
+    if (ui.landMode) { ui.buyPlotAt(t.x, t.y); return; }
     if (ui.build.key) { placeAt(t); return; }
     const person = pickPerson(sx, sy);
     if (person) { ui.select(person); return; }
@@ -34,6 +35,10 @@
   function placeAt(t) {
     if (!park.inBounds(t.x, t.y)) return;
     const key = ui.build.key;
+    if (ui.build.moving) {
+      if (sim.placeMoved(t.x, t.y, ui.build.rot)) ui.endMove(false);
+      return;
+    }
     if (sim.build(key, t.x, t.y, ui.build.rot)) {
       if (ITEMS[key].cat !== 'path') ui.setBuild(null);   /* one-shot for buildings, keep painting paths */
       else ui.renderCards();
@@ -54,7 +59,8 @@
       const [a, b] = [...pointers.values()];
       pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
       pinchZoom = view.zoom;
-      dragging = false;
+      pinchMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      dragging = false; painting = false;
       return;
     }
     dragging = true; dragged = false;
@@ -76,10 +82,18 @@
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       if (pinchDist > 0) {
+        const before = renderer.screenToTile(mid.x, mid.y);
         view.zoom = clamp(pinchZoom * (d / pinchDist), view.minZoom, view.maxZoom);
+        const after = renderer.screenToTile(mid.x, mid.y);
+        /* keep the point between the fingers under them, and pan with them */
+        view.x += isoX(before.fx, before.fy) - isoX(after.fx, after.fy);
+        view.y += isoY(before.fx, before.fy) - isoY(after.fx, after.fy);
+        if (pinchMid) { view.x -= (mid.x - pinchMid.x) / view.zoom; view.y -= (mid.y - pinchMid.y) / view.zoom; }
         renderer.clampView();
       }
+      pinchMid = mid;
       return;
     }
     if (!dragging) return;
@@ -97,8 +111,18 @@
 
   function endPointer(e) {
     const p = localPt(e);
+    const wasPinching = pointers.size >= 2;
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinchDist = 0;
+    if (wasPinching) {
+      /* one finger left after a pinch: carry on panning from where it is,
+         and never treat the lift as a tap */
+      const rest = [...pointers.values()][0];
+      if (rest) { lastPt = rest; dragging = true; dragged = true; }
+      else { dragging = false; painting = false; }
+      canvas.classList.remove('dragging');
+      return;
+    }
     if (dragging && !dragged && !painting) tap(p.x, p.y);
     dragging = false; painting = false;
     canvas.classList.remove('dragging');
@@ -126,7 +150,7 @@
     else if (k === 'arrowup' || k === 'w') { view.y -= pan; }
     else if (k === 'arrowdown' || k === 's') { view.y += pan; }
     else if (k === 'r') ui.rotate();
-    else if (k === 'escape') { ui.setBuild(null); ui.select(null); ui.close('modal'); ui.close('sheet'); }
+    else if (k === 'escape') { ui.setBuild(null); ui.stopLand(); ui.select(null); ui.close('modal'); ui.close('sheet'); }
     else if (k === 'b') ui.toggleSheet();
     else if (k === ' ') { e.preventDefault(); sim.paused = !sim.paused; syncSpeedButtons(); }
     else if (k === 'delete' || k === 'backspace') {
@@ -163,6 +187,7 @@
   cont.addEventListener('click', () => start(true));
 
   sim.newGame();
+  scenery.build();
   renderer.init(canvas);
   ui.init();
   if (!sim.hasSave()) cont.setAttribute('disabled', '');

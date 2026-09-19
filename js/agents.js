@@ -45,6 +45,33 @@ function Visitor(x, y) {
 
 Visitor.prototype.say = function (icon, secs) { this.bubble = icon; this.bubbleT = secs || 2.5; };
 
+/* walk in from the road through the gateway; only then does normal life start */
+Visitor.prototype.enterPark = function () {
+  const g = park.gate;
+  this.path = [
+    { x: g.x + rnd(-0.3, 0.3), y: ROAD_Y - 0.6 },
+    { x: g.x, y: GRID_H - 0.5 },
+    { x: g.x, y: g.y }
+  ];
+  this.pi = 0;
+  this.state = 'walk';
+  this.target = null;
+  this.thought = 'Just arrived at the park';
+  this.say('🎟️');
+};
+
+/* out through the gateway and back to the road to wait for a lift */
+Visitor.prototype.exitToRoad = function () {
+  const g = park.gate;
+  this.path = [
+    { x: g.x, y: GRID_H - 0.5 },
+    { x: g.x + rnd(-1.6, 1.6), y: ROAD_Y - 0.7 }
+  ];
+  this.pi = 0;
+  this.state = 'departing';
+  this.target = null;
+};
+
 Visitor.prototype.goalSet = function (tiles) {
   const s = new Set();
   for (const t of tiles) s.add(t.x + ',' + t.y);
@@ -162,13 +189,20 @@ Visitor.prototype.leave = function () {
   const g = [{ x: park.gate.x, y: park.gate.y }];
   this.state = 'leaving';
   this.target = null;
-  if (!this.walkTo(g, 'leaving', null)) { this.dead = true; sim.visitorLeft(this); }
+  if (!this.walkTo(g, 'leaving', null)) this.exitToRoad();
 };
 
 Visitor.prototype.arrive = function () {
   const t = this.target;
   this.path = null;
-  if (this.state === 'leaving') { this.dead = true; sim.visitorLeft(this); return; }
+  if (this.state === 'leaving') { this.exitToRoad(); return; }
+  if (this.state === 'departing') {
+    this.state = 'waiting';
+    this.thought = 'Waiting for a ride home';
+    this.say('🚏', 6);
+    traffic.waitForRide(this);
+    return;
+  }
   if (!t) { this.state = 'idle'; this.timer = rnd(0.5, 2); return; }
   const b = t.b;
   if (!park.buildings.has(b.id)) { this.state = 'idle'; this.timer = 0.5; return; }
@@ -260,6 +294,7 @@ Visitor.prototype.update = function (dt) {
       }
       break;
     case 'riding':
+    case 'waiting':
       break;
     default:
       this.move(dt);

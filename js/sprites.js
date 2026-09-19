@@ -28,6 +28,55 @@ function spriteCtx(w, h, extra) {
   return g;
 }
 
+/* ---------------------------------------------------------- ride fencing */
+/* A run of fence between two points inside a sprite. */
+function fenceRun(ctx, x1, y1, x2, y2, h) {
+  h = h || 15;
+  ctx.strokeStyle = '#7d6647'; ctx.lineWidth = 2.2;
+  for (const d of [h - 4, h - 10]) {
+    ctx.beginPath(); ctx.moveTo(x1, y1 - d); ctx.lineTo(x2, y2 - d); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.moveTo(x1, y1 - h + 3); ctx.lineTo(x2, y2 - h + 3); ctx.stroke();
+  for (const f of [0, 1]) {
+    const px = lerp(x1, x2, f), py = lerp(y1, y2, f);
+    ctx.fillStyle = PALETTE.woodDark;
+    ctx.fillRect(px - 1.8, py - h, 3.6, h);
+    ctx.fillStyle = shade(PALETTE.wood, 0.18);
+    ctx.fillRect(px - 1.8, py - h, 1.4, h);
+    ctx.fillStyle = shade(PALETTE.wood, -0.4);
+    ctx.beginPath();
+    ctx.moveTo(px - 1.8, py - h); ctx.lineTo(px, py - h - 2.6); ctx.lineTo(px + 1.8, py - h);
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+/* Fence the footprint of a ride, leaving the entrance and exit tiles open.
+   `side` picks the two edges that belong behind the ride or in front of it. */
+function rideFence(g, item, rot, side) {
+  const w = g.w, h = g.h;
+  const e = park.rotPoint(item.ent[0], item.ent[1], item.w, item.h, rot);
+  const x2 = park.rotPoint(item.ext[0], item.ext[1], item.w, item.h, rot);
+  const open = (tx, ty, edge) => {
+    for (const d of [e, x2]) {
+      if (d[0] !== tx || d[1] !== ty) continue;
+      if (edge === 'n' && ty === 0) return true;
+      if (edge === 's' && ty === h - 1) return true;
+      if (edge === 'w' && tx === 0) return true;
+      if (edge === 'e' && tx === w - 1) return true;
+    }
+    return false;
+  };
+  const ctx = g.ctx;
+  if (side === 'back') {
+    for (let i = 0; i < w; i++) if (!open(i, 0, 'n')) fenceRun(ctx, ...g.P(i, 0), ...g.P(i + 1, 0));
+    for (let j = 0; j < h; j++) if (!open(0, j, 'w')) fenceRun(ctx, ...g.P(0, j), ...g.P(0, j + 1));
+  } else {
+    for (let i = 0; i < w; i++) if (!open(i, h - 1, 's')) fenceRun(ctx, ...g.P(i, h), ...g.P(i + 1, h));
+    for (let j = 0; j < h; j++) if (!open(w - 1, j, 'e')) fenceRun(ctx, ...g.P(w, j), ...g.P(w, j + 1));
+  }
+}
+
 /* ground pad under a building so it does not float on the grass */
 function pad(g, col, edge, inset) {
   const { ctx, w, h } = g;
@@ -38,6 +87,9 @@ function pad(g, col, edge, inset) {
   ctx.closePath();
   ctx.fillStyle = col; ctx.fill();
   ctx.strokeStyle = edge; ctx.lineWidth = 1.5; ctx.stroke();
+  /* the far side of the ride's fence goes down before the ride itself */
+  const spec = ART._spec;
+  if (spec && spec.item && spec.item.cat === 'ride') rideFence(g, spec.item, spec.rot, 'back');
 }
 
 /* a log post standing on the ground plane */
@@ -108,12 +160,15 @@ function skull(ctx, x, y, s) {
 }
 
 /* cached sprite lookup. rot is baked in so asymmetric art can face the right way */
-function getSprite(art, w, h, rot) {
+function getSprite(art, w, h, rot, item) {
   const key = art + '|' + w + 'x' + h + '|' + (rot || 0);
   let s = _spriteCache.get(key);
   if (s) return s;
   const fn = ART[art] || ART.fallback;
+  ART._spec = { item, rot: rot || 0 };
   s = fn(w, h, rot || 0);
+  if (item && item.cat === 'ride') rideFence(s, item, rot || 0, 'front');
+  ART._spec = null;
   _spriteCache.set(key, s);
   return s;
 }

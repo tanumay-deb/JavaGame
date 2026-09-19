@@ -26,6 +26,7 @@ const sim = {
   /* ------------------------------------------------------------- setup */
   newGame() {
     park.reset();
+    if (typeof scenery !== 'undefined') scenery.build();
     this.money = 6000; this.time = 0; this.month = 0; this.speed = 1; this.paused = false;
     this.entranceFee = 0;
     this.visitors.length = 0; this.staff.length = 0; this.effects.length = 0;
@@ -33,6 +34,7 @@ const sim = {
     this.unlocked = new Set();
     this.selected = null; this.monthIncome = 0; this.monthOutlay = 0; this.totalEarned = 0;
     this.won = false; this.fights = 0;
+    traffic.reset();
     this.refreshUnlocks(true);
     this.toast('🦴 Welcome to your park! Lay a path, then build a ride.');
   },
@@ -85,6 +87,7 @@ const sim = {
     this.updateRides(dt);
     this.updateAgents(dt);
     this.spawn(dt);
+    traffic.update(dt);
     this.updateEffects(dt);
     this.decayToasts(dtReal);
     this.checkObjectives();
@@ -212,16 +215,23 @@ const sim = {
     this.spawnAcc += dt * (perMonth / MONTH_SECONDS);
     while (this.spawnAcc >= 1) {
       this.spawnAcc -= 1;
-      if (this.visitors.length >= 150) break;
-      const v = new Visitor(park.gate.x, park.gate.y);
-      if (this.entranceFee > 0) {
-        if (v.money < this.entranceFee * 3) continue;    /* too dear, they walk away */
-        v.money -= this.entranceFee;
-        this.income(this.entranceFee, null, v.x, v.y);
-        v.happiness -= this.entranceFee * 0.35;
-      }
-      this.visitors.push(v);
+      if (this.visitors.length + traffic.pending >= 150) break;
+      traffic.pending++;        /* they still have to be driven here */
     }
+  },
+
+  /* a vehicle has set someone down on the road outside the gateway */
+  arrive(x, y) {
+    if (this.visitors.length >= 150) return;
+    const v = new Visitor(x, y);
+    if (this.entranceFee > 0) {
+      if (v.money < this.entranceFee * 3) return;       /* too dear, they stay on board */
+      v.money -= this.entranceFee;
+      this.income(this.entranceFee, null, x, y);
+      v.happiness -= this.entranceFee * 0.35;
+    }
+    v.enterPark();
+    this.visitors.push(v);
   },
 
   visitorLeft(v) {
@@ -263,7 +273,8 @@ const sim = {
       cash: Math.max(0, Math.round(this.money)),
       visitors: this.visitors.length,
       happiness: Math.round(this.avgHappiness()),
-      rides: rides.length
+      rides: rides.length,
+      land: park.plotsBought
     };
   },
 
@@ -305,6 +316,20 @@ const sim = {
 
   staffFor(b) { return this.staff.find(s => s.assigned === b.id) || null; },
 
+  /* --------------------------------------------------------------- land */
+  buyLand(px, py) {
+    if (!park.plotForSale(px, py)) return false;
+    const price = park.plotPrice();
+    if (this.money < price) { this.toast('That plot costs ' + money(price)); return false; }
+    this.spend(price);
+    park.buyPlot(px, py);
+    scenery.build();
+    this.toast('🌄 Bought a plot of land for ' + money(price));
+    for (let i = 0; i < 10; i++)
+      this.puff(px * PLOT + rnd(0, PLOT), py * PLOT + rnd(0, PLOT), 2);
+    return true;
+  },
+
   /* -------------------------------------------------------------- build */
   build(key, x, y, rot) {
     const item = ITEMS[key];
@@ -324,14 +349,68 @@ const sim = {
     return true;
   },
 
-  sell(b) {
-    const refund = Math.round(b.item.cost * 0.5);
+  /* let go of everyone who was queueing for, riding or working at a building */
+  release(b) {
     for (const v of this.visitors) {
       if (v.queuedFor === b) { v.queuedFor = null; v.state = 'idle'; v.timer = 0.3; }
       if (v.target && v.target.b === b) { v.target = null; v.path = null; v.state = 'idle'; v.timer = 0.3; }
-      if (b.riders.includes(v)) { v.state = 'idle'; v.timer = 0.3; v.x = b.x; v.y = b.y; }
+      if (b.riders && b.riders.includes(v)) { v.state = 'idle'; v.timer = 0.3; v.x = b.x; v.y = b.y; }
+      if (v.restBench === b) { v.restBench = null; v.state = 'idle'; v.timer = 0.2; }
     }
     for (const s of this.staff) if (s.assigned === b.id) { s.assigned = null; s.state = 'idle'; s.timer = 0.2; }
+    if (b.riders) b.riders.length = 0;
+    if (b.queue) b.queue.length = 0;
+  },
+
+  /* ---------------------------------------------------- moving a building */
+  moving: null,
+
+  startMove(b) {
+    if (this.moving) return false;
+    this.moving = {
+      key: b.key, rot: b.rot, fee: b.fee, open: b.open, condition: b.condition,
+      brokeDown: b.brokeDown, earned: b.earned, visits: b.visits,
+      from: { x: b.x, y: b.y, rot: b.rot }
+    };
+    this.release(b);
+    if (this.selected === b) this.selected = null;
+    park.demolish(b);
+    this.toast('Pick a new spot for the ' + ITEMS[this.moving.key].name);
+    return true;
+  },
+
+  placeMoved(x, y, rot) {
+    const m = this.moving;
+    if (!m) return false;
+    const chk = park.canPlace(m.key, x, y, rot);
+    if (!chk.ok) { this.toast(chk.why); return false; }
+    const b = park.place(m.key, x, y, rot);
+    b.fee = m.fee; b.open = m.open; b.condition = m.condition;
+    b.brokeDown = m.brokeDown; b.earned = m.earned; b.visits = m.visits;
+    this.moving = null;
+    this.puff(x + b.w / 2, y + b.h / 2);
+    for (const s of this.staff) if (!s.assigned && s.role !== 'guard' && s.role !== 'repairman' && s.state === 'idle') s.station();
+    park.recomputePower();
+    this.toast('Moved the ' + b.item.name);
+    return true;
+  },
+
+  cancelMove() {
+    const m = this.moving;
+    if (!m) return;
+    this.moving = null;
+    const b = park.place(m.key, m.from.x, m.from.y, m.from.rot);
+    if (b) {
+      b.fee = m.fee; b.open = m.open; b.condition = m.condition;
+      b.brokeDown = m.brokeDown; b.earned = m.earned; b.visits = m.visits;
+    }
+    for (const s of this.staff) if (!s.assigned && s.state === 'idle') s.station();
+    park.recomputePower();
+  },
+
+  sell(b) {
+    const refund = Math.round(b.item.cost * 0.5);
+    this.release(b);
     if (this.selected === b) this.selected = null;
     park.demolish(b);
     this.money += refund;
@@ -346,6 +425,7 @@ const sim = {
       money: this.money, time: this.time, month: this.month, fee: this.entranceFee,
       totalEarned: this.totalEarned, stats: this.stats, won: this.won,
       ground: Array.from(park.ground),
+      plots: Array.from(park.plots),
       buildings: Array.from(park.buildings.values()).map(b => ({
         key: b.key, x: b.x, y: b.y, rot: b.rot, fee: b.fee, open: b.open,
         condition: b.condition, broke: b.brokeDown, earned: b.earned, visits: b.visits
@@ -380,6 +460,13 @@ const sim = {
     this.money = d.money; this.time = d.time || 0; this.month = d.month || 0;
     this.entranceFee = d.fee || 0; this.totalEarned = d.totalEarned || 0;
     this.stats = d.stats || []; this.won = !!d.won;
+    if (d.plots) {
+      park.plots.fill(0); park.plotsBought = 0;
+      for (let i = 0; i < park.plots.length && i < d.plots.length; i++) {
+        park.plots[i] = d.plots[i];
+        if (d.plots[i]) park.plotsBought++;
+      }
+    }
     if (d.ground) for (let i = 0; i < park.ground.length && i < d.ground.length; i++) park.ground[i] = d.ground[i];
     park.buildings.clear(); park.occ.fill(-1); park.nextId = 1;
     for (const s of d.buildings || []) {
@@ -395,6 +482,8 @@ const sim = {
     this.refreshUnlocks(true);
     park.recomputePower();
     park.version++;
+    park.fullRebuild = true;
+    scenery.build();
     this.toast('📂 Park loaded');
     return true;
   }

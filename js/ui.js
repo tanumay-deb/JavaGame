@@ -4,6 +4,7 @@ const CHART = { profit: '#3AA98F', loss: '#D06B4A', visitors: '#5D8FD6', happy: 
 
 const ui = {
   build: { key: null, rot: 0 },
+  landMode: false,
   tab: 'path',
   el: {},
   lastInspect: 0,
@@ -32,7 +33,11 @@ const ui = {
     $('btn-goals').addEventListener('click', () => this.goalsModal());
     $('btn-menu').addEventListener('click', () => this.menuModal());
     $('btn-rotate').addEventListener('click', () => this.rotate());
-    $('btn-cancel-build').addEventListener('click', () => this.setBuild(null));
+    $('btn-cancel-build').addEventListener('click', () => {
+      if (this.landMode) this.stopLand();
+      else if (this.build.moving) this.endMove(true);
+      else this.setBuild(null);
+    });
 
     document.addEventListener('click', e => {
       const c = e.target.closest('[data-close]');
@@ -50,6 +55,7 @@ const ui = {
 
   /* ------------------------------------------------------------ build UI */
   toggleSheet() {
+    if (this.landMode) this.stopLand();
     const s = this.el.sheet;
     const open = s.classList.contains('hidden');
     s.classList.toggle('hidden', !open);
@@ -71,7 +77,37 @@ const ui = {
   selectTab(id) {
     this.tab = id;
     for (const b of this.el.tabs.children) b.classList.toggle('on', b.dataset.tab === id);
+    if (id === 'land') { this.startLand(); return; }
     this.renderCards();
+  },
+
+  /* ------------------------------------------------------------- land */
+  startLand() {
+    this.setBuild(null);
+    this.landMode = true;
+    this.close('sheet');
+    this.el.buildbar.classList.remove('hidden');
+    document.getElementById('btn-rotate').classList.add('hidden');
+    this.landLabel();
+    sim.toast('Tap a marked plot to buy it and clear the forest.');
+  },
+
+  landLabel() {
+    this.el.buildbarName.textContent = 'Land · ' + money(park.plotPrice()) + ' a plot';
+  },
+
+  stopLand() {
+    this.landMode = false;
+    document.getElementById('btn-rotate').classList.remove('hidden');
+    this.el.buildbar.classList.add('hidden');
+    if (this.tab === 'land') this.tab = 'path';
+    for (const b of this.el.tabs.children) b.classList.toggle('on', b.dataset.tab === this.tab);
+  },
+
+  buyPlotAt(tx, ty) {
+    const p = park.plotOf(tx, ty);
+    if (!park.plotForSale(p.px, p.py)) return;
+    if (sim.buyLand(p.px, p.py)) this.landLabel();
   },
 
   renderCards() {
@@ -116,7 +152,12 @@ const ui = {
         l.textContent = '🔒 invented at moon ' + item.unlock;
         card.appendChild(l);
       }
-      card.onclick = () => { if (!locked) this.setBuild(key); };
+      card.onclick = () => {
+        if (locked) return;
+        this.setBuild(key);
+        /* on a small screen the sheet covers the park, so get out of the way */
+        if (window.innerWidth < 760) this.close('sheet');
+      };
       box.appendChild(card);
       this.thumb(cv, key);
     }
@@ -140,12 +181,38 @@ const ui = {
       ctx.drawImage(g, (cv.width - g.width * s) / 2, (cv.height - g.height * s) / 2, g.width * s, g.height * s);
       return;
     }
-    const spr = getSprite(item.art, item.w || 1, item.h || 1, 0);
+    const spr = getSprite(item.art, item.w || 1, item.h || 1, 0, item);
     const s = Math.min(cv.width / spr.c.width, cv.height / spr.c.height) * 0.92;
     ctx.drawImage(spr.c, (cv.width - spr.c.width * s) / 2, (cv.height - spr.c.height * s) / 2, spr.c.width * s, spr.c.height * s);
   },
 
+  /* pick the building up and carry it to a new spot */
+  startMove() {
+    const b = sim.selected;
+    if (!b || !b.item) return;
+    if (!sim.startMove(b)) return;
+    this.select(null);
+    this.landMode = false;
+    this.build.key = sim.moving.key;
+    this.build.rot = sim.moving.rot;
+    this.build.moving = true;
+    this.el.buildbar.classList.remove('hidden');
+    document.getElementById('btn-rotate').classList.remove('hidden');
+    this.el.buildbarName.textContent = 'Moving ' + ITEMS[this.build.key].name;
+    this.close('sheet');
+  },
+
+  endMove(cancelled) {
+    if (cancelled && sim.moving) sim.cancelMove();
+    this.build.moving = false;
+    this.build.key = null;
+    this.el.buildbar.classList.add('hidden');
+    this.renderCards();
+  },
+
   setBuild(key) {
+    if (this.build.moving) this.endMove(true);
+    if (key && this.landMode) this.stopLand();
     this.build.key = key;
     this.build.rot = 0;
     const on = !!key;
@@ -288,25 +355,30 @@ const ui = {
         + '<button onclick="ui.price(-1)">−</button><b>' + money(b.fee) + '</b><button onclick="ui.price(1)">+</button></div></div>';
       h += '<div class="row"><span class="k">Worth paying</span><span class="v">' + money(it.rating) + '</span></div>';
       h += '<div class="btns"><button onclick="ui.toggleOpen()">' + (b.open ? '⛔ Close' : '▶ Open') + '</button>'
+        + '<button onclick="ui.startMove()">✥ Move</button>'
         + '<button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
     } else if (it.cat === 'stall' || (it.cat === 'service' && it.price)) {
       h += '<div class="row"><span class="k">Price</span><div class="stepper">'
         + '<button onclick="ui.price(-1)">−</button><b>' + money(b.fee) + '</b><button onclick="ui.price(1)">+</button></div></div>';
       h += '<div class="row"><span class="k">Served</span><span class="v">' + b.visits + '</span></div>';
       h += '<div class="row"><span class="k">Earned</span><span class="v">' + money(b.earned) + '</span></div>';
-      h += '<div class="btns"><button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
+      h += '<div class="btns"><button onclick="ui.startMove()">✥ Move</button>'
+        + '<button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
     } else if (b.key === 'gate') {
       h += '<div class="row"><span class="k">Entrance fee</span><div class="stepper">'
         + '<button onclick="ui.fee(-1)">−</button><b>' + money(sim.entranceFee) + '</b><button onclick="ui.fee(1)">+</button></div></div>';
       h += '<div class="role">A high fee keeps poorer visitors away.</div>';
-      h += '<div class="btns"><button class="danger" onclick="ui.sellSelected()">Sell</button></div>';
+      h += '<div class="btns"><button onclick="ui.startMove()">✥ Move</button>'
+        + '<button class="danger" onclick="ui.sellSelected()">Sell</button></div>';
     } else if (it.cat === 'engine') {
       const powered = park.list('ride').filter(r => r.item.power && r.powered).length;
       h += '<div class="row"><span class="k">Dino rider</span><span class="v">' + (b.worker ? 'on the wheel' : 'none!') + '</span></div>';
       h += '<div class="row"><span class="k">Powered rides</span><span class="v">' + powered + '</span></div>';
-      h += '<div class="btns"><button class="danger" onclick="ui.sellSelected()">Sell</button></div>';
+      h += '<div class="btns"><button onclick="ui.startMove()">✥ Move</button>'
+        + '<button class="danger" onclick="ui.sellSelected()">Sell</button></div>';
     } else {
-      h += '<div class="btns"><button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
+      h += '<div class="btns"><button onclick="ui.startMove()">✥ Move</button>'
+        + '<button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
     }
     return h;
   },
@@ -370,6 +442,7 @@ const ui = {
     h += '<div class="row"><span class="k">Rides built</span><span class="v">' + park.list('ride').length + '</span></div>';
     h += '<div class="row"><span class="k">Shops & services</span><span class="v">' + (park.list('stall').length + park.list('service').length) + '</span></div>';
     h += '<div class="row"><span class="k">Path tiles</span><span class="v">' + park.pathTiles() + '</span></div>';
+    h += '<div class="row"><span class="k">Land owned</span><span class="v">' + park.plotsBought + ' plots · next ' + money(park.plotPrice()) + '</span></div>';
     h += '<div class="row"><span class="k">Earned all time</span><span class="v">' + money(sim.totalEarned) + '</span></div>';
     h += '<div class="row"><span class="k">Fights broken out</span><span class="v">' + sim.fights + '</span></div>';
     this.modal(h);

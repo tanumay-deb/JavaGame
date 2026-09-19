@@ -8,19 +8,55 @@ const park = {
   version: 0,          // bumps whenever the grid changes (invalidates caches)
   dirty: [],           // tiles whose ground needs redrawing (incremental bake)
   fullRebuild: true,   // set when the whole map changed (new game / load)
-  gate: { x: (GRID_W >> 1) - 1, y: GRID_H - 2 },
+  gate: { x: 17, y: GRID_H - 2 },
+  plots: new Uint8Array(PLOTS_X * PLOTS_Y),
+  plotsBought: 0,
 
   idx(x, y) { return y * GRID_W + x; },
   touch(x, y) { this.dirty.push(x, y); this.version++; },
   inBounds(x, y) { return x >= 0 && y >= 0 && x < GRID_W && y < GRID_H; },
-  groundAt(x, y) { return this.inBounds(x, y) ? this.ground[this.idx(x, y)] : GROUND.WATER; },
+  groundAt(x, y) { return this.owns(x, y) ? this.ground[this.idx(x, y)] : GROUND.WATER; },
+
+  /* ---------------------------------------------------------- land plots */
+  plotIdx(px, py) { return py * PLOTS_X + px; },
+  plotOf(x, y) { return { px: Math.floor(x / PLOT), py: Math.floor(y / PLOT) }; },
+  ownsPlot(px, py) {
+    return px >= 0 && py >= 0 && px < PLOTS_X && py < PLOTS_Y && !!this.plots[this.plotIdx(px, py)];
+  },
+  owns(x, y) {
+    if (!this.inBounds(x, y)) return false;
+    const p = this.plotOf(x, y);
+    return this.ownsPlot(p.px, p.py);
+  },
+  /* a plot can be bought once it touches land you already own */
+  plotForSale(px, py) {
+    if (!this.inBounds(px * PLOT, py * PLOT) || this.ownsPlot(px, py)) return false;
+    return this.ownsPlot(px - 1, py) || this.ownsPlot(px + 1, py)
+        || this.ownsPlot(px, py - 1) || this.ownsPlot(px, py + 1);
+  },
+  plotPrice() { return PLOT_BASE + PLOT_STEP * Math.max(0, this.plotsBought - 4); },
+  buyPlot(px, py) {
+    this.plots[this.plotIdx(px, py)] = 1;
+    this.plotsBought++;
+    for (let y = py * PLOT; y < (py + 1) * PLOT; y++)
+      for (let x = px * PLOT; x < (px + 1) * PLOT; x++) this.ground[this.idx(x, y)] = GROUND.GRASS;
+    this.version++;
+    this.fullRebuild = true;
+  },
+
+  /* terrain for drawing: inside the park it is the grid, outside it is the
+     procedural landscape the park sits in */
+  terrainAt(x, y) {
+    return this.owns(x, y) ? this.ground[this.idx(x, y)] : wildTerrain(x, y);
+  },
   buildingAt(x, y) {
     if (!this.inBounds(x, y)) return null;
     const id = this.occ[this.idx(x, y)];
     return id < 0 ? null : this.buildings.get(id);
   },
   isPath(x, y) {
-    const g = this.groundAt(x, y);
+    if (!this.owns(x, y)) return false;
+    const g = this.ground[this.idx(x, y)];
     return (g === GROUND.GRAVEL || g === GROUND.STONE) && this.occ[this.idx(x, y)] < 0;
   },
 
@@ -29,15 +65,28 @@ const park = {
     this.occ.fill(-1);
     this.buildings.clear();
     this.nextId = 1;
-    /* a sandy clearing and a short entrance path */
-    for (let y = this.gate.y - 4; y <= this.gate.y; y++)
+    /* you start with a small clearing by the road and buy the valley later */
+    this.plots.fill(0);
+    this.plotsBought = 0;
+    const g = this.plotOf(this.gate.x, this.gate.y);
+    for (const [px, py] of [[g.px, g.py], [g.px + 1, g.py], [g.px, g.py - 1], [g.px + 1, g.py - 1]]) {
+      if (px >= 0 && py >= 0 && px < PLOTS_X && py < PLOTS_Y) {
+        this.plots[this.plotIdx(px, py)] = 1;
+        this.plotsBought++;
+      }
+    }
+    /* the entrance path runs from the gateway to the edge of the clearing */
+    for (let y = this.gate.y - 3; y <= GRID_H - 1; y++)
       for (let x = this.gate.x - 1; x <= this.gate.x + 1; x++)
         if (this.inBounds(x, y)) this.ground[this.idx(x, y)] = GROUND.GRAVEL;
-    /* a natural pond and some scatter so the map is not a blank sheet */
-    const px = 8, py = 9;
-    for (let y = -3; y <= 3; y++) for (let x = -4; x <= 4; x++) {
-      if (x * x * 0.6 + y * y * 1.4 < 9) this.ground[this.idx(px + x, py + y)] = GROUND.WATER;
-      else if (x * x * 0.6 + y * y * 1.4 < 13) this.ground[this.idx(px + x, py + y)] = GROUND.SAND;
+    /* a natural pond with a ragged shoreline, so the map is not a blank sheet */
+    const px = 8, py = 10;
+    for (let y = -5; y <= 5; y++) for (let x = -6; x <= 6; x++) {
+      const tx = px + x, ty = py + y;
+      if (!this.inBounds(tx, ty)) continue;
+      const d = Math.hypot(x * 0.78, y * 1.15) + (fbm(tx * 0.3, ty * 0.3) - 0.5) * 2.6;
+      if (d < 3.1) this.ground[this.idx(tx, ty)] = GROUND.WATER;
+      else if (d < 4.2) this.ground[this.idx(tx, ty)] = GROUND.SAND;
     }
     this.version++;
     this.fullRebuild = true;
@@ -63,6 +112,7 @@ const park = {
     if (!item) return { ok: false, why: 'unknown' };
     if (item.cat === 'path') {
       if (!this.inBounds(x, y)) return { ok: false, why: 'Outside the park' };
+      if (!this.owns(x, y)) return { ok: false, why: 'You do not own this land yet' };
       if (this.buildingAt(x, y)) return { ok: false, why: 'Something is built here' };
       if (this.groundAt(x, y) === GROUND.WATER) return { ok: false, why: 'Cannot pave water' };
       if (this.groundAt(x, y) === item.ground) return { ok: false, why: 'Already paved' };
@@ -72,6 +122,7 @@ const park = {
     for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
       const tx = x + dx, ty = y + dy;
       if (!this.inBounds(tx, ty)) return { ok: false, why: 'Outside the park' };
+      if (!this.owns(tx, ty)) return { ok: false, why: 'You do not own this land yet' };
       if (this.buildingAt(tx, ty)) return { ok: false, why: 'Something is built here' };
       const g = this.groundAt(tx, ty);
       if (g === GROUND.WATER) return { ok: false, why: 'Cannot build on water' };
@@ -219,7 +270,7 @@ const park = {
 
   pathTiles() {
     let n = 0;
-    for (let i = 0; i < this.ground.length; i++) if (this.ground[i] === GROUND.GRAVEL || this.ground[i] === GROUND.STONE) n++;
+    for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) if (this.isPath(x, y)) n++;
     return n;
   },
 

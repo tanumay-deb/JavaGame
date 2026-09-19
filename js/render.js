@@ -6,7 +6,11 @@ const view = { x: 0, y: 0, zoom: 1, minZoom: 0.45, maxZoom: 1.9 };
 const renderer = {
   canvas: null, ctx: null, W: 0, H: 0, dpr: 1,
   groundCanvas: null, groundVersion: -1,
-  gox: GRID_H * (TILE_W / 2), goy: 0,
+  /* the baked ground covers the park plus MARGIN tiles of wild country */
+  gox: (GRID_H + 2 * MARGIN) * (TILE_W / 2), goy: MARGIN * TILE_H,
+  waterTiles: [],
+  fadeIn: (GRID_W + GRID_H) * (TILE_W / 4) * 0.92,
+  fadeOut: (GRID_W + GRID_H + 3 * MARGIN) * (TILE_W / 4),
   hover: { x: -1, y: -1 },
   time: 0,
 
@@ -14,7 +18,10 @@ const renderer = {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.resize();
-    this.centerOn(park.gate.x, park.gate.y - 5);
+    /* a phone gets a closer view, so people and rides stay legible and tappable */
+    view.zoom = this.W < 520 ? 1.3 : this.W < 900 ? 1.15 : 1;
+    view.maxZoom = this.W < 900 ? 2.4 : 1.9;
+    this.centerOn(park.gate.x, park.gate.y - 4);
   },
 
   resize() {
@@ -51,12 +58,12 @@ const renderer = {
   tileFade(x, y) {
     const d = Math.hypot(isoX(x + .5, y + .5) - isoX(GRID_W / 2, GRID_H / 2),
                         (isoY(x + .5, y + .5) - isoY(GRID_W / 2, GRID_H / 2)) * 2);
-    const t = clamp((d - TILE_W * 8) / (TILE_W * 12), 0, 1);
-    return t * 0.30;
+    const t = clamp((d - TILE_W * 12) / (TILE_W * 18), 0, 1);
+    return t * 0.42;
   },
 
   drawTile(ctx, x, y) {
-    const g = park.ground[park.idx(x, y)];
+    const g = park.terrainAt(x, y);
     const cx = isoX(x + 0.5, y + 0.5), cy = isoY(x + 0.5, y + 0.5);
     const n = hash2(x, y);
     let col;
@@ -88,6 +95,22 @@ const renderer = {
         ctx.moveTo(gx + 1, gy); ctx.lineTo(gx + 4, gy - 4);
         ctx.stroke();
       }
+      /* painted undergrowth — flat, so buildings can still go on top */
+      const patch = fbm(x * 0.21 + 17, y * 0.21 + 23);
+      if (patch > 0.55) {
+        const a = (patch - 0.55) / 0.45;
+        ctx.save();
+        diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
+        ctx.fillStyle = shade(col, -0.16);
+        ctx.globalAlpha = 0.5 + a * 0.4;
+        for (let i = 0; i < 4; i++) {
+          const h1 = hash2(x * 5 + i, y * 9 + i), h2 = hash2(x * 11 + i, y * 3 + i);
+          ctx.beginPath();
+          ctx.ellipse(cx + (h1 - 0.5) * 40, cy + (h2 - 0.5) * 18, 6 + h1 * 6, 3 + h2 * 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
       if (m > 0.955) {
         const sx2 = cx + (n - 0.5) * 20, sy2 = cy + (m - 0.5) * 8;
         if (n > 0.5) {
@@ -117,7 +140,7 @@ const renderer = {
       }
       /* soften the join where paving meets grass */
       for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const ng = park.groundAt(x + d[0], y + d[1]);
+        const ng = park.terrainAt(x + d[0], y + d[1]);
         if (ng === GROUND.GRAVEL || ng === GROUND.STONE) continue;
         ctx.save();
         ctx.beginPath();
@@ -129,10 +152,69 @@ const renderer = {
         ctx.fill();
         ctx.restore();
       }
+    } else if (g === GROUND.ROAD) {
+      /* packed earth with cart ruts */
+      ctx.fillStyle = '#b79a6d';
+      diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.fill();
+      ctx.save();
+      diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
+      ctx.strokeStyle = 'rgba(124,100,66,.45)'; ctx.lineWidth = 3;
+      for (const off of [-6, 6]) {
+        ctx.beginPath();
+        ctx.moveTo(cx - TILE_W / 2, cy + off * 0.5); ctx.lineTo(cx + TILE_W / 2, cy + off * 0.5 - TILE_H / 2 + TILE_H / 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.10)';
+      ctx.beginPath(); ctx.ellipse(cx - 8, cy - 3, 12, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.10)';
+      for (let i = 0; i < 6; i++) {
+        const a = hash2(x * 9 + i, y * 5 + i), b2 = hash2(x * 4 + i, y * 8 + i);
+        ctx.beginPath();
+        ctx.ellipse(cx + (a - 0.5) * 40, cy + (b2 - 0.5) * 18, 2, 1.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (park.terrainAt(x + d[0], y + d[1]) === GROUND.ROAD) continue;
+        ctx.save();
+        diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
+        ctx.fillStyle = 'rgba(70,55,30,.18)';
+        const ex = cx + (d[0] - d[1]) * TILE_W * 0.34, ey = cy + (d[0] + d[1]) * TILE_H * 0.34;
+        diamond(ctx, ex, ey, TILE_W, TILE_H); ctx.fill();
+        ctx.restore();
+      }
     } else if (g === GROUND.WATER) {
-      ctx.fillStyle = 'rgba(0,0,0,.18)';
-      diamond(ctx, cx, cy - 1, TILE_W, TILE_H); ctx.fill();
-      ctx.fillStyle = col; diamond(ctx, cx, cy, TILE_W - 2, TILE_H - 1); ctx.fill();
+      /* deeper where the tile is surrounded by water, shallow near the bank */
+      let open = 0;
+      const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (const d of sides) if (park.terrainAt(x + d[0], y + d[1]) === GROUND.WATER) open++;
+      ctx.fillStyle = mixColor('#3f92c4', '#1d5e8c', open / 4);
+      diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.fill();
+      /* a pale shallow band on each side that meets land, which hides the
+         staircase edge tiles make on a diagonal shore */
+      ctx.save();
+      diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
+      for (const d of sides) {
+        if (park.terrainAt(x + d[0], y + d[1]) === GROUND.WATER) continue;
+        const ex = cx + (d[0] - d[1]) * TILE_W * 0.3, ey = cy + (d[0] + d[1]) * TILE_H * 0.3;
+        ctx.fillStyle = 'rgba(146,203,226,.55)';
+        diamond(ctx, ex, ey, TILE_W * 0.98, TILE_H * 0.98); ctx.fill();
+        ctx.fillStyle = 'rgba(226,214,176,.5)';
+        const fx = cx + (d[0] - d[1]) * TILE_W * 0.44, fy = cy + (d[0] + d[1]) * TILE_H * 0.44;
+        diamond(ctx, fx, fy, TILE_W * 0.9, TILE_H * 0.9); ctx.fill();
+      }
+      ctx.restore();
+    } else if (g === GROUND.SAND) {
+      /* damp sand where the beach meets the water */
+      for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (park.terrainAt(x + d[0], y + d[1]) !== GROUND.WATER) continue;
+        ctx.save();
+        diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
+        ctx.fillStyle = 'rgba(150,128,86,.42)';
+        const ex = cx + (d[0] - d[1]) * TILE_W * 0.34, ey = cy + (d[0] + d[1]) * TILE_H * 0.34;
+        diamond(ctx, ex, ey, TILE_W, TILE_H); ctx.fill();
+        ctx.restore();
+      }
     }
 
     const fade = this.tileFade(x, y);
@@ -143,8 +225,8 @@ const renderer = {
   },
 
   groundCtx() {
-    const w = (GRID_W + GRID_H) * (TILE_W / 2);
-    const h = (GRID_W + GRID_H) * (TILE_H / 2) + 8;
+    const w = (GRID_W + GRID_H + 4 * MARGIN) * (TILE_W / 2);
+    const h = (GRID_W + GRID_H + 4 * MARGIN) * (TILE_H / 2) + 8;
     if (!this.groundCanvas) this.groundCanvas = makeCanvas(w, h);
     return this.groundCanvas.getContext('2d');
   },
@@ -154,12 +236,38 @@ const renderer = {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.groundCanvas.width, this.groundCanvas.height);
     ctx.setTransform(1, 0, 0, 1, this.gox, this.goy);
-    for (let y = 0; y < GRID_H; y++)
-      for (let x = 0; x < GRID_W; x++) this.drawTile(ctx, x, y);
+    this.waterTiles.length = 0;
+    for (let y = -MARGIN; y < GRID_H + MARGIN; y++)
+      for (let x = -MARGIN; x < GRID_W + MARGIN; x++) {
+        this.drawTile(ctx, x, y);
+        if (park.terrainAt(x, y) === GROUND.WATER) this.waterTiles.push(x, y);
+      }
+    /* dissolve the far edge of the land into the sky instead of ending on a
+       hard diamond; iso space is 2:1, so fade in a vertically squashed circle */
+    const cx = isoX(GRID_W / 2, GRID_H / 2), cy = isoY(GRID_W / 2, GRID_H / 2);
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.translate(cx, cy);
+    ctx.scale(1, 1 / 1.45);
+    const fade = ctx.createRadialGradient(0, 0, this.fadeIn, 0, 0, this.fadeOut);
+    fade.addColorStop(0, 'rgba(0,0,0,0)');
+    fade.addColorStop(0.65, 'rgba(0,0,0,.45)');
+    fade.addColorStop(1, 'rgba(0,0,0,1)');
+    ctx.fillStyle = fade;
+    ctx.fillRect(-5000, -5000, 10000, 10000);
+    ctx.restore();
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     park.dirty.length = 0;
     park.fullRebuild = false;
     this.groundVersion = park.version;
+  },
+
+  /* how solid the land (and anything standing on it) is at a world point */
+  edgeAlpha(wx, wy) {
+    const cx = isoX(GRID_W / 2, GRID_H / 2), cy = isoY(GRID_W / 2, GRID_H / 2);
+    const d = Math.hypot(wx - cx, (wy - cy) * 1.45);
+    return clamp(1 - (d - this.fadeIn) / (this.fadeOut - this.fadeIn), 0, 1);
   },
 
   /* repaint only the tiles that changed (plus their neighbours, whose edge
@@ -213,6 +321,8 @@ const renderer = {
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, this.W, this.H);
 
+    this.drawHorizon(ctx, light);
+
     /* world transform */
     ctx.save();
     ctx.translate(this.W / 2, this.H / 2);
@@ -224,6 +334,7 @@ const renderer = {
     this.drawMarkers(ctx);
     if (build && build.key) this.drawGhost(ctx, build);
     this.drawEntities(ctx, t, dt);
+    if (ui.landMode) this.drawLand(ctx);
     this.drawEffects(ctx);
     ctx.restore();
 
@@ -231,13 +342,40 @@ const renderer = {
     this.drawLabels(ctx);
   },
 
-  /* animated shimmer on the pond */
+  /* Distant ridges behind the world, parallaxed against the camera so the
+     valley feels like it continues past the edge of the land. */
+  drawHorizon(ctx, light) {
+    const layers = [
+      { amp: 34, base: 0.40, seed: 2.3, par: 0.035, col: mixColor('#1b2740', '#8fb3c9', light) },
+      { amp: 26, base: 0.46, seed: 7.1, par: 0.065, col: mixColor('#1f2c3c', '#7aa08e', light) },
+      { amp: 20, base: 0.52, seed: 4.7, par: 0.10, col: mixColor('#22302c', '#5d8a63', light) }
+    ];
+    for (const L of layers) {
+      const yBase = this.H * L.base - (view.y - 600) * L.par * view.zoom;
+      const xOff = -view.x * L.par * view.zoom;
+      ctx.beginPath();
+      ctx.moveTo(-10, this.H + 10);
+      for (let sx = -10; sx <= this.W + 10; sx += 14) {
+        const u = (sx + xOff) * 0.0016 + L.seed;
+        const h = (noise2(u * 3, L.seed) * 0.6 + noise2(u * 7.5, L.seed + 3) * 0.4);
+        ctx.lineTo(sx, yBase - h * L.amp * 2 + L.amp);
+      }
+      ctx.lineTo(this.W + 10, this.H + 10);
+      ctx.closePath();
+      ctx.fillStyle = L.col;
+      ctx.fill();
+    }
+  },
+
+  /* animated shimmer on every stretch of water, park or wild */
   drawWater(ctx, t) {
     ctx.save();
     ctx.globalAlpha = 0.5;
-    for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) {
-      if (park.ground[park.idx(x, y)] !== GROUND.WATER) continue;
+    const b = this.viewBounds(90);
+    for (let i = 0; i < this.waterTiles.length; i += 2) {
+      const x = this.waterTiles[i], y = this.waterTiles[i + 1];
       const cx = isoX(x + 0.5, y + 0.5), cy = isoY(x + 0.5, y + 0.5);
+      if (cx < b.l || cx > b.r || cy < b.t || cy > b.b) continue;
       const p = hash2(x, y);
       const a = Math.sin(t * 1.4 + p * 7) * 0.5 + 0.5;
       ctx.fillStyle = PALETTE.waterLite;
@@ -248,6 +386,59 @@ const renderer = {
     }
     ctx.restore();
   },
+
+  /* the visible rectangle in world (iso pixel) space, grown by `pad` */
+  viewBounds(pad) {
+    pad = pad || 0;
+    const hw = this.W / 2 / view.zoom + pad, hh = this.H / 2 / view.zoom + pad;
+    return { l: view.x - hw, r: view.x + hw, t: view.y - hh, b: view.y + hh };
+  },
+
+  /* plots of land: what you own, what is for sale and what it costs */
+  drawLand(ctx) {
+    const price = park.plotPrice();
+    for (let py = 0; py < PLOTS_Y; py++) {
+      for (let px = 0; px < PLOTS_X; px++) {
+        const owned = park.ownsPlot(px, py);
+        const sale = park.plotForSale(px, py);
+        if (!owned && !sale) continue;
+        const x0 = px * PLOT, y0 = py * PLOT;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(...this.pt(x0, y0));
+        ctx.lineTo(...this.pt(x0 + PLOT, y0));
+        ctx.lineTo(...this.pt(x0 + PLOT, y0 + PLOT));
+        ctx.lineTo(...this.pt(x0, y0 + PLOT));
+        ctx.closePath();
+        if (sale) {
+          const afford = sim.money >= price;
+          ctx.fillStyle = afford ? 'rgba(90,210,120,.22)' : 'rgba(220,110,80,.20)';
+          ctx.fill();
+          ctx.strokeStyle = afford ? 'rgba(120,235,150,.9)' : 'rgba(230,140,110,.8)';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([9, 6]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          const c = this.pt(x0 + PLOT / 2, y0 + PLOT / 2);
+          ctx.font = 'bold 13px system-ui, sans-serif';
+          const label = money(price);
+          const w = ctx.measureText(label).width + 20;
+          ctx.fillStyle = 'rgba(20,16,12,.82)';
+          roundRect(ctx, c[0] - w / 2, c[1] - 13, w, 24, 11); ctx.fill();
+          ctx.fillStyle = afford ? '#bff0c8' : '#f0b9a6';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(label, c[0], c[1]);
+        } else {
+          ctx.strokeStyle = 'rgba(255,255,255,.22)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+  },
+
+  pt(tx, ty) { return [isoX(tx, ty), isoY(tx, ty)]; },
 
   /* entrance / exit chevrons and the hovered tile */
   drawMarkers(ctx) {
@@ -271,15 +462,30 @@ const renderer = {
       }
     }
     const h = this.hover;
-    if (h.x >= 0 && park.inBounds(h.x, h.y)) {
-      const cx = isoX(h.x + 0.5, h.y + 0.5), cy = isoY(h.x + 0.5, h.y + 0.5);
+    if (!park.inBounds(h.x, h.y)) return;
+    if (ui.landMode) {
+      const p = park.plotOf(h.x, h.y);
+      if (!park.plotForSale(p.px, p.py)) return;
+      const x0 = p.px * PLOT, y0 = p.py * PLOT;
       ctx.save();
-      ctx.strokeStyle = 'rgba(255,255,255,.75)';
-      ctx.lineWidth = 2;
-      diamond(ctx, cx, cy, TILE_W - 4, TILE_H - 2);
-      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(...this.pt(x0, y0));
+      ctx.lineTo(...this.pt(x0 + PLOT, y0));
+      ctx.lineTo(...this.pt(x0 + PLOT, y0 + PLOT));
+      ctx.lineTo(...this.pt(x0, y0 + PLOT));
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255,255,255,.12)';
+      ctx.fill();
       ctx.restore();
+      return;
     }
+    const cx = isoX(h.x + 0.5, h.y + 0.5), cy = isoY(h.x + 0.5, h.y + 0.5);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,.75)';
+    ctx.lineWidth = 2;
+    diamond(ctx, cx, cy, TILE_W - 4, TILE_H - 2);
+    ctx.stroke();
+    ctx.restore();
   },
 
   /* translucent preview of what is about to be built */
@@ -302,7 +508,7 @@ const renderer = {
     ctx.restore();
 
     if (item.cat !== 'path') {
-      const spr = getSprite(item.art, w, hh, build.rot);
+      const spr = getSprite(item.art, w, hh, build.rot, item);
       ctx.save();
       ctx.globalAlpha = ok ? 0.75 : 0.4;
       ctx.drawImage(spr.c, isoX(h.x, h.y) - spr.ox, isoY(h.x, h.y) - spr.oy);
@@ -352,25 +558,52 @@ const renderer = {
   },
 
   /* ------------------------------------------------------------ entities */
+  /* Scenery is static and already sorted by depth, so it is merged into the
+     dynamic list rather than re-sorted every frame. */
   drawEntities(ctx, t, dt) {
     const list = [];
     for (const b of park.buildings.values()) list.push({ d: b.x + b.y + (b.w + b.h) * 0.5, b });
     for (const v of sim.visitors) if (v.state !== 'riding') list.push({ d: v.x + v.y + 0.6, v });
     for (const s of sim.staff) list.push({ d: s.x + s.y + 0.6, s });
-    list.push({ d: park.gate.x + park.gate.y + 0.2, gate: true });
+    for (const v of traffic.vehicles) list.push({ d: v.x + v.y + 0.5, veh: v });
+    list.push({ d: park.gate.x + GRID_H - 1.4, gate: true });
     list.sort((a, b) => a.d - b.d);
 
+    const props = scenery.props;
+    const bounds = this.viewBounds(220);
+    let pi = 0;
     for (const e of list) {
+      while (pi < props.length && props[pi].d <= e.d) this.drawProp(ctx, props[pi++], t, bounds);
       if (e.gate) {
-        const spr = getSprite('parkgate', 3, 1, 0);
-        ctx.drawImage(spr.c, isoX(park.gate.x - 1, park.gate.y + 1) - spr.ox, isoY(park.gate.x - 1, park.gate.y + 1) - spr.oy);
-      } else if (e.b) this.drawBuilding(ctx, e.b, t);
+        const spr = getSprite('parkgate', 5, 1, 0);
+        const gx = isoX(park.gate.x - 2, GRID_H - 1) - spr.ox, gy = isoY(park.gate.x - 2, GRID_H - 1) - spr.oy;
+        ctx.drawImage(spr.c, gx, gy);
+        ANIM.parkgate(ctx, gx, gy, spr, t);
+      } else if (e.veh) drawVehicle(ctx, e.veh, t);
+      else if (e.b) this.drawBuilding(ctx, e.b, t);
       else this.drawPerson(ctx, e.v || e.s, t);
     }
+    while (pi < props.length) this.drawProp(ctx, props[pi++], t, bounds);
+  },
+
+  drawProp(ctx, p, t, b) {
+    if (p.wx < b.l || p.wx > b.r || p.wy < b.t || p.wy > b.b) return;
+    if (p.alpha === undefined) p.alpha = this.edgeAlpha(p.wx, p.wy);
+    if (p.alpha < 0.02) return;
+    const spr = p.spr || (p.spr = getSprite(p.art, p.art === 'volcano' ? 9 : 1, p.art === 'volcano' ? 9 : 1, 0));
+    const s = p.s || 1;
+    const x = p.wx - spr.ox * s, y = p.wy - spr.oy * s;
+    const dim = p.alpha < 1;
+    if (dim) { ctx.save(); ctx.globalAlpha = p.alpha; }
+    if (s === 1) ctx.drawImage(spr.c, x, y);
+    else ctx.drawImage(spr.c, x, y, spr.c.width * s, spr.c.height * s);
+    const anim = p.anim && ANIM[p.art];
+    if (anim) anim(ctx, x, y, spr, t, p);
+    if (dim) ctx.restore();
   },
 
   drawBuilding(ctx, b, t) {
-    const spr = getSprite(b.item.art, b.w, b.h, b.rot);
+    const spr = getSprite(b.item.art, b.w, b.h, b.rot, b.item);
     const sx = isoX(b.x, b.y) - spr.ox, sy = isoY(b.x, b.y) - spr.oy;
     /* contact shadow */
     const [mx, my] = [isoX(b.x + b.w / 2, b.y + b.h / 2), isoY(b.x + b.w / 2, b.y + b.h / 2)];

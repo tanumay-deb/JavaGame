@@ -5,10 +5,17 @@
 const TILE_W = 64;            // isometric tile width  (screen px)
 const TILE_H = 32;            // isometric tile height (screen px)
 const LEVEL_H = 18;           // vertical px per "storey" used by sprites
-const GRID_W = 38;
-const GRID_H = 38;
+const GRID_W = 36;            // the whole valley, in tiles
+const GRID_H = 36;
+const PLOT = 6;               // land is bought a plot at a time
+const PLOTS_X = GRID_W / PLOT;
+const PLOTS_Y = GRID_H / PLOT;
+const MARGIN = 10;            // tiles of wild country drawn beyond the valley
+const ROAD_Y = GRID_H + 3;    // the track that brings visitors, south of the park
+const PLOT_BASE = 850;        // price of the first plot of land you buy
+const PLOT_STEP = 480;        // each further plot costs this much more
 
-const GROUND = { GRASS: 0, GRAVEL: 1, STONE: 2, WATER: 3, SAND: 4 };
+const GROUND = { GRASS: 0, GRAVEL: 1, STONE: 2, WATER: 3, SAND: 4, ROAD: 5 };
 
 const MONTH_SECONDS = 48;     // real seconds per in-game month at 1x speed
 const DAYS_PER_MONTH = 28;
@@ -141,12 +148,14 @@ const BUILD_TABS = [
   { id: 'ride',  label: 'Rides',  items: ['seesaw', 'trampoline', 'swing', 'slide', 'range', 'carousel', 'catapult', 'ferris', 'cave', 'tower', 'chute', 'coaster'] },
   { id: 'shop',  label: 'Shops',  items: ['snack', 'drinks', 'cafe', 'balloon', 'toilet', 'aid', 'gate'] },
   { id: 'power', label: 'Power',  items: ['engine'] },
-  { id: 'decor', label: 'Decor',  items: ['bench', 'sign', 'palm', 'bush', 'flowers', 'rock', 'torch', 'fountain'] }
+  { id: 'decor', label: 'Decor',  items: ['bench', 'sign', 'palm', 'bush', 'flowers', 'rock', 'torch', 'fountain'] },
+  { id: 'land',  label: '🌄 Land', items: [] }
 ];
 
 const OBJECTIVES = [
   { id: 'cash',      label: 'Cash in hand',        target: 12000 },
   { id: 'visitors',  label: 'Visitors in park',    target: 60 },
   { id: 'happiness', label: 'Average happiness %', target: 70 },
-  { id: 'rides',     label: 'Working rides built', target: 8 }
+  { id: 'rides',     label: 'Working rides built', target: 8 },
+  { id: 'land',      label: 'Plots of land owned',  target: 8 }
 ];

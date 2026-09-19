@@ -335,22 +335,115 @@ ANIM.fountain = function (ctx, sx, sy, g, t) {
   ctx.restore();
 };
 
-/* the park gate, drawn once at the entrance tile */
+/* The main gateway: two carved totems, a lintel with the park's banner, a pair
+   of ticket booths and torches. Visitors walk in under it from the road. */
 ART.parkgate = function () {
-  const g = spriteCtx(3, 1, 64), ctx = g.ctx;
-  const l = g.C(0, 0), r = g.C(2, 0), c = g.C(1, 0);
-  post(g, 0, 0, 44, 5, PALETTE.wood);
-  post(g, 2, 0, 44, 5, PALETTE.wood);
+  /* five tiles of canvas so the booths and banner are not clipped; the posts
+     themselves stand on the middle three, which is the gap in the palisade */
+  const g = spriteCtx(5, 1, 130), ctx = g.ctx;
+  const l = g.C(1, 0), r = g.C(3, 0), c = g.C(2, 0);
+  const H = 82;
+
+  /* stone threshold across the opening */
+  ctx.fillStyle = '#b0aa9c';
+  ctx.beginPath();
+  ctx.moveTo(l[0] - 6, l[1] + 4); ctx.lineTo(r[0] + 6, r[1] + 4);
+  ctx.lineTo(r[0] + 2, r[1] + 12); ctx.lineTo(l[0] - 2, l[1] + 12);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 5; i++) {
+    const x = lerp(l[0], r[0], i / 5);
+    ctx.beginPath(); ctx.moveTo(x, l[1] + 4); ctx.lineTo(x - 2, l[1] + 12); ctx.stroke();
+  }
+
+  /* ticket booths just outside each totem */
+  for (const [bx, by] of [[l[0] - 40, l[1] - 14], [r[0] + 40, r[1] + 22]]) {
+    isoBox(ctx, bx, by, TILE_W * 0.52, TILE_H * 0.52, 20, '#9b6b40', '#5f4227', '#7c5432');
+    thatchRoof(ctx, bx, by - 20, 20, 7, 13, PALETTE.thatch);
+    ctx.fillStyle = shade(PALETTE.wood, .12);
+    roundRect(ctx, bx - 13, by - 12, 26, 6, 2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.fillRect(bx - 13, by - 7, 26, 2);
+  }
+
+  /* totem posts */
+  for (const p of [l, r]) {
+    ctx.fillStyle = PALETTE.woodDark;
+    ctx.fillRect(p[0] - 9, p[1] - H, 18, H);
+    ctx.fillStyle = shade(PALETTE.wood, .16);
+    ctx.fillRect(p[0] - 9, p[1] - H, 6, H);
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.fillRect(p[0] + 4, p[1] - H, 5, H);
+    /* carved bands */
+    ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 2;
+    for (let i = 1; i < 5; i++) {
+      const yy = p[1] - (H * i) / 5;
+      ctx.beginPath(); ctx.moveTo(p[0] - 9, yy); ctx.lineTo(p[0] + 9, yy); ctx.stroke();
+    }
+    ctx.fillStyle = '#c9a24a';
+    for (let i = 0; i < 4; i++) {
+      const yy = p[1] - 10 - i * 17;
+      ctx.beginPath();
+      ctx.moveTo(p[0] - 5, yy); ctx.lineTo(p[0], yy - 6); ctx.lineTo(p[0] + 5, yy); ctx.closePath(); ctx.fill();
+    }
+    /* base stones */
+    ctx.fillStyle = PALETTE.rock;
+    ctx.beginPath(); ctx.ellipse(p[0], p[1] + 2, 15, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = shade(PALETTE.rock, -.2);
+    ctx.beginPath(); ctx.ellipse(p[0], p[1] + 5, 15, 5, 0, 0, Math.PI * 2); ctx.fill();
+    skull(ctx, p[0], p[1] - H - 12, 11);
+  }
+
+  /* lintel and banner */
+  ctx.fillStyle = PALETTE.wood;
+  ctx.fillRect(l[0] - 12, l[1] - H - 2, (r[0] - l[0]) + 24, 13);
+  ctx.fillStyle = shade(PALETTE.wood, .18);
+  ctx.fillRect(l[0] - 12, l[1] - H - 2, (r[0] - l[0]) + 24, 4);
+  ctx.fillStyle = shade(PALETTE.wood, -.3);
+  ctx.fillRect(l[0] - 12, l[1] - H + 8, (r[0] - l[0]) + 24, 3);
+
   ctx.fillStyle = PALETTE.hide;
   ctx.beginPath();
-  ctx.moveTo(l[0], l[1] - 44); ctx.lineTo(r[0], r[1] - 44);
-  ctx.lineTo(r[0], r[1] - 26); ctx.quadraticCurveTo(c[0], c[1] - 34, l[0], l[1] - 26);
+  ctx.moveTo(l[0] - 14, l[1] - H + 11);
+  ctx.lineTo(r[0] + 14, r[1] - H + 11);
+  ctx.lineTo(r[0] + 14, r[1] - H + 32);
+  ctx.quadraticCurveTo(c[0], c[1] - H + 42, l[0] - 14, l[1] - H + 32);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = shade(PALETTE.hide, -.3); ctx.lineWidth = 2; ctx.stroke();
+  ctx.strokeStyle = shade(PALETTE.hide, -.32); ctx.lineWidth = 2; ctx.stroke();
+  /* the banner hangs across the diagonal, so write the name along it */
+  ctx.save();
+  ctx.translate(c[0], c[1] - H + 24);
+  ctx.rotate(Math.atan2((r[1] - l[1]), (r[0] - l[0])));
   ctx.fillStyle = '#5b3a22';
-  ctx.font = 'bold 13px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('FUN PARK', c[0], c[1] - 37);
-  skull(ctx, l[0], l[1] - 50, 7);
-  skull(ctx, r[0], r[1] - 50, 7);
+  ctx.font = 'bold 13px Georgia, serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('FUN PARK', 0, 0);
+  ctx.restore();
+
+  /* bunting between the totems */
+  ctx.strokeStyle = '#8a7350'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(l[0], l[1] - H - 8);
+  ctx.quadraticCurveTo(c[0], c[1] - H + 2, r[0], r[1] - H - 8);
+  ctx.stroke();
+  for (let i = 1; i < 6; i++) {
+    const f = i / 6;
+    const bx = lerp(l[0], r[0], f);
+    const by = lerp(l[1] - H - 8, r[1] - H - 8, f) + Math.sin(f * Math.PI) * 10;
+    ctx.fillStyle = i % 2 ? '#c44a3f' : '#e8d7a8';
+    ctx.beginPath();
+    ctx.moveTo(bx - 4, by); ctx.lineTo(bx + 4, by); ctx.lineTo(bx, by + 8); ctx.closePath(); ctx.fill();
+  }
+
+  g.torches = [[l[0] - 16, l[1] + 2], [r[0] + 16, r[1] + 2]];
+  for (const tp of g.torches) {
+    ctx.fillStyle = PALETTE.woodDark;
+    ctx.fillRect(tp[0] - 2.5, tp[1] - 30, 5, 30);
+    ctx.fillStyle = PALETTE.rockDark;
+    ctx.beginPath(); ctx.ellipse(tp[0], tp[1], 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+  }
   return g;
+};
+ANIM.parkgate = function (ctx, sx, sy, g, t) {
+  for (const tp of g.torches) drawFlame(ctx, tp[0] + sx, tp[1] - 30 + sy, t);
 };
