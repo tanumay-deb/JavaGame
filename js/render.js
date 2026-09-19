@@ -22,8 +22,10 @@ const renderer = {
     this.ctx = canvas.getContext('2d');
     this.resize();
     /* a phone gets a closer view, so people and rides stay legible and tappable */
+    view.maxZoom = this.W < 900 ? 2.4 : 2.0;
     view.zoom = this.W < 520 ? 1.3 : this.W < 900 ? 1.15 : 1;
-    view.maxZoom = this.W < 900 ? 2.4 : 1.9;
+    this.clampView();
+    view.zoom = Math.max(view.zoom, view.minZoom);
     this.centerOn(park.gate.x, park.gate.y - 4);
   },
 
@@ -36,13 +38,17 @@ const renderer = {
     this.canvas.height = Math.round(r.height * dpr);
   },
 
-  centerOn(tx, ty) { view.x = isoX(tx, ty); view.y = isoY(tx, ty); },
+  centerOn(tx, ty) { view.x = isoX(tx, ty); view.y = isoY(tx, ty); this.clampView(); },
 
   clampView() {
-    const maxX = GRID_W * TILE_W / 2 + 200, minX = -GRID_H * TILE_W / 2 - 200;
-    view.x = clamp(view.x, minX, maxX);
-    view.y = clamp(view.y, -120, (GRID_W + GRID_H) * TILE_H / 2 + 120);
+    const b = this.camBounds();
+    const bw = b.maxX - b.minX, bh = b.maxY - b.minY;
+    /* you cannot zoom out past the point where the park fills the screen */
+    view.minZoom = clamp(Math.max(this.W / bw, this.H / bh), 0.4, 1.7);
     view.zoom = clamp(view.zoom, view.minZoom, view.maxZoom);
+    const hw = this.W / 2 / view.zoom, hh = this.H / 2 / view.zoom;
+    view.x = bw <= hw * 2 ? (b.minX + b.maxX) / 2 : clamp(view.x, b.minX + hw, b.maxX - hw);
+    view.y = bh <= hh * 2 ? (b.minY + b.maxY) / 2 : clamp(view.y, b.minY + hh, b.maxY - hh);
   },
 
   screenToTile(sx, sy) {
@@ -58,11 +64,9 @@ const renderer = {
 
   /* --------------------------------------------------------- ground bake */
   /* how much the distance-fade darkens a tile (baked, so it is free at runtime) */
-  tileFade(x, y) {
-    const d = Math.hypot(isoX(x + .5, y + .5) - this.fadeCx, (isoY(x + .5, y + .5) - this.fadeCy) * 1.45);
-    const t = clamp((d - this.fadeIn * 0.72) / Math.max(1, this.fadeOut - this.fadeIn * 0.72), 0, 1);
-    return t * 0.34;
-  },
+  /* the land is drawn solid to its edge; the camera simply cannot travel far
+     enough to put that edge on screen */
+  tileFade() { return 0; },
 
   /* the two world-space corners of one edge of a tile, pulled `inset` of the
      way toward the tile centre (0 = on the edge, 0.5 = at the middle) */
@@ -321,30 +325,32 @@ const renderer = {
     ctx.fillRect(-this.gox, -this.goy, this.groundCanvas.width, this.groundCanvas.height);
     ctx.restore();
 
-    /* dissolve the far edge of the land into the sky instead of ending on a
-       hard diamond; iso space is 2:1, so fade in a vertically squashed circle */
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.translate(this.fadeCx, this.fadeCy);
-    ctx.scale(1, 1 / 1.45);
-    const fade = ctx.createRadialGradient(0, 0, this.fadeIn, 0, 0, this.fadeOut);
-    fade.addColorStop(0, 'rgba(0,0,0,0)');
-    fade.addColorStop(0.65, 'rgba(0,0,0,.45)');
-    fade.addColorStop(1, 'rgba(0,0,0,1)');
-    ctx.fillStyle = fade;
-    ctx.fillRect(-5000, -5000, 10000, 10000);
-    ctx.restore();
-
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     park.dirty.length = 0;
     park.fullRebuild = false;
     this.groundVersion = park.version;
   },
 
-  /* how solid the land (and anything standing on it) is at a world point */
-  edgeAlpha(wx, wy) {
-    const d = Math.hypot(wx - this.fadeCx, (wy - this.fadeCy) * 1.45);
-    return clamp(1 - (d - this.fadeIn) / (this.fadeOut - this.fadeIn), 0, 1);
+  edgeAlpha() { return 1; },
+
+  /* how far the camera may roam: the land you own plus a little of the country
+     around it, and always the road at the bottom */
+  camBounds() {
+    let x0 = GRID_W, y0 = GRID_H, x1 = 0, y1 = 0, any = false;
+    for (let py = 0; py < PLOTS_Y; py++) for (let px = 0; px < PLOTS_X; px++) {
+      if (!park.ownsPlot(px, py)) continue;
+      any = true;
+      x0 = Math.min(x0, px * PLOT); y0 = Math.min(y0, py * PLOT);
+      x1 = Math.max(x1, (px + 1) * PLOT); y1 = Math.max(y1, (py + 1) * PLOT);
+    }
+    if (!any) { x0 = park.gate.x - PLOT; y0 = park.gate.y - PLOT; x1 = park.gate.x + PLOT; y1 = GRID_H; }
+    const pad = 3;
+    x0 -= pad; y0 -= pad; x1 += pad;
+    y1 = Math.max(y1 + pad, ROAD_Y + 2.5);
+    return {
+      minX: isoX(x0, y1), maxX: isoX(x1, y0),
+      minY: isoY(x0, y0), maxY: isoY(x1, y1)
+    };
   },
 
   /* the tile rectangle worth drawing: owned land plus a ring of wild country */
@@ -418,6 +424,7 @@ const renderer = {
     const t = this.time;
     if (park.fullRebuild || !this.groundCanvas) this.buildGround();
     else if (park.dirty.length) this.patchGround();
+    this.clampView();
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     /* sky */
@@ -554,24 +561,51 @@ const renderer = {
     for (const b of park.buildings.values()) {
       if (b.item.cat !== 'ride') continue;
       for (const [tile, col, label] of [[b.ent, '#5fd06a', 'IN'], [b.ext, '#e06a5f', 'OUT']]) {
-        for (const a of park.accessTiles(tile)) {
-          const cx = isoX(a.x + 0.5, a.y + 0.5), cy = isoY(a.x + 0.5, a.y + 0.5);
-          ctx.save();
-          ctx.globalAlpha = 0.85;
-          ctx.fillStyle = col;
-          diamond(ctx, cx, cy, TILE_W * 0.42, TILE_H * 0.42);
-          ctx.fill();
-          ctx.fillStyle = 'rgba(0,0,0,.65)';
-          ctx.font = 'bold 8px system-ui, sans-serif';
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(label, cx, cy + 1);
-          ctx.restore();
-          break;
+        const access = park.accessTiles(tile);
+        /* with no path beside it, mark the doorway itself so you can see where
+           the missing connection has to go */
+        const a = access[0] || tile;
+        const linked = access.length > 0;
+        const cx = isoX(a.x + 0.5, a.y + 0.5), cy = isoY(a.x + 0.5, a.y + 0.5);
+        ctx.save();
+        ctx.globalAlpha = linked ? 0.85 : 1;
+        ctx.fillStyle = col;
+        diamond(ctx, cx, cy, TILE_W * (linked ? 0.42 : 0.6), TILE_H * (linked ? 0.42 : 0.6));
+        ctx.fill();
+        if (!linked) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 4]);
+          diamond(ctx, cx, cy, TILE_W * 0.86, TILE_H * 0.86);
+          ctx.stroke();
+          ctx.setLineDash([]);
         }
+        ctx.fillStyle = 'rgba(0,0,0,.7)';
+        ctx.font = 'bold ' + (linked ? 8 : 9) + 'px system-ui, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(linked ? label : label + '?', cx, cy + 1);
+        ctx.restore();
       }
     }
     const h = this.hover;
     if (!park.inBounds(h.x, h.y)) return;
+    if (ui.demolishMode) {
+      const b = park.buildingAt(h.x, h.y);
+      const tiles = [];
+      if (b) { for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) tiles.push([b.x + dx, b.y + dy]); }
+      else if (park.isPath(h.x, h.y)) tiles.push([h.x, h.y]);
+      ctx.save();
+      ctx.fillStyle = 'rgba(230,90,70,.45)';
+      ctx.strokeStyle = 'rgba(255,150,130,.95)';
+      ctx.lineWidth = 2;
+      for (const [tx, ty] of tiles) {
+        const cx = isoX(tx + 0.5, ty + 0.5), cy = isoY(tx + 0.5, ty + 0.5);
+        diamond(ctx, cx, cy, TILE_W - 3, TILE_H - 1.5);
+        ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
     if (ui.landMode) {
       const p = park.plotOf(h.x, h.y);
       if (!park.plotForSale(p.px, p.py)) return;

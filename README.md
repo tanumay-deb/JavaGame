@@ -14,8 +14,8 @@ You begin with four plots — a clearing, a gateway and the road:
 
 ![The starting clearing, fenced, with forest all around](docs/screenshots/start.png)
 
-Carts, wagons and mammoth buses queue on the tarmac outside and set visitors down
-at the gateway; nothing on wheels comes inside the park:
+Cars, minibuses and coaches queue on the tarmac outside and set visitors down at
+the gateway; nothing on wheels comes inside the park:
 
 ![Vehicles at the gate dropping visitors off](docs/screenshots/gate.png)
 
@@ -45,6 +45,7 @@ The game saves to `localStorage` automatically at every new moon, and from
 | Buy land | **Build → 🌄 Land**, then tap a marked plot |
 | Place it | tap the spot, then the green ✓ (or `Enter`). The red ✕ picks a different spot |
 | Move something | **press and hold it, then drag** — or select it and use **✥ Move**. Free, either way |
+| Demolish | **Build → 💥 Demolish**, then tap. Drag to clear a run of paving; half the cost comes back |
 | Rotate a ride | **Rotate** in the build bar, or `R` |
 | Inspect | tap a ride, a shop, a worker — or any visitor |
 | Cancel | `Esc`, or right-click |
@@ -58,13 +59,16 @@ The game saves to `localStorage` automatically at every new moon, and from
   the forest and moves the palisade out. You can only build on land you own.
 * **Visitors arrive by road.** A metalled two-lane road runs past the park, with
   kerbs, edge lines and a dashed centre line, and an apron up to the gateway.
-  Dino carts, hide wagons and mammoth buses pull up there, set their passengers
-  down and queue behind one another while they unload. Visitors walk in under the banner; vehicles never come inside.
+  Cars, minibuses and coaches pull up there, set their passengers down and queue
+  behind one another while they unload — a coach when a crowd is due, a car when
+  it is quiet. Visitors walk in under the banner; vehicles never come inside.
   People going home walk back out and wait at the roadside for a lift.
 * **Visitors only walk on paths.** Pave a route out of the gate first. Stone paths
   are more comfortable than gravel.
 * **Every ride has an IN and an OUT tile**, shown in the build preview before you
-  pay. Both must touch a path or nobody can ride.
+  pay. Both must touch a path or nobody will ride: a doorway with no path beside
+  it is marked **IN?** / **OUT?** on the doorway itself, so you can see which one
+  still needs connecting.
 * **Big rides need power** — a Dino Treadmill within range, with a Dino Rider
   hired to turn it.
 * **Shops need staff**: a salesman for the snack bar, juice hut and balloons, a
@@ -130,10 +134,11 @@ on a phone (~0.2 ms per tile versus ~7 ms for a full rebake).
 
 That layer only covers the land you own plus a ring of wild country around it, and
 is rebuilt a size larger when you buy a plot — a new park bakes 1792×904 px rather
-than the 3712×1864 px the whole valley would need. The fade that dissolves the
-land into the sky is sized to that rectangle, so the ground never ends on a hard
-line however big the park gets, and the scenery standing on it is depth-sorted
-into the same pass as the rides and the crowd.
+than the 3712×1864 px the whole valley would need. Rather than fading the edge
+out, the camera is fenced: panning is clamped to the land, and the zoom-out floor
+is computed so the park always fills the screen, so the edge simply never comes
+into view. Both loosen as you buy land. The scenery standing on that ground is
+depth-sorted into the same pass as the rides and the crowd.
 
 Nights are switched off for the moment (`sim.nightCycle = false`); the lighting
 pass and the torch glows are still there behind the flag.

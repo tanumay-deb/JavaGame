@@ -25,6 +25,7 @@
 
   function tap(sx, sy) {
     const t = renderer.screenToTile(sx, sy);
+    if (ui.demolishMode) { ui.demolishAt(t.x, t.y); return; }
     if (ui.landMode) { ui.buyPlotAt(t.x, t.y); return; }
     if (ui.build.key) { placeAt(t); return; }
     const person = pickPerson(sx, sy);
@@ -76,6 +77,10 @@
     if (ui.build.key && !ui.build.moving && ITEMS[ui.build.key].cat === 'path') {
       painting = true;
       placeAt(renderer.hover);
+    } else if (ui.demolishMode) {
+      /* dragging clears a run of paving */
+      painting = 'clear';
+      ui.demolishAt(renderer.hover.x, renderer.hover.y);
     } else if (!ui.build.key && !ui.landMode) {
       /* hold on a building to pick it up and carry it */
       const t = renderer.hover;
@@ -122,7 +127,10 @@
     if (!dragging) return;
     const dx = p.x - lastPt.x, dy = p.y - lastPt.y;
     if (Math.abs(dx) + Math.abs(dy) > 3) dragged = true;
-    if (painting) {
+    if (painting === 'clear') {
+      const t = renderer.hover;
+      if (!park.buildingAt(t.x, t.y)) ui.demolishAt(t.x, t.y);   /* drag clears paving only */
+    } else if (painting) {
       placeAt(renderer.hover);
     } else {
       view.x -= dx / view.zoom;
@@ -184,7 +192,7 @@
     else if (k === 'arrowup' || k === 'w') { view.y -= pan; }
     else if (k === 'arrowdown' || k === 's') { view.y += pan; }
     else if (k === 'r') ui.rotate();
-    else if (k === 'escape') { ui.clearPending(); ui.setBuild(null); ui.stopLand(); ui.select(null); ui.close('modal'); ui.close('sheet'); }
+    else if (k === 'escape') { ui.clearPending(); ui.setBuild(null); ui.stopLand(); ui.stopDemolish(); ui.select(null); ui.close('modal'); ui.close('sheet'); }
     else if (k === 'enter') { if (ui.pending) ui.confirmPlace(); }
     else if (k === 'b') ui.toggleSheet();
     else if (k === ' ') { e.preventDefault(); sim.paused = !sim.paused; syncSpeedButtons(); }

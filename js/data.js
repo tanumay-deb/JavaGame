@@ -149,7 +149,8 @@ const BUILD_TABS = [
   { id: 'shop',  label: 'Shops',  items: ['snack', 'drinks', 'cafe', 'balloon', 'toilet', 'aid', 'gate'] },
   { id: 'power', label: 'Power',  items: ['engine'] },
   { id: 'decor', label: 'Decor',  items: ['bench', 'sign', 'palm', 'bush', 'flowers', 'rock', 'torch', 'fountain'] },
-  { id: 'land',  label: '🌄 Land', items: [] }
+  { id: 'land',  label: '🌄 Land', items: [] },
+  { id: 'clear', label: '💥 Demolish', items: [] }
 ];
 
 const OBJECTIVES = [

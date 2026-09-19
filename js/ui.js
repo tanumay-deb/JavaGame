@@ -6,6 +6,7 @@ const ui = {
   build: { key: null, rot: 0 },
   pending: null,          /* a spot picked out, waiting for the green tick */
   landMode: false,
+  demolishMode: false,
   tab: 'path',
   el: {},
   lastInspect: 0,
@@ -39,7 +40,8 @@ const ui = {
     $('btn-menu').addEventListener('click', () => this.menuModal());
     $('btn-rotate').addEventListener('click', () => this.rotate());
     $('btn-cancel-build').addEventListener('click', () => {
-      if (this.landMode) this.stopLand();
+      if (this.demolishMode) this.stopDemolish();
+      else if (this.landMode) this.stopLand();
       else if (this.build.moving) this.endMove(true);
       else this.setBuild(null);
     });
@@ -61,6 +63,7 @@ const ui = {
   /* ------------------------------------------------------------ build UI */
   toggleSheet() {
     if (this.landMode) this.stopLand();
+    if (this.demolishMode) this.stopDemolish();
     const s = this.el.sheet;
     const open = s.classList.contains('hidden');
     s.classList.toggle('hidden', !open);
@@ -83,12 +86,41 @@ const ui = {
     this.tab = id;
     for (const b of this.el.tabs.children) b.classList.toggle('on', b.dataset.tab === id);
     if (id === 'land') { this.startLand(); return; }
+    if (id === 'clear') { this.startDemolish(); return; }
+    this.stopDemolish();
     this.renderCards();
+  },
+
+  /* --------------------------------------------------------- demolish */
+  startDemolish() {
+    this.setBuild(null);
+    this.stopLand();
+    this.demolishMode = true;
+    this.close('sheet');
+    this.el.buildbar.classList.remove('hidden');
+    document.getElementById('btn-rotate').classList.add('hidden');
+    this.el.buildbarName.textContent = '💥 Demolish · tap to clear';
+    sim.toast('Tap a ride, shop or path to clear it. Half the cost comes back.');
+  },
+
+  stopDemolish() {
+    if (!this.demolishMode) return;
+    this.demolishMode = false;
+    document.getElementById('btn-rotate').classList.remove('hidden');
+    this.el.buildbar.classList.add('hidden');
+    if (this.tab === 'clear') this.tab = 'path';
+    for (const b of this.el.tabs.children) b.classList.toggle('on', b.dataset.tab === this.tab);
+  },
+
+  demolishAt(tx, ty) {
+    if (!sim.demolishAt(tx, ty)) return;
+    sim.puff(tx + 0.5, ty + 0.5, 5);
   },
 
   /* ------------------------------------------------------------- land */
   startLand() {
     this.setBuild(null);
+    this.stopDemolish();
     this.landMode = true;
     this.close('sheet');
     this.el.buildbar.classList.remove('hidden');
@@ -234,7 +266,7 @@ const ui = {
 
   setBuild(key) {
     if (this.build.moving) this.endMove(true);
-    if (key && this.landMode) this.stopLand();
+    if (key) { this.stopLand(); this.stopDemolish(); }
     this.clearPending();
     this.build.key = key;
     this.build.rot = 0;

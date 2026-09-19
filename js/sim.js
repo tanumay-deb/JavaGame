@@ -144,7 +144,8 @@ const sim = {
   },
 
   unload(b) {
-    const exit = park.accessTiles(b.ext)[0] || park.accessTiles(b.ent)[0] || { x: b.x, y: b.y };
+    const exit = park.accessTiles(b.ext)[0] || park.accessTiles(b.ent)[0] || park.nearestPath(b.x, b.y)
+      || { x: park.gate.x, y: park.gate.y };
     for (const v of b.riders) {
       v.x = exit.x; v.y = exit.y;
       v.state = 'idle'; v.timer = rnd(0.2, 0.9);
@@ -407,6 +408,18 @@ const sim = {
     }
     for (const s of this.staff) if (!s.assigned && s.state === 'idle') s.station();
     park.recomputePower();
+  },
+
+  /* the demolish tool: a building, or a tile of paving */
+  demolishAt(x, y) {
+    const b = park.buildingAt(x, y);
+    if (b) { this.sell(b); return true; }
+    const g = park.groundAt(x, y);
+    if (g === GROUND.GRAVEL || g === GROUND.STONE) {
+      const cost = (g === GROUND.STONE ? ITEMS.stone.cost : ITEMS.gravel.cost);
+      if (park.clearPath(x, y)) { this.money += Math.round(cost * 0.5); return true; }
+    }
+    return false;
   },
 
   sell(b) {

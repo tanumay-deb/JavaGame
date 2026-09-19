@@ -2,10 +2,13 @@
    the gateway and carry them home again. Nothing on wheels comes inside. */
 
 const VEHICLES = {
-  cart:   { name: 'Dino cart',    cap: 3,  speed: 2.6, len: 26 },
-  wagon:  { name: 'Hide wagon',   cap: 6,  speed: 2.1, len: 34 },
-  mammoth:{ name: 'Mammoth bus',  cap: 10, speed: 1.7, len: 46 }
+  car: { name: 'Car', cap: 4, speed: 3.0, len: 34 },
+  van: { name: 'Minibus', cap: 8, speed: 2.4, len: 44 },
+  bus: { name: 'Coach', cap: 16, speed: 1.9, len: 62 }
 };
+
+const CAR_COLOURS = ['#c9453a', '#3f6fb5', '#e0a33c', '#e9eaec', '#3d4249', '#4f9d6a', '#8e6fc0'];
+const BUS_COLOURS = ['#e0a33c', '#c9453a', '#3f8bbf', '#5aa85a'];
 
 const traffic = {
   vehicles: [],
@@ -20,7 +23,7 @@ const traffic = {
   update(dt) {
     this.gap -= dt;
     if (this.pending > 0 && this.gap <= 0 && this.vehicles.length < 7) {
-      const type = this.pending >= 8 ? 'mammoth' : this.pending >= 4 ? 'wagon' : 'cart';
+      const type = this.pending >= 10 ? 'bus' : this.pending >= 5 ? 'van' : 'car';
       const def = VEHICLES[type];
       const take = Math.min(def.cap, this.pending);
       this.pending -= take;
@@ -41,7 +44,7 @@ const traffic = {
       x: dir > 0 ? -MARGIN - 3 : GRID_W + MARGIN + 3,
       y: ROAD_Y + (dir > 0 ? 0.55 : 1.45),
       state: 'in', timer: 0, bob: rnd(0, 6), done: false,
-      tone: pick(['#8a5a33', '#7a6a45', '#94603f', '#6f5b3e'])
+      tone: pick(type === 'bus' ? BUS_COLOURS : CAR_COLOURS)
     };
   },
 
@@ -90,125 +93,144 @@ const traffic = {
 
 /* ------------------------------------------------------------------ art */
 function wheel(ctx, x, y, r, phase) {
-  ctx.fillStyle = '#5b452c';
+  ctx.fillStyle = '#1d1f22';
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#7d6647';
-  ctx.beginPath(); ctx.arc(x, y, r * 0.72, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#4a3823'; ctx.lineWidth = 1.4;
-  for (let i = 0; i < 5; i++) {
-    const a = phase + (i / 5) * Math.PI * 2;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 0.72, y + Math.sin(a) * r * 0.72); ctx.stroke();
+  ctx.fillStyle = '#c9ccd1';
+  ctx.beginPath(); ctx.arc(x, y, r * 0.52, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#8b9096'; ctx.lineWidth = 1.2;
+  for (let i = 0; i < 4; i++) {
+    const a = phase + (i / 4) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5); ctx.stroke();
   }
-  ctx.fillStyle = '#3f3020';
-  ctx.beginPath(); ctx.arc(x, y, r * 0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#5c6167';
+  ctx.beginPath(); ctx.arc(x, y, r * 0.16, 0, Math.PI * 2); ctx.fill();
 }
 
-function drawBeast(ctx, x, y, s, col, t, kind) {
-  const step = Math.sin(t * 7 + x) * 2.2;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  /* legs */
-  ctx.fillStyle = shade(col, -0.25);
-  ctx.fillRect(-7, -6, 4.2, 8 + step * 0.4);
-  ctx.fillRect(3, -6, 4.2, 8 - step * 0.4);
-  /* body */
-  ctx.fillStyle = col;
-  roundRect(ctx, -11, -18, 24, 14, 6); ctx.fill();
-  if (kind === 'mammoth') {
-    ctx.fillStyle = shade(col, 0.12);
-    roundRect(ctx, -12, -21, 26, 8, 5); ctx.fill();
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(14, -16, 8, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = shade(col, -0.2);
-    ctx.beginPath(); ctx.ellipse(11, -18, 5, 6, 0.3, 0, Math.PI * 2); ctx.fill();
-    /* trunk and tusks */
-    ctx.strokeStyle = col; ctx.lineWidth = 3.4; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(19, -14); ctx.quadraticCurveTo(24, -8, 21, -3); ctx.stroke();
-    ctx.strokeStyle = PALETTE.bone; ctx.lineWidth = 2.4;
-    ctx.beginPath(); ctx.moveTo(18, -12); ctx.quadraticCurveTo(25, -12, 26, -17); ctx.stroke();
-  } else {
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(14, -19, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = shade(col, 0.15);
-    roundRect(ctx, -10, -19, 20, 4, 2); ctx.fill();
-    ctx.fillStyle = shade(col, -0.3);
-    ctx.beginPath(); ctx.moveTo(-11, -14); ctx.lineTo(-19, -18); ctx.lineTo(-11, -10); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#2f2f2f';
-    ctx.beginPath(); ctx.arc(16, -20, 1.2, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.restore();
+function windowStrip(ctx, x, y, w, h, r) {
+  ctx.fillStyle = '#9fd3e8';
+  roundRect(ctx, x, y, w, h, r || 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  ctx.beginPath();
+  ctx.moveTo(x, y + h); ctx.lineTo(x + w * 0.45, y); ctx.lineTo(x + w * 0.72, y); ctx.lineTo(x + w * 0.22, y + h);
+  ctx.closePath(); ctx.fill();
 }
 
 function drawVehicle(ctx, v, t) {
   const cx = isoX(v.x + 0.5, v.y + 0.5), cy = isoY(v.x + 0.5, v.y + 0.5);
   const moving = v.state !== 'stopped';
-  const phase = moving ? v.x * 1.4 : 0;
-  const bounce = moving ? Math.sin(t * 9 + v.bob) * 0.8 : 0;
+  const phase = moving ? v.x * 2.2 : 0;
+  const bounce = moving ? Math.sin(t * 13 + v.bob) * 0.5 : 0;
+  const col = v.tone;
 
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.scale(1.15, 1.15);
-  if (v.dir < 0) ctx.scale(-1, 1);          /* mirror for the other direction */
-  blob(ctx, 0, 2, v.def.len * 0.55, 6, 0.18);
+  ctx.scale(1.3, 1.3);
+  if (v.dir < 0) ctx.scale(-1, 1);        /* mirror for the other direction */
+  blob(ctx, 0, 2, v.def.len * 0.5, 6, 0.22);
   ctx.translate(0, bounce);
 
-  if (v.type === 'mammoth') {
-    drawBeast(ctx, -18, 0, 1.5, '#7b5a48', moving ? t : 0, 'mammoth');
-    /* carriage on its back */
-    ctx.fillStyle = '#6f4b2c';
-    roundRect(ctx, 2, -34, 34, 15, 4); ctx.fill();
-    ctx.fillStyle = '#8a5f38';
-    roundRect(ctx, 2, -34, 34, 5, 3); ctx.fill();
-    for (let i = 0; i < 3; i++) {
-      ctx.fillStyle = CLOTH_TONES[(i + Math.floor(v.bob)) % CLOTH_TONES.length];
-      roundRect(ctx, 7 + i * 10, -43, 7, 9, 3); ctx.fill();
-      ctx.fillStyle = SKIN_TONES[(i + 1) % SKIN_TONES.length];
-      ctx.beginPath(); ctx.arc(10.5 + i * 10, -45, 3, 0, Math.PI * 2); ctx.fill();
-    }
-    /* canopy */
-    ctx.fillStyle = '#c9a24a';
-    ctx.beginPath();
-    ctx.moveTo(0, -46); ctx.lineTo(38, -46); ctx.lineTo(34, -52); ctx.lineTo(4, -52);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#6f4b2c'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(3, -46); ctx.lineTo(3, -34); ctx.moveTo(35, -46); ctx.lineTo(35, -34); ctx.stroke();
-  } else {
-    const long = v.type === 'wagon';
-    drawBeast(ctx, -22, 0, long ? 1.2 : 1.05, '#6fae5a', moving ? t : 0, 'dino');
-    /* shaft */
-    ctx.strokeStyle = '#7d6647'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(-18, -8); ctx.lineTo(-2, -12); ctx.stroke();
+  if (v.type === 'bus') {
+    const L = 62, H = 26;
     /* body */
-    const w = long ? 36 : 26;
-    ctx.fillStyle = v.tone;
-    roundRect(ctx, -2, -22, w, 14, 4); ctx.fill();
-    ctx.fillStyle = shade(v.tone, 0.18);
-    roundRect(ctx, -2, -22, w, 4.5, 3); ctx.fill();
+    ctx.fillStyle = col;
+    roundRect(ctx, -L / 2, -H - 7, L, H, 6); ctx.fill();
+    ctx.fillStyle = shade(col, -0.28);
+    roundRect(ctx, -L / 2, -14, L, 7, 3); ctx.fill();
+    ctx.fillStyle = shade(col, 0.22);
+    roundRect(ctx, -L / 2, -H - 7, L, 4, 3); ctx.fill();
+    /* windows */
+    for (let i = 0; i < 5; i++) windowStrip(ctx, -L / 2 + 5 + i * 11, -H - 2, 9, 11, 2);
+    /* windscreen and door */
+    windowStrip(ctx, L / 2 - 9, -H - 2, 7, 11, 2);
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    roundRect(ctx, -L / 2 + 16, -H + 4, 7, 16, 2); ctx.fill();
+    /* destination board */
+    ctx.fillStyle = '#26282c';
+    roundRect(ctx, L / 2 - 20, -H - 5, 15, 5, 2); ctx.fill();
+    ctx.fillStyle = '#f0c24a';
+    ctx.font = 'bold 4px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('FUN PARK', L / 2 - 12.5, -H - 1.2);
+    /* lights */
+    ctx.fillStyle = '#ffe9a8';
+    roundRect(ctx, L / 2 - 3, -13, 3, 4, 1); ctx.fill();
+    ctx.fillStyle = '#d94a3a';
+    roundRect(ctx, -L / 2, -13, 3, 4, 1); ctx.fill();
+    /* passengers behind the glass */
+    for (let i = 0; i < 4; i++) {
+      if (v.state === 'out' && i > 1) break;
+      ctx.fillStyle = SKIN_TONES[(i + Math.floor(v.bob)) % SKIN_TONES.length];
+      ctx.beginPath(); ctx.arc(-L / 2 + 9.5 + i * 11, -H + 4, 2.6, 0, Math.PI * 2); ctx.fill();
+    }
+    wheel(ctx, -L / 2 + 13, -6, 7, phase);
+    wheel(ctx, L / 2 - 14, -6, 7, phase);
+  } else if (v.type === 'van') {
+    const L = 44, H = 22;
+    ctx.fillStyle = col;
+    roundRect(ctx, -L / 2, -H - 6, L, H, 5); ctx.fill();
+    /* sloped bonnet at the front */
+    ctx.beginPath();
+    ctx.moveTo(L / 2 - 2, -H - 6 + 6); ctx.lineTo(L / 2 + 6, -12); ctx.lineTo(L / 2 + 6, -6); ctx.lineTo(L / 2 - 2, -6);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(col, 0.2);
+    roundRect(ctx, -L / 2, -H - 6, L, 3.5, 3); ctx.fill();
+    ctx.fillStyle = shade(col, -0.3);
+    roundRect(ctx, -L / 2, -12, L, 6, 2); ctx.fill();
+    for (let i = 0; i < 3; i++) windowStrip(ctx, -L / 2 + 5 + i * 11, -H - 1, 9, 9, 2);
+    windowStrip(ctx, L / 2 - 6, -H - 1, 7, 8, 2);
     ctx.fillStyle = 'rgba(0,0,0,.22)';
-    ctx.fillRect(-2, -12, w, 3);
-    if (long) {
-      /* hide canopy over the back */
-      ctx.fillStyle = '#d8c8a0';
-      ctx.beginPath();
-      ctx.moveTo(6, -22); ctx.quadraticCurveTo(20, -40, 34, -22);
-      ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1.2;
-      for (let i = 1; i < 4; i++) {
-        const px = 6 + i * 7;
-        ctx.beginPath(); ctx.moveTo(px, -22); ctx.lineTo(px, -22 - (10 - Math.abs(i - 2) * 3)); ctx.stroke();
-      }
+    roundRect(ctx, -2, -H + 3, 6, 13, 2); ctx.fill();
+    ctx.fillStyle = '#ffe9a8';
+    roundRect(ctx, L / 2 + 2, -11, 4, 3.5, 1); ctx.fill();
+    ctx.fillStyle = '#d94a3a';
+    roundRect(ctx, -L / 2, -11, 3, 3.5, 1); ctx.fill();
+    for (let i = 0; i < 3; i++) {
+      if (v.state === 'out' && i > 0) break;
+      ctx.fillStyle = SKIN_TONES[(i + 1) % SKIN_TONES.length];
+      ctx.beginPath(); ctx.arc(-L / 2 + 9.5 + i * 11, -H + 4, 2.4, 0, Math.PI * 2); ctx.fill();
     }
-    const seats = long ? 3 : 2;
-    for (let i = 0; i < seats; i++) {
-      if (i >= v.load + 1 && v.state === 'out') break;
-      ctx.fillStyle = CLOTH_TONES[(i + Math.floor(v.bob)) % CLOTH_TONES.length];
-      roundRect(ctx, 3 + i * 9, -30, 6.5, 9, 3); ctx.fill();
-      ctx.fillStyle = SKIN_TONES[(i + 2) % SKIN_TONES.length];
-      ctx.beginPath(); ctx.arc(6.2 + i * 9, -32, 2.8, 0, Math.PI * 2); ctx.fill();
+    wheel(ctx, -L / 2 + 10, -5, 6, phase);
+    wheel(ctx, L / 2 - 9, -5, 6, phase);
+  } else {
+    const L = 34;
+    /* lower body */
+    ctx.fillStyle = col;
+    roundRect(ctx, -L / 2, -13, L, 9, 4); ctx.fill();
+    /* cabin */
+    ctx.beginPath();
+    ctx.moveTo(-L / 2 + 6, -13);
+    ctx.lineTo(-L / 2 + 10, -22);
+    ctx.lineTo(L / 2 - 10, -22);
+    ctx.lineTo(L / 2 - 4, -13);
+    ctx.closePath();
+    ctx.fillStyle = shade(col, 0.08); ctx.fill();
+    /* glass */
+    ctx.fillStyle = '#9fd3e8';
+    ctx.beginPath();
+    ctx.moveTo(-L / 2 + 8, -13.5); ctx.lineTo(-L / 2 + 11.5, -20.5);
+    ctx.lineTo(-1, -20.5); ctx.lineTo(-1, -13.5);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(1, -13.5); ctx.lineTo(1, -20.5); ctx.lineTo(L / 2 - 10.5, -20.5); ctx.lineTo(L / 2 - 5.5, -13.5);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.beginPath();
+    ctx.moveTo(2, -13.5); ctx.lineTo(6, -20.5); ctx.lineTo(9, -20.5); ctx.lineTo(5, -13.5);
+    ctx.closePath(); ctx.fill();
+    /* trim, lights, wheels */
+    ctx.fillStyle = shade(col, -0.35);
+    roundRect(ctx, -L / 2, -6.5, L, 3, 2); ctx.fill();
+    ctx.fillStyle = '#ffe9a8';
+    roundRect(ctx, L / 2 - 3.5, -11, 3.5, 3, 1); ctx.fill();
+    ctx.fillStyle = '#d94a3a';
+    roundRect(ctx, -L / 2, -11, 3, 3, 1); ctx.fill();
+    ctx.fillStyle = SKIN_TONES[Math.floor(v.bob) % SKIN_TONES.length];
+    ctx.beginPath(); ctx.arc(-4, -17, 2.3, 0, Math.PI * 2); ctx.fill();
+    if (v.load > 1) {
+      ctx.fillStyle = SKIN_TONES[(Math.floor(v.bob) + 2) % SKIN_TONES.length];
+      ctx.beginPath(); ctx.arc(5, -17, 2.3, 0, Math.PI * 2); ctx.fill();
     }
-    wheel(ctx, 4, -6, 6.5, phase);
-    if (long) wheel(ctx, 28, -6, 6.5, phase);
+    wheel(ctx, -L / 2 + 8, -4.5, 5.5, phase);
+    wheel(ctx, L / 2 - 8, -4.5, 5.5, phase);
   }
   ctx.restore();
 }

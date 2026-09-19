@@ -154,6 +154,7 @@ Visitor.prototype.seekRide = function () {
   const options = [];
   for (const b of park.buildings.values()) {
     if (b.item.cat !== 'ride' || !b.open || !b.powered || b.brokeDown) continue;
+    if (!park.reachable(b)) continue;          /* needs a path at the exit too */
     if (b.fee > this.money) continue;
     if (b.queue.length >= b.item.cap * 2) continue;
     const d = Math.sqrt(dist2(this.x, this.y, b.x + b.w / 2, b.y + b.h / 2));

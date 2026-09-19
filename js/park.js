@@ -214,6 +214,18 @@ const park = {
 
   reachable(b) { return this.accessTiles(b.ent).length > 0 && this.accessTiles(b.ext).length > 0; },
 
+  /* closest walkable tile to a point — a safety net so riders are never
+     set down inside a building with no way out */
+  nearestPath(x, y) {
+    for (let r = 1; r < 12; r++) {
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        if (this.isPath(x + dx, y + dy)) return { x: x + dx, y: y + dy };
+      }
+    }
+    return null;
+  },
+
   /* BFS across path tiles. `goals` is a Set of "x,y" keys. Returns tile array. */
   findPath(sx, sy, goals) {
     if (!goals || goals.size === 0) return null;
