@@ -3,8 +3,14 @@
 
 const view = { x: 0, y: 0, zoom: 1, minZoom: 0.45, maxZoom: 1.9 };
 
+/* The sun is behind the camera to the north-west: shadows lean away from it,
+   forward and to the right, flattened onto the ground. */
+const SUN = { lx: 0.54, ly: 0.30, alpha: 0.26 };
+const SWAYS = { conifer: 0.010, broadleaf: 0.016, palm: 0.020, fernclump: 0.024, reeds: 0.030, bush: 0.014 };
+
 const renderer = {
   canvas: null, ctx: null, W: 0, H: 0, dpr: 1,
+  rich: true,        /* the finishing passes are on while the frame has room */
   groundCanvas: null, groundVersion: -1,
   /* The baked ground covers the land you own plus a ring of wild country, and
      grows with the park instead of always covering the whole valley. */
@@ -12,6 +18,7 @@ const renderer = {
   rect: { x0: 0, y0: 0, x1: GRID_W, y1: GRID_H },
   gox: 0, goy: 0,
   waterTiles: [],
+  waterShore: [],
   fadeIn: 400, fadeOut: 900,
   fadeCx: 0, fadeCy: 0,
   hover: { x: -1, y: -1 },
@@ -98,12 +105,20 @@ const renderer = {
     const g = park.terrainAt(x, y);
     const cx = isoX(x + 0.5, y + 0.5), cy = isoY(x + 0.5, y + 0.5);
     const n = hash2(x, y);
-    let col;
+    let col, roll = 0;
     if (g === GROUND.GRASS) {
-      /* low-frequency patches over per-tile variation so the lawn is not flat */
-      const patch = hash2(Math.floor(x / 4), Math.floor(y / 4));
-      const base = PALETTE.grass[Math.floor(n * PALETTE.grass.length)];
-      col = mixColor(base, PALETTE.grassAlt[Math.floor(patch * PALETTE.grassAlt.length)], 0.35 + patch * 0.3);
+      /* Two continuous noise fields rather than a random colour per tile: the
+         green then drifts across the map instead of showing the seam of every
+         diamond. Bleached meadow over the rises, deeper green in the hollows. */
+      /* fbm clusters hard around the middle, so stretch it out or none of the
+         meadow ever reads as dry or as shaded */
+      const raw = fbm(x * 0.085 + 17, y * 0.085 + 29) * 0.62 + fbm(x * 0.21 + 5, y * 0.21 + 41) * 0.38;
+      roll = clamp((raw - 0.5) * 3.4 + 0.5, 0, 1);
+      const fine = fbm(x * 0.36 + 3, y * 0.36 + 11);
+      const base = mixColor(PALETTE.grass[1], PALETTE.grassAlt[3], fine);
+      col = roll > 0.52
+        ? mixColor(base, PALETTE.grassDry, Math.min(1, (roll - 0.52) * 1.9))
+        : mixColor(base, PALETTE.grassDeep, Math.min(1, (0.52 - roll) * 1.7));
     } else if (g === GROUND.SAND) col = mixColor(PALETTE.sand, '#c2ad78', n);
     else if (g === GROUND.WATER) col = mixColor(PALETTE.water, '#286c9b', n);
     else col = g === GROUND.STONE ? PALETTE.stone : PALETTE.gravel;
@@ -111,26 +126,65 @@ const renderer = {
     diamond(ctx, cx, cy, TILE_W, TILE_H);
     ctx.fillStyle = col;
     ctx.fill();
+    /* Stroking the same diamond in the same colour covers the half-pixel the
+       fill antialiases away, which otherwise shows as a grid of pale seams.
+       Paving and tarmac already overlap their neighbours, so they skip it. */
+    if (g === GROUND.GRASS || g === GROUND.WATER || g === GROUND.SAND) {
+      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.stroke();
+    }
 
     if (g === GROUND.GRASS) {
       const m = hash2(y * 3 + 1, x * 5 + 2);
-      if (n > 0.42) {
-        const gx = cx + (n - 0.5) * 26, gy = cy + (m - 0.5) * 12;
-        ctx.lineWidth = 1.4;
-        ctx.strokeStyle = shade(col, 0.22);
+      /* tufts: more of them where the ground is damp, all leaning downwind */
+      const tufts = roll < 0.44 ? 3 : roll < 0.62 ? 2 : 1;
+      ctx.lineWidth = 1.4;
+      for (let i = 0; i < tufts; i++) {
+        const h1 = hash2(x * 13 + i * 7, y * 19 + i * 3);
+        const h2 = hash2(x * 23 + i * 5, y * 11 + i * 9);
+        if (h1 < 0.3) continue;
+        const gx = cx + (h1 - 0.5) * 40, gy = cy + (h2 - 0.5) * 18;
+        const lean = 1.1 + h2 * 1.4;
+        ctx.strokeStyle = shade(col, 0.26);
         ctx.beginPath();
-        ctx.moveTo(gx, gy); ctx.lineTo(gx - 2.5, gy - 5);
-        ctx.moveTo(gx, gy); ctx.lineTo(gx + 1, gy - 6);
+        ctx.moveTo(gx, gy); ctx.lineTo(gx - 2.5 + lean, gy - 5);
+        ctx.moveTo(gx, gy); ctx.lineTo(gx + 0.6 + lean, gy - 6.4);
         ctx.stroke();
-        ctx.strokeStyle = shade(col, -0.22);
+        ctx.strokeStyle = shade(col, -0.26);
         ctx.beginPath();
-        ctx.moveTo(gx + 1, gy); ctx.lineTo(gx + 4, gy - 4);
+        ctx.moveTo(gx + 1, gy); ctx.lineTo(gx + 3.4 + lean, gy - 3.6);
         ctx.stroke();
       }
+      /* trodden earth where the grass meets a path */
+      for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ng = park.terrainAt(x + d[0], y + d[1]);
+        if (ng !== GROUND.GRAVEL && ng !== GROUND.STONE) continue;
+        ctx.save();
+        diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
+        ctx.fillStyle = 'rgba(150,126,84,.30)';
+        const ex = cx + (d[0] - d[1]) * TILE_W * 0.42, ey = cy + (d[0] + d[1]) * TILE_H * 0.42;
+        diamond(ctx, ex, ey, TILE_W * 1.06, TILE_H * 1.06);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      /* dry ground showing through where the meadow is most bleached */
+      if (roll > 0.72) {
+        ctx.save();
+        diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
+        ctx.fillStyle = 'rgba(164,148,96,' + Math.min(0.34, (roll - 0.72) * 1.5).toFixed(3) + ')';
+        for (let i = 0; i < 3; i++) {
+          const h1 = hash2(x * 29 + i, y * 37 + i), h2 = hash2(x * 41 + i, y * 17 + i);
+          ctx.beginPath();
+          ctx.ellipse(cx + (h1 - 0.5) * 44, cy + (h2 - 0.5) * 20, 7 + h1 * 8, 3.5 + h2 * 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
       /* painted undergrowth — flat, so buildings can still go on top */
       const patch = fbm(x * 0.21 + 17, y * 0.21 + 23);
-      if (patch > 0.55) {
-        const a = (patch - 0.55) / 0.45;
+      if (patch > 0.5) {
+        const a = (patch - 0.5) / 0.5;
         ctx.save();
         diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
         ctx.fillStyle = shade(col, -0.16);
@@ -143,13 +197,14 @@ const renderer = {
         }
         ctx.restore();
       }
-      if (m > 0.955) {
+      if (m > 0.972) {
         const sx2 = cx + (n - 0.5) * 20, sy2 = cy + (m - 0.5) * 8;
         if (n > 0.5) {
-          ctx.fillStyle = '#9aa0a6';
-          ctx.beginPath(); ctx.ellipse(sx2, sy2, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = 'rgba(255,255,255,.25)';
-          ctx.beginPath(); ctx.ellipse(sx2 - .6, sy2 - .8, 1.4, .9, 0, 0, Math.PI * 2); ctx.fill();
+          /* a weathered stone, half sunk in the turf rather than sitting on it */
+          ctx.fillStyle = mixColor('#8d9298', col, 0.3);
+          ctx.beginPath(); ctx.ellipse(sx2, sy2, 2.4, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,.16)';
+          ctx.beginPath(); ctx.ellipse(sx2 - .5, sy2 - .6, 1.1, .7, 0, 0, Math.PI * 2); ctx.fill();
         } else {
           ctx.fillStyle = n > 0.3 ? '#e8d24a' : '#e8556d';
           for (let f = 0; f < 3; f++) {
@@ -306,11 +361,26 @@ const renderer = {
     ctx.clearRect(0, 0, this.groundCanvas.width, this.groundCanvas.height);
     ctx.setTransform(1, 0, 0, 1, this.gox, this.goy);
     this.waterTiles.length = 0;
-    for (let y = r.y0; y < r.y1; y++)
-      for (let x = r.x0; x < r.x1; x++) {
+    this.waterShore.length = 0;
+    /* The sheet is the bounding box of a diamond, so its four corners would be
+       left empty and the camera could find sky in them. Walk a wider range of
+       tiles and keep whatever lands on the sheet, so open country reaches into
+       every corner. */
+    const gw = this.groundCanvas.width, gh = this.groundCanvas.height;
+    const ex = Math.ceil((r.y1 - r.y0) / 2) + 2, ey = Math.ceil((r.x1 - r.x0) / 2) + 2;
+    for (let y = r.y0 - ey; y < r.y1 + ey; y++)
+      for (let x = r.x0 - ex; x < r.x1 + ex; x++) {
+        const px = isoX(x + 0.5, y + 0.5) + this.gox, py = isoY(x + 0.5, y + 0.5) + this.goy;
+        if (px < -TILE_W || px > gw + TILE_W || py < -TILE_H || py > gh + TILE_H) continue;
         this.drawTile(ctx, x, y);
-        if (park.terrainAt(x, y) === GROUND.WATER) this.waterTiles.push(x, y);
+        if (park.terrainAt(x, y) !== GROUND.WATER) continue;
+        this.waterTiles.push(x, y);
+        for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (park.terrainAt(x + d[0], y + d[1]) === GROUND.WATER) continue;
+          this.waterShore.push(x, y, d[0], d[1]);
+        }
       }
+    this.bakePropShadows(ctx);
     /* a soft shaft of sunlight from the north-west, so big flat areas of grass
        are not one dead colour */
     ctx.save();
@@ -384,6 +454,29 @@ const renderer = {
     return rect;
   },
 
+  /* Scenery never moves, so its shadows go into the baked ground instead of
+     being projected every frame. */
+  bakePropShadows(ctx, near) {
+    if (!scenery.built) return;
+    const r = this.rect;
+    ctx.save();
+    ctx.globalAlpha = SUN.alpha;
+    for (const p of scenery.props) {
+      if (p.art === 'volcano') continue;
+      if (p.x < r.x0 - 2 || p.x > r.x1 + 2 || p.y < r.y0 - 2 || p.y > r.y1 + 2) continue;
+      if (near && Math.abs(p.x - near.x) + Math.abs(p.y - near.y) > 4) continue;
+      const spr = p.spr || (p.spr = getSprite(p.art, 1, 1, 0));
+      const sil = spriteSilhouette(spr, '#0b1408');
+      const sc = p.s || 1;
+      const gy = p.wy;
+      ctx.save();
+      ctx.transform(1, 0, -SUN.lx, -SUN.ly, SUN.lx * gy, gy * (1 + SUN.ly));
+      ctx.drawImage(sil, p.wx - spr.ox * sc, p.wy - spr.oy * sc, sil.width * sc, sil.height * sc);
+      ctx.restore();
+    }
+    ctx.restore();
+  },
+
   /* repaint only the tiles that changed (plus their neighbours, whose edge
      shading depends on them) — keeps path painting smooth on a phone */
   patchGround() {
@@ -413,6 +506,8 @@ const renderer = {
       ctx.restore();
     }
     for (const [x, y] of blocks) this.drawTile(ctx, x, y);
+    /* scenery shadows that fall across the repainted tiles have to go back */
+    for (const [x, y] of blocks) this.bakePropShadows(ctx, { x, y });
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.groundVersion = park.version;
   },
@@ -422,21 +517,63 @@ const renderer = {
     const ctx = this.ctx;
     this.time += dt;
     const t = this.time;
+
+    /* A long-window average of real frame time, used to decide whether this
+       device can afford the finishing passes. */
+    const now = performance.now();
+    if (this._lastFrame) {
+      const ft = Math.min(200, now - this._lastFrame);
+      this._ft = this._ft ? this._ft * 0.94 + ft * 0.06 : ft;
+    }
+    this._lastFrame = now;
+    if (this.rich) { if (this._ft > 32) this.rich = false; }
+    else if (this._ft < 22) this.rich = true;
     if (park.fullRebuild || !this.groundCanvas) this.buildGround();
     else if (park.dirty.length) this.patchGround();
     this.clampView();
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    /* sky */
+    /* sky — the gradient objects are rebuilt only when the light or the
+       window changes, not sixty times a second */
     const light = sim.dayLight();
-    const skyTop = mixColor('#0d1630', '#8fd0e8', light);
-    const skyBot = mixColor('#1d2a44', '#b9dcb0', light);
-    const sky = ctx.createLinearGradient(0, 0, 0, this.H);
-    sky.addColorStop(0, skyTop); sky.addColorStop(1, skyBot);
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, this.W, this.H);
-
-    this.drawHorizon(ctx, light);
+    const key = this.W + 'x' + this.H + '|' + light.toFixed(2);
+    if (this._gradKey !== key) {
+      this._gradKey = key;
+      const sky = ctx.createLinearGradient(0, 0, 0, this.H);
+      sky.addColorStop(0, mixColor('#0d1630', '#8fd0e8', light));
+      sky.addColorStop(1, mixColor('#1d2a44', '#b9dcb0', light));
+      this._sky = sky;
+      const g = ctx.createLinearGradient(0, 0, this.W * 0.9, this.H);
+      g.addColorStop(0, 'rgba(255,226,168,.15)');
+      g.addColorStop(0.5, 'rgba(255,255,255,0)');
+      g.addColorStop(1, 'rgba(46,78,128,.14)');
+      this._grade = g;
+      const v = ctx.createRadialGradient(this.W / 2, this.H * 0.5, Math.min(this.W, this.H) * 0.45,
+                                         this.W / 2, this.H * 0.5, Math.max(this.W, this.H) * 0.85);
+      v.addColorStop(0, 'rgba(0,0,0,0)');
+      v.addColorStop(1, 'rgba(18,14,8,.13)');
+      this._vig = v;
+      /* Grade and vignette are flattened into one picture so the finished
+         frame is blended once rather than filled twice with live gradients. */
+      const ov = makeCanvas(this.W, this.H);
+      const oc = ov.getContext('2d');
+      oc.fillStyle = g; oc.fillRect(0, 0, this.W, this.H);
+      oc.fillStyle = v; oc.fillRect(0, 0, this.W, this.H);
+      this._overlay = ov;
+    }
+    /* The baked ground is opaque right into the corners of its sheet, so when
+       it covers the viewport the sky and the ridges behind it are painted for
+       nothing — and at tablet resolution those are two of the most expensive
+       passes in the frame. */
+    const vb = this.viewBounds(0);
+    const covered = this.groundCanvas
+      && -this.gox <= vb.l && this.groundCanvas.width - this.gox >= vb.r
+      && -this.goy <= vb.t && this.groundCanvas.height - this.goy >= vb.b;
+    if (!covered) {
+      ctx.fillStyle = this._sky;
+      ctx.fillRect(0, 0, this.W, this.H);
+      this.drawHorizon(ctx, light);
+    }
 
     /* world transform */
     ctx.save();
@@ -444,7 +581,17 @@ const renderer = {
     ctx.scale(view.zoom, view.zoom);
     ctx.translate(-view.x, -view.y);
 
-    ctx.drawImage(this.groundCanvas, -this.gox, -this.goy);
+    /* Only the part of the baked ground that is actually on screen: blitting
+       the whole sheet (several thousand pixels across) every frame was costing
+       far more than everything drawn on top of it. */
+    const gb = this.viewBounds(TILE_W);
+    const gsx = clamp(Math.floor(gb.l + this.gox), 0, this.groundCanvas.width);
+    const gsy = clamp(Math.floor(gb.t + this.goy), 0, this.groundCanvas.height);
+    const gex = clamp(Math.ceil(gb.r + this.gox), 0, this.groundCanvas.width);
+    const gey = clamp(Math.ceil(gb.b + this.goy), 0, this.groundCanvas.height);
+    if (gex > gsx && gey > gsy)
+      ctx.drawImage(this.groundCanvas, gsx, gsy, gex - gsx, gey - gsy,
+        gsx - this.gox, gsy - this.goy, gex - gsx, gey - gsy);
     this.drawWater(ctx, t);
     this.drawMarkers(ctx);
     if (build && build.key) this.drawGhost(ctx, build);
@@ -454,6 +601,7 @@ const renderer = {
     ctx.restore();
 
     this.drawLighting(ctx, light, t);
+    this.gradePass(ctx);
     this.drawBirds(ctx, t);
     this.drawLabels(ctx);
   },
@@ -485,21 +633,51 @@ const renderer = {
 
   /* animated shimmer on every stretch of water, park or wild */
   drawWater(ctx, t) {
-    ctx.save();
-    ctx.globalAlpha = 0.5;
     const b = this.viewBounds(90);
+    ctx.save();
+
+    /* the swell, one fill per visible tile */
+    ctx.fillStyle = PALETTE.waterLite;
+    for (let i = 0; i < this.waterTiles.length; i += 2) {
+      const x = this.waterTiles[i], y = this.waterTiles[i + 1];
+      const cx = isoX(x + 0.5, y + 0.5), cy = isoY(x + 0.5, y + 0.5);
+      if (cx < b.l || cx > b.r || cy < b.t || cy > b.b) continue;
+      const swell = Math.sin(t * 0.9 + (x + y) * 0.55) * 0.5 + 0.5;
+      ctx.globalAlpha = 0.09 + swell * 0.12;
+      diamond(ctx, cx, cy - 1 + swell * 1.5, TILE_W * 0.95, TILE_H * 0.95);
+      ctx.fill();
+    }
+
+    /* glints, batched into one path */
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = '#dff2fb';
+    ctx.beginPath();
     for (let i = 0; i < this.waterTiles.length; i += 2) {
       const x = this.waterTiles[i], y = this.waterTiles[i + 1];
       const cx = isoX(x + 0.5, y + 0.5), cy = isoY(x + 0.5, y + 0.5);
       if (cx < b.l || cx > b.r || cy < b.t || cy > b.b) continue;
       const p = hash2(x, y);
       const a = Math.sin(t * 1.4 + p * 7) * 0.5 + 0.5;
-      ctx.fillStyle = PALETTE.waterLite;
-      ctx.globalAlpha = 0.12 + a * 0.22;
-      ctx.beginPath();
-      ctx.ellipse(cx + Math.sin(t * 0.8 + p * 5) * 6, cy, 11 + a * 5, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
+      ellipseSub(ctx, cx + Math.sin(t * 0.8 + p * 5) * 7, cy - 1, 7 + a * 5, 2.2, 0);
     }
+    ctx.fill();
+
+    /* foam washing against the shore — small enough to stay inside its tile,
+       so no clipping is needed */
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = '#f2fbff';
+    ctx.beginPath();
+    for (let i = 0; i < this.waterShore.length; i += 4) {
+      const x = this.waterShore[i], y = this.waterShore[i + 1];
+      const dx = this.waterShore[i + 2], dy = this.waterShore[i + 3];
+      const cx = isoX(x + 0.5, y + 0.5), cy = isoY(x + 0.5, y + 0.5);
+      if (cx < b.l || cx > b.r || cy < b.t || cy > b.b) continue;
+      const wash = 0.5 + Math.sin(t * 1.1 + (x * 3 + y * 5)) * 0.5;
+      const ex = cx + (dx - dy) * TILE_W * (0.2 + wash * 0.03);
+      const ey = cy + (dx + dy) * TILE_H * (0.2 + wash * 0.03);
+      ellipseSub(ctx, ex, ey, TILE_W * 0.2, TILE_H * (0.16 + wash * 0.05), (dx - dy) > 0 ? -0.46 : 0.46);
+    }
+    ctx.fill();
     ctx.restore();
   },
 
@@ -723,15 +901,49 @@ const renderer = {
      dynamic list rather than re-sorted every frame. */
   drawEntities(ctx, t, dt) {
     const list = [];
-    for (const b of park.buildings.values()) list.push({ d: b.x + b.y + (b.w + b.h) * 0.5, b });
-    for (const v of sim.visitors) if (v.state !== 'riding') list.push({ d: v.x + v.y + 0.6, v });
-    for (const s of sim.staff) list.push({ d: s.x + s.y + 0.6, s });
-    for (const v of traffic.vehicles) list.push({ d: v.x + v.y + 0.5, veh: v });
-    list.push({ d: park.gate.x + GRID_H - 1.4, gate: true });
+    const bounds = this.viewBounds(220);
+    /* Anything off screen is skipped before it reaches the depth sort — in a
+       busy park most of the crowd is outside the view at any moment. */
+    const near = this.viewBounds(70);
+    const onScreen = (x, y, b) => {
+      const wx = isoX(x, y), wy = isoY(x, y);
+      return wx > b.l && wx < b.r && wy > b.t && wy < b.b;
+    };
+    for (const b of park.buildings.values())
+      if (onScreen(b.x + b.w / 2, b.y + b.h / 2, bounds)) list.push({ d: b.x + b.y + (b.w + b.h) * 0.5, b });
+    for (const v of sim.visitors)
+      if (v.state !== 'riding' && onScreen(v.x + 0.5, v.y + 0.5, near)) list.push({ d: v.x + v.y + 0.6, v });
+    for (const s of sim.staff)
+      if (onScreen(s.x + 0.5, s.y + 0.5, near)) list.push({ d: s.x + s.y + 0.6, s });
+    for (const v of traffic.vehicles)
+      if (onScreen(v.x + 0.5, v.y + 0.5, near)) list.push({ d: v.x + v.y + 0.5, veh: v });
+    if (onScreen(park.gate.x + 0.5, GRID_H - 0.5, bounds)) list.push({ d: park.gate.x + GRID_H - 1.4, gate: true });
     list.sort((a, b) => a.d - b.d);
 
     const props = scenery.props;
-    const bounds = this.viewBounds(220);
+
+    /* Shadows first, so nothing is ever drawn underneath one. Scenery shadows
+       are already baked into the ground; the crowd goes into a single path. */
+    ctx.save();
+    ctx.globalAlpha = SUN.alpha;
+    ctx.fillStyle = '#0b1408';
+    ctx.beginPath();
+    for (const e of list) {
+      if (e.v || e.s) this.personShadowPath(ctx, e.v || e.s);
+      else if (e.veh) this.vehicleShadowPath(ctx, e.veh);
+    }
+    ctx.fill();
+    for (const e of list) {
+      if (e.b) this.spriteShadow(ctx, getSprite(e.b.item.art, e.b.w, e.b.h, e.b.rot, e.b.item),
+        isoX(e.b.x, e.b.y), isoY(e.b.x, e.b.y), isoY(e.b.x + e.b.w / 2, e.b.y + e.b.h / 2));
+      else if (e.gate) {
+        const g = getSprite('parkgate', 5, 1, 0);
+        this.spriteShadow(ctx, g, isoX(park.gate.x - 2, GRID_H - 1), isoY(park.gate.x - 2, GRID_H - 1),
+          isoY(park.gate.x + 0.5, GRID_H - 0.5));
+      }
+    }
+    ctx.restore();
+
     let pi = 0;
     for (const e of list) {
       while (pi < props.length && props[pi].d <= e.d) this.drawProp(ctx, props[pi++], t, bounds);
@@ -747,6 +959,31 @@ const renderer = {
     while (pi < props.length) this.drawProp(ctx, props[pi++], t, bounds);
   },
 
+  /* project a sprite flat onto the ground, leaning away from the sun */
+  spriteShadow(ctx, spr, sx, sy, groundY) {
+    const sil = spriteSilhouette(spr, '#0b1408');
+    ctx.save();
+    ctx.transform(1, 0, -SUN.lx, -SUN.ly, SUN.lx * groundY, groundY * (1 + SUN.ly));
+    ctx.drawImage(sil, sx, sy);
+    ctx.restore();
+  },
+
+  vehicleShadowPath(ctx, v) {
+    const cx = isoX(v.x + 0.5, v.y + 0.5), cy = isoY(v.x + 0.5, v.y + 0.5);
+    ellipseSub(ctx, cx + 7, cy + 2, v.def.len * 0.62, v.type === 'bus' ? 7 : 6, -0.46);
+  },
+
+  /* the cast shadow plus a tight contact patch under the feet, as one path so
+     the whole crowd costs a single fill */
+  personShadowPath(ctx, p) {
+    let px = p.x, py = p.y;
+    if (p.qx !== undefined) { px = p.qx; py = p.qy; }
+    const k = p.look && p.look.kid ? 0.8 : 1;
+    const cx = isoX(px + 0.5, py + 0.5), cy = isoY(px + 0.5, py + 0.5);
+    ellipseSub(ctx, cx + 5.5 * k, cy + 1.4, 9.5 * k, 3 * k, -0.46);
+    ellipseSub(ctx, cx, cy + 1, 4.6 * k, 2.2 * k, 0);
+  },
+
   drawProp(ctx, p, t, b) {
     if (p.wx < b.l || p.wx > b.r || p.wy < b.t || p.wy > b.b) return;
     if (p.alphaGen !== this.fadeGen) { p.alpha = this.edgeAlpha(p.wx, p.wy); p.alphaGen = this.fadeGen; }
@@ -755,20 +992,30 @@ const renderer = {
     const s = p.s || 1;
     const x = p.wx - spr.ox * s, y = p.wy - spr.oy * s;
     const dim = p.alpha < 1;
-    if (dim) { ctx.save(); ctx.globalAlpha = p.alpha; }
+    const sway = SWAYS[p.art];
+    if (dim || sway) ctx.save();
+    if (dim) ctx.globalAlpha = p.alpha;
+    if (sway) {
+      /* lean about the foot of the trunk, so the crown moves and the base does not */
+      if (p.phase === undefined) p.phase = hash2(Math.round(p.x * 7), Math.round(p.y * 7)) * 6.28;
+      ctx.translate(p.wx, p.wy);
+      ctx.rotate(Math.sin(t * 0.7 + p.phase) * sway + Math.sin(t * 1.9 + p.phase * 1.7) * sway * 0.35);
+      ctx.translate(-p.wx, -p.wy);
+    }
     if (s === 1) ctx.drawImage(spr.c, x, y);
     else ctx.drawImage(spr.c, x, y, spr.c.width * s, spr.c.height * s);
     const anim = p.anim && ANIM[p.art];
     if (anim) anim(ctx, x, y, spr, t, p);
-    if (dim) ctx.restore();
+    if (dim || sway) ctx.restore();
   },
 
   drawBuilding(ctx, b, t) {
     const spr = getSprite(b.item.art, b.w, b.h, b.rot, b.item);
     const sx = isoX(b.x, b.y) - spr.ox, sy = isoY(b.x, b.y) - spr.oy;
-    /* contact shadow */
+    /* a tight contact shade where it meets the ground; the long shadow is
+       drawn in the shadow pass */
     const [mx, my] = [isoX(b.x + b.w / 2, b.y + b.h / 2), isoY(b.x + b.w / 2, b.y + b.h / 2)];
-    blob(ctx, mx, my, TILE_W * 0.42 * Math.max(b.w, b.h), TILE_H * 0.4 * Math.max(b.w, b.h), 0.16);
+    blob(ctx, mx, my, TILE_W * 0.34 * Math.max(b.w, b.h), TILE_H * 0.32 * Math.max(b.w, b.h), 0.13);
 
     if (sim.selected === b) {
       ctx.save();
@@ -845,6 +1092,8 @@ const renderer = {
     ctx.restore();
   },
 
+  /* The body itself is a cached sprite; only the things that change with the
+     person's state — mood, badge, selection, speech — are drawn live. */
   drawPerson(ctx, p, t) {
     let px = p.x, py = p.y, ox = 0;
     if (p.state === 'queue' && p.queuedFor) {
@@ -861,57 +1110,28 @@ const renderer = {
     const cx = isoX(px + 0.5, py + 0.5) + ox;
     const cy = isoY(px + 0.5, py + 0.5);
     const walking = p.state === 'walk' || p.state === 'leaving';
-    const bob = walking ? Math.abs(Math.sin(t * 7 + p.id)) * 2 : 0;
     const k = p.look.kid ? 0.78 : 1;
     const H = 18 * k;
-
-    blob(ctx, cx, cy + 1, 6 * k, 3 * k, 0.22);
 
     if (sim.selected === p) {
       ctx.save();
       ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(cx, cy + 1, 11, 6, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#ffe27a';
-      const ax = cx, ay = cy - H - 16 - Math.sin(t * 4) * 2;
-      ctx.beginPath(); ctx.moveTo(ax - 5, ay); ctx.lineTo(ax + 5, ay); ctx.lineTo(ax, ay + 7); ctx.closePath(); ctx.fill();
       ctx.restore();
     }
 
-    const legPh = walking ? Math.sin(t * 9 + p.id) : 0;
-    ctx.fillStyle = shade(p.look.skin, -0.25);
-    ctx.fillRect(cx - 3.5, cy - 6 * k - bob, 2.6, 6 * k + legPh);
-    ctx.fillRect(cx + 1, cy - 6 * k - bob, 2.6, 6 * k - legPh);
+    const frame = walking ? (((t * 1.45 + p.id * 0.37) * PERSON_FRAMES | 0) % PERSON_FRAMES) : PERSON_FRAMES;
+    const spr = getPerson(p.look, frame);
+    ctx.drawImage(spr.c, cx - spr.ox, cy - spr.oy, spr.w, spr.h);
 
-    /* body */
+    const bob = walking ? Math.abs(Math.sin(frame / PERSON_FRAMES * Math.PI * 2)) * 2 : 0;
     const bodyY = cy - H - bob;
-    ctx.fillStyle = p.look.cloth;
-    roundRect(ctx, cx - 5 * k, bodyY + 3, 10 * k, 11 * k, 3.5); ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,.18)';
-    roundRect(ctx, cx - 5 * k, bodyY + 10 * k, 10 * k, 4 * k, 2); ctx.fill();
-    /* fur trim */
-    ctx.fillStyle = 'rgba(255,255,255,.22)';
-    ctx.fillRect(cx - 5 * k, bodyY + 3, 10 * k, 1.6);
-    /* arms */
-    ctx.strokeStyle = p.look.skin; ctx.lineWidth = 2.4 * k; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(cx - 5 * k, bodyY + 6); ctx.lineTo(cx - 7 * k, bodyY + 11 - legPh * 1.5);
-    ctx.moveTo(cx + 5 * k, bodyY + 6); ctx.lineTo(cx + 7 * k, bodyY + 11 + legPh * 1.5);
-    ctx.stroke();
-    /* head */
-    ctx.fillStyle = p.look.skin;
-    ctx.beginPath(); ctx.arc(cx, bodyY - 1, 4.6 * k, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = p.look.hair;
-    ctx.beginPath(); ctx.arc(cx, bodyY - 2.6, 4.6 * k, Math.PI * 1.05, Math.PI * 2.0); ctx.fill();
-    if (p.look.hat) {
-      ctx.fillStyle = p.look.hat;
-      ctx.beginPath(); ctx.ellipse(cx, bodyY - 5.5, 6 * k, 2.2 * k, 0, 0, Math.PI * 2); ctx.fill();
+
+    if (sim.selected === p) {
+      ctx.fillStyle = '#ffe27a';
+      const ax = cx, ay = cy - H - 16 - Math.sin(t * 4) * 2;
+      ctx.beginPath(); ctx.moveTo(ax - 5, ay); ctx.lineTo(ax + 5, ay); ctx.lineTo(ax, ay + 7); ctx.closePath(); ctx.fill();
     }
-    /* eyes */
-    ctx.fillStyle = '#2a2018';
-    ctx.beginPath();
-    ctx.arc(cx - 1.6, bodyY - 1.4, 0.75, 0, Math.PI * 2);
-    ctx.arc(cx + 1.6, bodyY - 1.4, 0.75, 0, Math.PI * 2);
-    ctx.fill();
 
     if (p.kind === 'staff') {
       /* a small coloured disc with the trade on it reads better than a name */
@@ -922,9 +1142,10 @@ const renderer = {
       ctx.beginPath(); ctx.arc(cx, by2, 7, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, by2, 7, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#2a2018';
       ctx.font = '9px system-ui, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(STAFF_ICON[p.role] || '•', cx, by2 + 0.5);
+      ctx.fillText(STAFF_ICON[p.role] || '\u2022', cx, by2 + 0.5);
       if (sim.selected === p) {
         ctx.font = 'bold 9px system-ui, sans-serif';
         ctx.fillStyle = 'rgba(0,0,0,.55)';
@@ -944,12 +1165,13 @@ const renderer = {
       const s = 1 + Math.sin(t * 22) * 0.2;
       ctx.font = (14 * s) + 'px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('💢', cx, bodyY - 12);
+      ctx.fillText('\ud83d\udca2', cx, bodyY - 12);
     } else if (p.bubble) {
       ctx.save();
       ctx.fillStyle = 'rgba(255,255,255,.92)';
       ctx.beginPath(); ctx.ellipse(cx, bodyY - 14, 9, 7.5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.moveTo(cx - 3, bodyY - 8); ctx.lineTo(cx + 2, bodyY - 8); ctx.lineTo(cx, bodyY - 4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2a2018';
       ctx.font = '10px system-ui, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(p.bubble, cx, bodyY - 14);
@@ -1008,6 +1230,20 @@ const renderer = {
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
     }
+    ctx.restore();
+  },
+
+  /* A light grade over the finished frame: sun-warmed highlights on the
+     north-west side, cool shade to the south-east, and the faintest vignette
+     so the middle of the screen reads first. */
+  gradePass(ctx) {
+    /* One alpha blend over every pixel on the screen: cheap on a desktop,
+       a third of the budget on a high-resolution tablet. It is the first
+       thing to go when the frame cannot afford it. */
+    if (!this._overlay || !this.rich) return;
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.drawImage(this._overlay, 0, 0, this.W, this.H);
     ctx.restore();
   },
 

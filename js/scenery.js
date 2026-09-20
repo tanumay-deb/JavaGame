@@ -44,8 +44,8 @@ const scenery = {
   build() {
     this.props.length = 0;
     const kinds = ['conifer', 'conifer', 'broadleaf', 'fernclump', 'bigrock', 'deadwood'];
-    for (let y = -MARGIN; y < GRID_H + MARGIN; y++) {
-      for (let x = -MARGIN; x < GRID_W + MARGIN; x++) {
+    for (let y = -WILD; y < GRID_H + WILD; y++) {
+      for (let x = -WILD; x < GRID_W + WILD; x++) {
         if (park.owns(x, y)) continue;
         const g = wildTerrain(x, y);
         if (g === GROUND.ROAD) continue;

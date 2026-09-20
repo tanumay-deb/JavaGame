@@ -185,6 +185,34 @@ function spriteBounds(spr) {
   return spr.bounds;
 }
 
+/* A flat silhouette of a sprite in one colour, cached per colour. Used for
+   cast shadows and for the warm rim light along each sprite's sunward edge. */
+function spriteSilhouette(spr, colour) {
+  spr._sil = spr._sil || {};
+  if (spr._sil[colour]) return spr._sil[colour];
+  const c = makeCanvas(spr.c.width, spr.c.height);
+  const x = c.getContext('2d');
+  x.drawImage(spr.c, 0, 0);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = colour;
+  x.fillRect(0, 0, c.width, c.height);
+  spr._sil[colour] = c;
+  return c;
+}
+
+/* The sun sits behind the camera to the north-west, so every sprite gets a
+   sliver of warm light on its upper-left edge and throws its shadow forward. */
+function addRimLight(spr, scale, colour) {
+  const s = scale || 1;
+  const rim = spriteSilhouette(spr, colour || 'rgba(255,241,206,0.9)');
+  const ctx = spr.ctx || spr.c.getContext('2d');
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-over';
+  ctx.drawImage(rim, -1.4 * s, -1.6 * s);
+  ctx.restore();
+  spr._sil = {};                 /* silhouettes must be re-cut to include the rim */
+}
+
 /* A one-off picture of a building for menus and panels: the static sprite with
    its moving parts drawn in, cropped to what is actually painted. */
 const _previewCache = new Map();
@@ -216,6 +244,7 @@ function getSprite(art, w, h, rot, item) {
   s = fn(w, h, rot || 0);
   if (item && item.cat === 'ride') rideFence(s, item, rot || 0, 'front');
   ART._spec = null;
+  addRimLight(s);
   _spriteCache.set(key, s);
   return s;
 }
@@ -226,3 +255,133 @@ ART.fallback = function (w, h) {
   isoBox(g.ctx, g.mid[0], g.mid[1], TILE_W * 0.7, TILE_H * 0.7, 22, '#c0705a', '#7d4536', '#9a5644');
   return g;
 };
+
+/* ------------------------------------------------------------- visitors */
+/* A person is two dozen little shapes, and a busy park draws sixty of them
+   every frame. Each pose is baked once into a small canvas instead, keyed by
+   the look — the palettes are short, so the cache stays small. Poses are
+   drawn at 2x and blitted at half size so faces stay crisp when zoomed in. */
+const PERSON_FRAMES = 8;                 /* one full stride */
+const PERSON_W = 28, PERSON_H = 38;      /* in world pixels */
+const PERSON_AX = 14, PERSON_AY = 32;    /* where the feet sit in that box */
+const PERSON_SS = 2;
+const _personCache = new Map();
+
+function paintPerson(ctx, look, frame) {
+  const k = look.kid ? 0.78 : 1;
+  const H = 18 * k;
+  const walking = frame < PERSON_FRAMES;
+  const a = walking ? (frame / PERSON_FRAMES) * Math.PI * 2 : 0;
+  const swing = walking ? Math.sin(a) : 0;
+  const bob = walking ? Math.abs(Math.sin(a)) * 2 : 0;   /* up on every step */
+  const bodyY = -H - bob;
+  const hipY = -6 * k - bob;
+
+  const skinDark = shade(look.skin, -0.34);
+  const skinMid = shade(look.skin, -0.12);
+  const skinLit = shade(look.skin, 0.16);
+
+  /* legs — the trailing one is darker so the stride reads at a glance */
+  for (const L of [{ x: -3.9, ph: -swing, c: skinDark }, { x: 1.1, ph: swing, c: skinMid }]) {
+    const len = Math.max(2.5, 6 * k + L.ph * 1.7);
+    ctx.fillStyle = L.c;
+    roundRect(ctx, L.x, hipY, 2.8, len, 1.3); ctx.fill();
+    ctx.fillStyle = '#6b4a2c';                                  /* hide sandal */
+    roundRect(ctx, L.x - 0.7, hipY + len - 1.7, 4.2, 2.5, 1.1); ctx.fill();
+  }
+
+  /* back arm, behind the tunic */
+  ctx.strokeStyle = skinDark; ctx.lineWidth = 2.5 * k; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(4.4 * k, bodyY + 6); ctx.lineTo(6.6 * k, bodyY + 11 + swing * 1.8);
+  ctx.stroke();
+
+  /* tunic — hide, lit from the upper left */
+  const tw = 10.4 * k, th = 11.4 * k;
+  const gr = ctx.createLinearGradient(-tw / 2, bodyY, tw / 2, bodyY + th);
+  gr.addColorStop(0, shade(look.cloth, 0.22));
+  gr.addColorStop(0.55, look.cloth);
+  gr.addColorStop(1, shade(look.cloth, -0.3));
+  ctx.fillStyle = gr;
+  roundRect(ctx, -tw / 2, bodyY + 3, tw, th, 3.6); ctx.fill();
+  /* ragged hem, the way a cut hide hangs */
+  ctx.fillStyle = shade(look.cloth, -0.42);
+  ctx.beginPath();
+  ctx.moveTo(-tw / 2, bodyY + th + 1);
+  for (let i = 0; i <= 4; i++) {
+    const fx = -tw / 2 + (tw / 4) * i;
+    ctx.lineTo(fx, bodyY + th + 3 + (i % 2 ? 0 : 1.6));
+  }
+  ctx.lineTo(tw / 2, bodyY + th + 1);
+  ctx.closePath(); ctx.fill();
+  /* fur collar */
+  ctx.fillStyle = 'rgba(255,248,232,.32)';
+  roundRect(ctx, -tw / 2, bodyY + 2.2, tw, 2.2, 1.1); ctx.fill();
+  ctx.fillStyle = 'rgba(30,20,10,.16)';
+  roundRect(ctx, -tw / 2, bodyY + th - 3, tw, 3, 1.4); ctx.fill();
+
+  /* front arm */
+  ctx.strokeStyle = skinMid; ctx.lineWidth = 2.6 * k;
+  ctx.beginPath();
+  ctx.moveTo(-4.4 * k, bodyY + 6); ctx.lineTo(-6.8 * k, bodyY + 11 - swing * 1.8);
+  ctx.stroke();
+
+  /* neck and head */
+  ctx.fillStyle = skinDark;
+  ctx.fillRect(-1.6, bodyY + 0.6, 3.2, 3);
+  const hy = bodyY - 1.2, hr = 4.7 * k;
+  const hg = ctx.createRadialGradient(hy * 0 - hr * 0.4, hy - hr * 0.45, hr * 0.2, 0, hy, hr * 1.25);
+  hg.addColorStop(0, skinLit);
+  hg.addColorStop(0.62, look.skin);
+  hg.addColorStop(1, skinDark);
+  ctx.fillStyle = hg;
+  ctx.beginPath(); ctx.arc(0, hy, hr, 0, Math.PI * 2); ctx.fill();
+
+  /* hair, swept back over the crown */
+  ctx.fillStyle = look.hair;
+  ctx.beginPath();
+  ctx.arc(0, hy - 1.4, hr, Math.PI * 1.02, Math.PI * 2.02);
+  ctx.quadraticCurveTo(hr * 0.9, hy + 1.4, hr * 0.78, hy + 2.2);
+  ctx.lineTo(-hr * 0.78, hy + 2.2);
+  ctx.quadraticCurveTo(-hr * 0.95, hy + 0.6, -hr, hy - 1.4);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = shade(look.hair, 0.3);
+  ctx.beginPath(); ctx.ellipse(-hr * 0.42, hy - hr * 0.72, hr * 0.42, hr * 0.2, -0.5, 0, Math.PI * 2); ctx.fill();
+
+  if (look.hat) {
+    ctx.fillStyle = shade(look.hat, -0.25);
+    ctx.beginPath(); ctx.ellipse(0, hy - hr * 0.95, 6.4 * k, 2.3 * k, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = look.hat;
+    roundRect(ctx, -3.1 * k, hy - hr * 1.75, 6.2 * k, 3 * k, 1.4); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.2)';
+    ctx.fillRect(-3.1 * k, hy - hr * 1.75, 2 * k, 3 * k);
+  }
+
+  /* face */
+  ctx.fillStyle = '#2a2018';
+  ctx.beginPath();
+  ctx.arc(-1.7 * k, hy + 0.1, 0.78, 0, Math.PI * 2);
+  ctx.arc(1.7 * k, hy + 0.1, 0.78, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(214,120,96,.35)';
+  ctx.beginPath(); ctx.ellipse(-2.5 * k, hy + 1.6, 1.2, 0.8, 0, 0, Math.PI * 2); ctx.fill();
+}
+
+function getPerson(look, frame) {
+  const key = look.skin + look.cloth + look.hair + (look.hat || '-') + (look.kid ? 'k' : 'a') + frame;
+  let spr = _personCache.get(key);
+  if (spr) return spr;
+  const c = makeCanvas(PERSON_W * PERSON_SS, PERSON_H * PERSON_SS);
+  const ctx = c.getContext('2d');
+  ctx.lineJoin = 'round';
+  ctx.save();
+  ctx.scale(PERSON_SS, PERSON_SS);
+  ctx.translate(PERSON_AX, PERSON_AY);
+  paintPerson(ctx, look, frame);
+  ctx.restore();
+  spr = { c, ox: PERSON_AX, oy: PERSON_AY, w: PERSON_W, h: PERSON_H };
+  /* a hint of sun on the sunward edge — any more and it reads as white hair */
+  addRimLight(spr, 1.5, 'rgba(255,243,216,0.45)');
+  _personCache.set(key, spr);
+  return spr;
+}

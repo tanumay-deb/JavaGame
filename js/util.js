@@ -108,6 +108,15 @@ function blob(ctx, cx, cy, rx, ry, alpha) {
   ctx.restore();
 }
 
+/* An ellipse as its own subpath. Without the moveTo, canvas joins it to
+   whatever is already in the path with a straight line — which, when a whole
+   batch of them is filled at once, paints huge wedges across the map. */
+function ellipseSub(ctx, cx, cy, rx, ry, rot) {
+  rot = rot || 0;
+  ctx.moveTo(cx + Math.cos(rot) * rx, cy + Math.sin(rot) * rx);
+  ctx.ellipse(cx, cy, rx, ry, rot, 0, Math.PI * 2);
+}
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);

@@ -11,6 +11,7 @@ const PLOT = 6;               // land is bought a plot at a time
 const PLOTS_X = GRID_W / PLOT;
 const PLOTS_Y = GRID_H / PLOT;
 const MARGIN = 10;            // tiles of wild country drawn beyond the valley
+const WILD = 34;              // how far scenery is scattered, so the corners of the view are never bare
 const ROAD_Y = GRID_H + 3;    // the track that brings visitors, south of the park
 const PLOT_BASE = 850;        // price of the first plot of land you buy
 const PLOT_STEP = 480;        // each further plot costs this much more
@@ -24,6 +25,8 @@ const DAYS_PER_MONTH = 28;
 const PALETTE = {
   grass:      ['#5fa148', '#64a74c', '#5c9d45', '#62a44a'],
   grassAlt:   ['#72ad52', '#569444', '#69a64e', '#7cb257'],
+  grassDry:   '#a8ad5f',        // sun-bleached meadow on the high ground
+  grassDeep:  '#3d7a3c',        // damp, shaded hollows
   grassDark:  '#477c33',
   gravel:     '#b39a6c',
   gravelEdge: '#8f7a52',
