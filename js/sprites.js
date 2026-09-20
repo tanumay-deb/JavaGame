@@ -262,6 +262,7 @@ ART.fallback = function (w, h) {
    the look — the palettes are short, so the cache stays small. Poses are
    drawn at 2x and blitted at half size so faces stay crisp when zoomed in. */
 const PERSON_FRAMES = 8;                 /* one full stride */
+const PERSON_SIT = PERSON_FRAMES + 1;    /* the pose for somebody on a bench */
 const PERSON_W = 28, PERSON_H = 38;      /* in world pixels */
 const PERSON_AX = 14, PERSON_AY = 32;    /* where the feet sit in that box */
 const PERSON_SS = 2;
@@ -312,7 +313,8 @@ function staffTool(ctx, role, x, y, col) {
 
 function paintPerson(ctx, look, frame) {
   const k = look.kid ? 0.78 : 1;
-  const H = 18 * k;
+  const sitting = frame === PERSON_SIT;
+  const H = (sitting ? 14 : 18) * k;
   const walking = frame < PERSON_FRAMES;
   const a = walking ? (frame / PERSON_FRAMES) * Math.PI * 2 : 0;
   const swing = walking ? Math.sin(a) : 0;
@@ -320,12 +322,13 @@ function paintPerson(ctx, look, frame) {
   const bodyY = -H - bob;
   const hipY = -6 * k - bob;
 
+
   const skinDark = shade(look.skin, -0.34);
   const skinMid = shade(look.skin, -0.12);
   const skinLit = shade(look.skin, 0.16);
 
   /* legs — the trailing one is darker so the stride reads at a glance */
-  for (const L of [{ x: -3.9, ph: -swing, c: skinDark }, { x: 1.1, ph: swing, c: skinMid }]) {
+  for (const L of sitting ? [] : [{ x: -3.9, ph: -swing, c: skinDark }, { x: 1.1, ph: swing, c: skinMid }]) {
     const len = Math.max(2.5, 6 * k + L.ph * 1.7);
     ctx.fillStyle = L.c;
     roundRect(ctx, L.x, hipY, 2.8, len, 1.3); ctx.fill();
@@ -336,7 +339,8 @@ function paintPerson(ctx, look, frame) {
   /* back arm, behind the tunic */
   ctx.strokeStyle = skinDark; ctx.lineWidth = 2.5 * k; ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(4.4 * k, bodyY + 6); ctx.lineTo(6.6 * k, bodyY + 11 + swing * 1.8);
+  ctx.moveTo(4.4 * k, bodyY + 6);
+  ctx.lineTo(sitting ? 5.2 * k : 6.6 * k, bodyY + (sitting ? 9 : 11) + swing * 1.8);
   ctx.stroke();
 
   /* tunic — hide, lit from the upper left */
@@ -372,10 +376,25 @@ function paintPerson(ctx, look, frame) {
     ctx.fillRect(-3.2, bodyY + th - 1.2, 6.4, 1);
   }
 
+  /* Sitting: the thighs come forward out from under the hem and the shins drop
+     down the front of the bench. Drawn over the tunic, or the hem hides them
+     and the figure just looks short. */
+  if (sitting) {
+    for (const L of [{ x: -4.2, c: shade(look.skin, -0.3) }, { x: 0.9, c: shade(look.skin, -0.12) }]) {
+      ctx.fillStyle = L.c;
+      roundRect(ctx, L.x, -9.5 * k, 3.3, 5.2 * k, 1.5); ctx.fill();          /* thigh */
+      ctx.fillStyle = shade(L.c, -0.12);
+      roundRect(ctx, L.x - 0.2, -5.2 * k, 3.1, 5.4 * k, 1.4); ctx.fill();    /* shin */
+      ctx.fillStyle = '#6b4a2c';
+      roundRect(ctx, L.x - 0.9, -0.4, 4.4, 2.6, 1.2); ctx.fill();            /* foot */
+    }
+  }
+
   /* front arm */
   ctx.strokeStyle = skinMid; ctx.lineWidth = 2.6 * k;
   ctx.beginPath();
-  ctx.moveTo(-4.4 * k, bodyY + 6); ctx.lineTo(-6.8 * k, bodyY + 11 - swing * 1.8);
+  ctx.moveTo(-4.4 * k, bodyY + 6);
+  ctx.lineTo(sitting ? -5.4 * k : -6.8 * k, bodyY + (sitting ? 9 : 11) - swing * 1.8);
   ctx.stroke();
   if (look.staff) staffTool(ctx, look.staff, -7.6 * k, bodyY + 11 - swing * 1.8, look.cloth);
 

@@ -916,7 +916,10 @@ const renderer = {
     for (const b of park.buildings.values())
       if (onScreen(b.x + b.w / 2, b.y + b.h / 2, bounds)) list.push({ d: b.x + b.y + (b.w + b.h) * 0.5, b });
     for (const v of sim.visitors)
-      if (v.state !== 'riding' && onScreen(v.x + 0.5, v.y + 0.5, near)) list.push({ d: v.x + v.y + 0.6, v });
+      if (v.state !== 'riding' && onScreen(v.x + 0.5, v.y + 0.5, near))
+        /* somebody on a bench has to sort after the bench, or the backrest is
+           painted over them and they look as though they are standing behind it */
+        list.push({ d: v.x + v.y + (v.restBench && v.state === 'resting' ? 1.4 : 0.6), v });
     for (const s of sim.staff)
       if (onScreen(s.x + 0.5, s.y + 0.5, near)) list.push({ d: s.x + s.y + 0.6, s });
     for (const v of traffic.vehicles)
@@ -980,6 +983,7 @@ const renderer = {
   /* the cast shadow plus a tight contact patch under the feet, as one path so
      the whole crowd costs a single fill */
   personShadowPath(ctx, p) {
+    if (p.state === 'resting' && p.restBench) return;   /* the bench casts it */
     let px = p.x, py = p.y;
     if (p.qx !== undefined) { px = p.qx; py = p.qy; }
     const k = p.look && p.look.kid ? 0.8 : 1;
@@ -1135,12 +1139,16 @@ const renderer = {
       ctx.restore();
     }
 
-    const frame = walking ? (((t * 1.45 + p.id * 0.37) * PERSON_FRAMES | 0) % PERSON_FRAMES) : PERSON_FRAMES;
+    const seated = p.state === 'resting' && p.restBench;
+    const frame = seated ? PERSON_SIT
+      : walking ? (((t * 1.45 + p.id * 0.37) * PERSON_FRAMES | 0) % PERSON_FRAMES) : PERSON_FRAMES;
     const spr = getPerson(p.look, frame);
-    ctx.drawImage(spr.c, cx - spr.ox, cy - spr.oy, spr.w, spr.h);
+    /* a seated figure sits up on the bench slats rather than on the ground */
+    const lift = seated ? 7.5 : 0;
+    ctx.drawImage(spr.c, cx - spr.ox, cy - spr.oy - lift, spr.w, spr.h);
 
     const bob = walking ? Math.abs(Math.sin(frame / PERSON_FRAMES * Math.PI * 2)) * 2 : 0;
-    const bodyY = cy - H - bob;
+    const bodyY = cy - (seated ? 14 * k : H) - bob - lift;
 
     if (sim.selected === p) {
       ctx.fillStyle = '#ffe27a';

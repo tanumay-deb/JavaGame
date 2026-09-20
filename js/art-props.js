@@ -260,18 +260,45 @@ ART.rock = function () {
   return g;
 };
 
+/* A bench for two: a slatted seat on stone blocks with a low back, laid along
+   the tile so the people sitting on it have somewhere to put their weight. */
 ART.bench = function () {
-  const g = spriteCtx(1, 1, 28), ctx = g.ctx;
+  const g = spriteCtx(1, 1, 30), ctx = g.ctx;
   const [cx, cy] = g.mid;
-  blob(ctx, cx, cy + 2, 13, 5, .16);
-  ctx.fillStyle = PALETTE.woodDark;
-  ctx.fillRect(cx - 12, cy - 6, 3, 8); ctx.fillRect(cx + 9, cy - 6, 3, 8);
+  const W = 19, D = 7;            /* half length, and how deep the seat is */
+  blob(ctx, cx, cy + 3, 19, 7, .16);
+
+  /* stone blocks holding it up */
+  for (const sx of [-W + 4, W - 4]) {
+    ctx.fillStyle = '#8b8377';
+    roundRect(ctx, cx + sx - 3, cy - 5, 6, 8, 1.5); ctx.fill();
+    ctx.fillStyle = '#a49b8c';
+    roundRect(ctx, cx + sx - 3, cy - 5, 2.4, 8, 1.2); ctx.fill();
+  }
+
+  /* the seat, given thickness by a darker front edge */
+  ctx.fillStyle = shade(PALETTE.wood, -0.34);
+  roundRect(ctx, cx - W, cy - 7, W * 2, 4.5, 1.6); ctx.fill();
   ctx.fillStyle = PALETTE.wood;
-  roundRect(ctx, cx - 15, cy - 9, 30, 5, 2); ctx.fill();
-  ctx.fillStyle = shade(PALETTE.wood, .15);
-  roundRect(ctx, cx - 15, cy - 17, 30, 4, 2); ctx.fill();
-  ctx.fillStyle = shade(PALETTE.wood, -.25);
-  ctx.fillRect(cx - 15, cy - 5, 30, 1.5);
+  roundRect(ctx, cx - W, cy - 10, W * 2, D, 2); ctx.fill();
+  ctx.strokeStyle = shade(PALETTE.wood, -0.22); ctx.lineWidth = 0.9;
+  for (const f of [0.34, 0.68]) {
+    ctx.beginPath();
+    ctx.moveTo(cx - W + 1, cy - 10 + D * f); ctx.lineTo(cx + W - 1, cy - 10 + D * f);
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,248,232,.22)';
+  roundRect(ctx, cx - W, cy - 10, W * 2, 1.6, 0.8); ctx.fill();
+
+  /* uprights and a two-slat back */
+  ctx.fillStyle = PALETTE.woodDark;
+  for (const sx of [-W + 3, W - 3]) ctx.fillRect(cx + sx - 1.4, cy - 21, 2.8, 12);
+  for (const by of [-21, -16]) {
+    ctx.fillStyle = shade(PALETTE.wood, by === -21 ? 0.18 : 0.06);
+    roundRect(ctx, cx - W + 1, cy + by, W * 2 - 2, 3.4, 1.4); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.16)';
+    ctx.fillRect(cx - W + 1, cy + by + 2.6, W * 2 - 2, 0.9);
+  }
   return g;
 };
 

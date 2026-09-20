@@ -174,7 +174,7 @@ const sim = {
     for (let i = this.visitors.length - 1; i >= 0; i--) {
       const v = this.visitors[i];
       v.update(dt);
-      if (v.dead) this.visitors.splice(i, 1);
+      if (v.dead) { v.release(); this.visitors.splice(i, 1); }
     }
     for (const s of this.staff) s.update(dt);
     this.maybeFight(dt);

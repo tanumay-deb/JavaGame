@@ -56,6 +56,19 @@ function Visitor(x, y) {
 
 Visitor.prototype.say = function (icon, secs) { this.bubble = icon; this.bubbleT = secs || 2.5; };
 
+/* give back whatever this visitor was holding before they disappear */
+Visitor.prototype.release = function () {
+  if (this.restBench) {
+    this.restBench.sitters = Math.max(0, (this.restBench.sitters || 1) - 1);
+    this.restBench = null;
+  }
+  if (this.queuedFor) {
+    const q = this.queuedFor.queue, i = q.indexOf(this);
+    if (i >= 0) q.splice(i, 1);
+    this.queuedFor = null;
+  }
+};
+
 /* walk in from the road through the gateway; only then does normal life start */
 Visitor.prototype.enterPark = function () {
   const g = park.gate;
@@ -150,14 +163,14 @@ Visitor.prototype.seekRest = function () {
   let best = null, bestD = 1e9;
   for (const b of park.buildings.values()) {
     if (!b.item.rest) continue;
-    if (b.occupiedBy) continue;
+    if ((b.sitters || 0) >= 2) continue;        /* a bench seats two */
     const d = dist2(this.x, this.y, b.x, b.y);
     if (d < bestD) { bestD = d; best = b; }
   }
   if (!best) return false;
   const acc = park.accessTiles(best.ent);
   if (!acc.length || !this.walkTo(acc, 'walk', { b: best, kind: 'rest' })) return false;
-  best.occupiedBy = this.id;
+  best.sitters = (best.sitters || 0) + 1;
   this.thought = 'Need to sit down';
   this.say('💤');
   return true;
@@ -241,6 +254,13 @@ Visitor.prototype.arrive = function () {
     this.state = 'resting'; this.timer = rnd(4, 8);
     this.thought = 'Resting on a bench';
     this.restBench = b;
+    /* sit on the bench itself, not beside it, so an occupied bench looks
+       occupied; two can share one, one at each end */
+    /* the drawing adds the half tile, so these are the tile's own coordinates */
+    this.seatSide = b.sitters >= 2 ? 0.26 : -0.26;
+    this.x = b.x + this.seatSide;
+    this.y = b.y;
+    this.path = null;
     return;
   }
   if (t.kind === 'ride') {
@@ -277,6 +297,13 @@ Visitor.prototype.update = function (dt) {
   this.happiness = clamp(lerp(this.happiness, goal, 1 - Math.exp(-dt * 0.55)), 0, 100);
   if (n.bladder < 8 || n.hunger < 8) this.happiness = clamp(this.happiness - dt * 4, 0, 100);
 
+  /* Whatever pulled them off the bench — a fight, going home — gives the seat
+     back. Without this the bench silently fills up for good. */
+  if (this.restBench && this.state !== 'resting') {
+    this.restBench.sitters = Math.max(0, (this.restBench.sitters || 1) - 1);
+    this.restBench = null;
+  }
+
   /* fights */
   if (this.fightT > 0) {
     this.fightT -= dt;
@@ -297,7 +324,10 @@ Visitor.prototype.update = function (dt) {
     case 'resting':
       this.timer -= dt;
       if (this.timer <= 0) {
-        if (this.restBench) { this.restBench.occupiedBy = null; this.restBench = null; }
+        if (this.restBench) {
+          this.restBench.sitters = Math.max(0, (this.restBench.sitters || 1) - 1);
+          this.restBench = null;
+        }
         this.state = 'idle'; this.timer = rnd(0.2, 0.8);
       }
       break;

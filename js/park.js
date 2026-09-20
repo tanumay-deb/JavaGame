@@ -34,7 +34,7 @@ const park = {
     return this.ownsPlot(px - 1, py) || this.ownsPlot(px + 1, py)
         || this.ownsPlot(px, py - 1) || this.ownsPlot(px, py + 1);
   },
-  plotPrice() { return PLOT_BASE + PLOT_STEP * Math.max(0, this.plotsBought - 4); },
+  plotPrice() { return PLOT_BASE + PLOT_STEP * Math.max(0, this.plotsBought - START_PLOTS); },
   buyPlot(px, py) {
     this.plots[this.plotIdx(px, py)] = 1;
     this.plotsBought++;
@@ -68,9 +68,14 @@ const park = {
     /* you start with a small clearing by the road and buy the valley later */
     this.plots.fill(0);
     this.plotsBought = 0;
+    /* a three-by-three clearing around the gateway, wide enough to lay a
+       proper avenue and put rides either side of it before buying more */
     const g = this.plotOf(this.gate.x, this.gate.y);
-    for (const [px, py] of [[g.px, g.py], [g.px + 1, g.py], [g.px, g.py - 1], [g.px + 1, g.py - 1]]) {
-      if (px >= 0 && py >= 0 && px < PLOTS_X && py < PLOTS_Y) {
+    for (let dy = -2; dy <= 0; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const px = g.px + dx, py = g.py + dy;
+        if (px < 0 || py < 0 || px >= PLOTS_X || py >= PLOTS_Y) continue;
+        if (this.plots[this.plotIdx(px, py)]) continue;
         this.plots[this.plotIdx(px, py)] = 1;
         this.plotsBought++;
       }

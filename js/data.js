@@ -13,6 +13,7 @@ const PLOTS_Y = GRID_H / PLOT;
 const MARGIN = 10;            // tiles of wild country drawn beyond the valley
 const WILD = 34;              // how far scenery is scattered, so the corners of the view are never bare
 const ROAD_Y = GRID_H + 3;    // the track that brings visitors, south of the park
+const START_PLOTS = 9;        // plots of the valley you begin with
 const PLOT_BASE = 850;        // price of the first plot of land you buy
 const PLOT_STEP = 480;        // each further plot costs this much more
 
@@ -164,5 +165,5 @@ const OBJECTIVES = [
   { id: 'visitors',  label: 'Visitors in park',    target: 60 },
   { id: 'happiness', label: 'Average happiness %', target: 70 },
   { id: 'rides',     label: 'Working rides built', target: 8 },
-  { id: 'land',      label: 'Plots of land owned',  target: 8 }
+  { id: 'land',      label: 'Plots of land owned',  target: 16 }
 ];
