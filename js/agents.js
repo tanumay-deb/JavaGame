@@ -43,6 +43,8 @@ function Visitor(x, y) {
   this.happiness = rnd(58, 78);
   this.look = makeLook();
   this.speed = VIS_SPEED * rnd(0.85, 1.15) * (this.look.kid ? 1.1 : 1);
+  /* which side of the path this one keeps to, so crowds spread out */
+  this.lane = rnd(-0.3, 0.3);
   this.thought = 'Just arrived';
   this.rides = 0;
   this.spent = 0;
@@ -349,20 +351,44 @@ Visitor.prototype.update = function (dt) {
   }
 };
 
+/* Everyone used to walk the exact centre line of the path and pivot on the
+   spot at every corner, so a crowd moved as one stack of overlapping bodies
+   down the middle. Each visitor keeps their own side of the path, and starts
+   for the next corner before standing on the current one. */
 Visitor.prototype.move = function (dt) {
   if (!this.path) { this.state = 'idle'; this.timer = 0.4; return; }
-  const node = this.path[this.pi];
-  if (!node) { this.arrive(); return; }
-  const dx = node.x - this.x, dy = node.y - this.y;
-  const d = Math.hypot(dx, dy);
-  const step = this.speed * dt;
-  if (d <= step) {
-    this.x = node.x; this.y = node.y;
+  let step = this.speed * dt;
+
+  for (let guard = 0; guard < 4; guard++) {
+    const node = this.path[this.pi];
+    if (!node) { this.arrive(); return; }
+    const last = this.pi === this.path.length - 1;
+
+    /* aim a little to one side of the centre line, except at the very last
+       node — a queue slot or a doorway has to be hit squarely */
+    let tx = node.x, ty = node.y;
+    if (!last) {
+      const ax = node.x - this.x, ay = node.y - this.y;
+      const ad = Math.hypot(ax, ay) || 1;
+      tx += (-ay / ad) * this.lane;
+      ty += (ax / ad) * this.lane;
+    }
+
+    const dx = tx - this.x, dy = ty - this.y;
+    const d = Math.hypot(dx, dy);
+    /* the corner is taken as soon as it is within reach, not stood upon */
+    const reach = last ? step : Math.max(step, 0.3);
+    if (d > reach) {
+      this.x += (dx / d) * step;
+      this.y += (dy / d) * step;
+      return;
+    }
+    if (last) { this.x = node.x; this.y = node.y; }
+    else { this.x = tx; this.y = ty; }
+    step = Math.max(0, step - d);
     this.pi++;
-    if (this.pi >= this.path.length) this.arrive();
-  } else {
-    this.x += (dx / d) * step; this.y += (dy / d) * step;
-    this.face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'e' : 'w') : (dy > 0 ? 's' : 'n');
+    if (this.pi >= this.path.length) { this.arrive(); return; }
+    if (step <= 0) return;
   }
 };
 
@@ -392,6 +418,7 @@ function Staff(role, x, y) {
   this.assigned = null;     // building id this worker runs
   this.job = null;          // building being repaired
   this.speed = VIS_SPEED * 1.1;
+  this.lane = rnd(-0.22, 0.22);      /* Visitor.move needs one; staff keep tighter */
   /* a narrow slice of the wardrobe, so six trades do not multiply out into
      six times the whole crowd's worth of baked poses */
   this.look = Object.assign({}, LOOKS[rndInt(0, 5)]);
