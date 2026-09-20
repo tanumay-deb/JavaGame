@@ -33,7 +33,15 @@ ticket price; picking one open its panel so the price can be set straight away.
 
 ## Play it
 
-Open `index.html` in a browser, or serve the folder:
+Live on GitHub Pages: **https://tanumay-deb.github.io/JavaGame/**
+
+Every push to the default branch redeploys it (`.github/workflows/pages.yml`
+checks that the JavaScript parses, then publishes the repository as the site —
+there is nothing to build). If Pages has never been switched on for the
+repository, the first run turns it on itself; failing that, Settings → Pages →
+Source → GitHub Actions.
+
+Or open `index.html` straight off disk, or serve the folder:
 
 ```bash
 python3 -m http.server 8000     # then open http://localhost:8000
@@ -50,7 +58,7 @@ The game saves to `localStorage` automatically at every new moon, and from
 | Zoom | pinch, scroll wheel, or `+` / `-` |
 | Build | **Build** button, then tap the map. Paths can be painted by dragging |
 | Buy land | **Build → 🌄 Land**, then tap a marked plot |
-| Place it | drag it out of the tray, or tap the map and slide it; then the green ✓ (or `Enter`). ✕ picks another spot, ⟲ rotates |
+| Place it | drag it out of the tray, or tap the map and slide it; then the green ✓ (or `Enter`). ✕ puts it down, ⟲ rotates |
 | Move something | **press and hold it, then drag** — or select it and use **✥ Move**. Free, either way |
 | Demolish | **Build → 💥 Demolish**, then tap. Drag to clear a run of paving; half the cost comes back |
 | Rotate a ride | **Rotate** in the build bar, or `R` |
@@ -72,8 +80,9 @@ The game saves to `localStorage` automatically at every new moon, and from
   People going home walk back out and wait at the roadside for a lift.
 * **Visitors only walk on paths.** Pave a route out of the gate first. Stone paths
   are more comfortable than gravel.
-* **Every ride has an IN and an OUT tile**, shown in the build preview before you
-  pay. Both must touch a path or nobody will ride: a doorway with no path beside
+* **Every ride has an IN and an OUT tile**, at the two ends of the same side, so
+  a single path along that side serves both. They are shown in the build preview
+  before you pay, and both must touch a path or nobody will ride: a doorway with no path beside
   it is marked **IN?** / **OUT?** on the doorway itself, so you can see which one
   still needs connecting.
 * **Big rides need power** — a Dino Treadmill within range, with a Dino Rider

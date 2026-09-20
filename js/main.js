@@ -202,7 +202,7 @@
   }
   canvas.addEventListener('pointerup', endPointer);
   canvas.addEventListener('pointercancel', endPointer);
-  canvas.addEventListener('contextmenu', e => { e.preventDefault(); ui.clearPending(); ui.setBuild(null); });
+  canvas.addEventListener('contextmenu', e => { e.preventDefault(); ui.cancelPlacement(); });
   /* belt and braces against the browser's own long-press behaviour */
   canvas.addEventListener('touchstart', e => { if (e.touches.length === 1) e.preventDefault(); }, { passive: false });
   canvas.addEventListener('selectstart', e => e.preventDefault());
@@ -226,7 +226,7 @@
     else if (k === 'arrowup' || k === 'w') { view.y -= pan; }
     else if (k === 'arrowdown' || k === 's') { view.y += pan; }
     else if (k === 'r') ui.rotate();
-    else if (k === 'escape') { ui.clearPending(); ui.setBuild(null); ui.stopLand(); ui.stopDemolish(); ui.select(null); ui.close('modal'); ui.close('sheet'); }
+    else if (k === 'escape') { ui.cancelPlacement(); ui.stopLand(); ui.stopDemolish(); ui.select(null); ui.close('modal'); ui.close('sheet'); }
     else if (k === 'enter') { if (ui.pending) ui.confirmPlace(); }
     else if (k === 'b') ui.toggleSheet();
     else if (k === ' ') { e.preventDefault(); sim.paused = !sim.paused; syncSpeedButtons(); }

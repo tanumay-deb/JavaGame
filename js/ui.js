@@ -24,7 +24,7 @@ const ui = {
     };
 
     this.el.yes.addEventListener('click', () => this.confirmPlace());
-    this.el.no.addEventListener('click', () => this.clearPending());
+    this.el.no.addEventListener('click', () => this.cancelPlacement());
     this.el.rot.addEventListener('click', () => this.rotate());
 
     $('speeds').addEventListener('click', e => {
@@ -357,6 +357,13 @@ const ui = {
   clearPending() {
     this.pending = null;
     this.el.confirm.classList.add('hidden');
+  },
+
+  /* the red cross drops whatever is in hand, rather than just moving it */
+  cancelPlacement() {
+    this.clearPending();
+    if (this.build.moving) this.endMove(true);      /* a carried building goes back */
+    else this.setBuild(null);
   },
 
   /* pull an item straight out of the tray and onto the map */
