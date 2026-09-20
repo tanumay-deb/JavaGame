@@ -14,7 +14,7 @@ const ui = {
   init() {
     const $ = id => document.getElementById(id);
     this.el = {
-      money: $('hud-money'), happy: $('hud-happy'), visitors: $('hud-visitors'),
+      money: $('hud-money'), happy: $('hud-happy'), visitors: $('hud-visitors'), staff: $('hud-staff'),
       rating: $('hud-rating'), month: $('hud-month'), moon: $('moon'),
       toasts: $('toasts'), inspector: $('inspector'), sheet: $('sheet'),
       tabs: $('sheet-tabs'), cards: $('sheet-cards'), modal: $('modal'), modalBody: $('modal-body'),
@@ -433,10 +433,13 @@ const ui = {
 
   /* ------------------------------------------------------------ HUD tick */
   update(dt) {
-    this.el.money.textContent = money(sim.money);
+    /* a narrow phone cannot hold both a six-figure balance and the speed
+       buttons, so the balance is abbreviated there */
+    this.el.money.textContent = renderer.W <= 620 ? moneyShort(sim.money) : money(sim.money);
     this.el.money.style.color = sim.money < 0 ? CHART.loss : '';
     this.el.happy.textContent = Math.round(sim.avgHappiness()) + '%';
     this.el.visitors.textContent = sim.visitors.length;
+    this.el.staff.textContent = sim.staff.length;
     this.el.rating.textContent = Math.round(park.rating(sim.avgHappiness()));
     this.el.month.textContent = 'Moon ' + (sim.month + 1);
     this.drawMoon();

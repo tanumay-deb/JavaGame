@@ -8,6 +8,14 @@ const rndInt = (a, b) => Math.floor(rnd(a, b + 1));
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const chance = p => Math.random() < p;
 const money = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
+/* the HUD chip has to hold a growing balance on a narrow phone, so past ten
+   thousand it rounds to k and past a million to m */
+const moneyShort = n => {
+  const a = Math.abs(Math.round(n)), sign = n < 0 ? '-$' : '$';
+  if (a >= 1e6) return sign + (a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'm';
+  if (a >= 1e4) return sign + Math.round(a / 1e3) + 'k';
+  return sign + a.toLocaleString('en-US');
+};
 
 /* deterministic per-tile noise so grass texture does not crawl */
 function hash2(x, y) {

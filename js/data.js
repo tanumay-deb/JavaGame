@@ -128,7 +128,7 @@ const ITEMS = {
 const STAFF = {
   guard:     { name: 'Guard',      salary: 65, color: '#6d7f9b', desc: 'Stops fights breaking out nearby.' },
   repairman: { name: 'Repairman',  salary: 85, color: '#b5793a', desc: 'Walks to broken rides and fixes them.' },
-  cook:      { name: 'Cook',       salary: 75, color: '#d8d2c4', desc: 'Runs a Cave Cafe.' },
+  cook:      { name: 'Cook',       salary: 75, color: '#d9a441', desc: 'Runs a Cave Cafe.' },
   salesman:  { name: 'Salesman',   salary: 60, color: '#4f9d6a', desc: 'Runs a snack bar, juice hut or balloon stand.' },
   shaman:    { name: 'Shaman',     salary: 95, color: '#8e6fc0', desc: 'Heals visitors at an aid post.' },
   rider:     { name: 'Dino Rider', salary: 55, color: '#c2604a', desc: 'Turns a dino treadmill so rides get power.' }

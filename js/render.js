@@ -1113,6 +1113,17 @@ const renderer = {
     const k = p.look.kid ? 0.78 : 1;
     const H = 18 * k;
 
+    if (p.kind === 'staff') {
+      /* a ring under the feet in the trade's colour — at a glance this is what
+         separates staff from the crowd, long before the badge is legible */
+      ctx.save();
+      ctx.strokeStyle = p.def.color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(cx, cy + 2, 10, 5, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.ellipse(cx, cy + 2, 10, 5, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
     if (sim.selected === p) {
       ctx.save();
       ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 2;
@@ -1134,16 +1145,16 @@ const renderer = {
     }
 
     if (p.kind === 'staff') {
-      /* a small coloured disc with the trade on it reads better than a name */
-      const by2 = bodyY - 11;
-      ctx.fillStyle = 'rgba(0,0,0,.3)';
-      ctx.beginPath(); ctx.arc(cx, by2 + 1, 7, 0, Math.PI * 2); ctx.fill();
+      /* A square tag, not a disc: a round pale thing over someone's head is
+         what a visitor's thought looks like, and the two were being confused.
+         The ring on the ground carries the same colour for a wider view. */
+      const by2 = bodyY - 12;
       ctx.fillStyle = p.def.color;
-      ctx.beginPath(); ctx.arc(cx, by2, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(cx, by2, 7, 0, Math.PI * 2); ctx.stroke();
+      roundRect(ctx, cx - 7.5, by2 - 7, 15, 14, 3.5); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.2;
+      roundRect(ctx, cx - 7.5, by2 - 7, 15, 14, 3.5); ctx.stroke();
       ctx.fillStyle = '#2a2018';
-      ctx.font = '9px system-ui, sans-serif';
+      ctx.font = '10px system-ui, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(STAFF_ICON[p.role] || '\u2022', cx, by2 + 0.5);
       if (sim.selected === p) {

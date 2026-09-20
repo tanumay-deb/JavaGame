@@ -267,6 +267,49 @@ const PERSON_AX = 14, PERSON_AY = 32;    /* where the feet sit in that box */
 const PERSON_SS = 2;
 const _personCache = new Map();
 
+/* The tool a staff member carries. Held in the front hand, so it reads as a
+   trade from across the park even when the badge is too small to make out. */
+function staffTool(ctx, role, x, y, col) {
+  ctx.lineCap = 'round';
+  const shaft = (len, lean) => {
+    ctx.strokeStyle = '#7d5a35'; ctx.lineWidth = 1.7;
+    ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.lineTo(x - lean, y - len); ctx.stroke();
+  };
+  if (role === 'guard') {                       /* spear */
+    shaft(16, 1.5);
+    ctx.fillStyle = '#cfd4d8';
+    ctx.beginPath();
+    ctx.moveTo(x - 1.5, y - 16); ctx.lineTo(x - 4, y - 21); ctx.lineTo(x + 1, y - 20.5);
+    ctx.closePath(); ctx.fill();
+  } else if (role === 'repairman') {            /* hammer */
+    shaft(11, 1);
+    ctx.fillStyle = '#9aa0a6';
+    roundRect(ctx, x - 4.6, y - 14.5, 7.2, 3.6, 1.2); ctx.fill();
+  } else if (role === 'cook') {                 /* ladle */
+    shaft(12, 1.2);
+    ctx.fillStyle = '#c9c2b2';
+    ctx.beginPath(); ctx.ellipse(x - 1.4, y - 13, 3, 2.4, 0.3, 0, Math.PI * 2); ctx.fill();
+  } else if (role === 'salesman') {             /* basket of wares */
+    ctx.fillStyle = '#a97b45';
+    roundRect(ctx, x - 5, y - 4, 9, 6, 1.6); ctx.fill();
+    ctx.strokeStyle = '#7d5a35'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(x - 0.5, y - 4, 4.2, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(x - 2.4, y - 3.4, 1.5, 0, Math.PI * 2);
+    ctx.moveTo(x + 2.6, y - 3); ctx.arc(x + 1.2, y - 3, 1.4, 0, Math.PI * 2); ctx.fill();
+  } else if (role === 'shaman') {               /* gourd staff */
+    shaft(18, 1.6);
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.ellipse(x - 2.6, y - 18.5, 2.8, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#6f9e5a'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x - 2.6, y - 21); ctx.lineTo(x - 5.4, y - 23.5); ctx.stroke();
+  } else {                                      /* rider: a coil of rein */
+    ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x - 1.5, y - 1, 3.4, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x - 1.5, y - 3.4, 2.4, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
 function paintPerson(ctx, look, frame) {
   const k = look.kid ? 0.78 : 1;
   const H = 18 * k;
@@ -320,11 +363,21 @@ function paintPerson(ctx, look, frame) {
   ctx.fillStyle = 'rgba(30,20,10,.16)';
   roundRect(ctx, -tw / 2, bodyY + th - 3, tw, 3, 1.4); ctx.fill();
 
+  /* a staff member's tabard, so a uniform reads before the badge does */
+  if (look.staff) {
+    ctx.fillStyle = shade(look.cloth, -0.34);
+    roundRect(ctx, -3.2, bodyY + 3, 6.4, th + 1, 1.6); ctx.fill();
+    ctx.fillStyle = 'rgba(255,248,232,.55)';
+    ctx.fillRect(-3.2, bodyY + 4.6, 6.4, 1);
+    ctx.fillRect(-3.2, bodyY + th - 1.2, 6.4, 1);
+  }
+
   /* front arm */
   ctx.strokeStyle = skinMid; ctx.lineWidth = 2.6 * k;
   ctx.beginPath();
   ctx.moveTo(-4.4 * k, bodyY + 6); ctx.lineTo(-6.8 * k, bodyY + 11 - swing * 1.8);
   ctx.stroke();
+  if (look.staff) staffTool(ctx, look.staff, -7.6 * k, bodyY + 11 - swing * 1.8, look.cloth);
 
   /* neck and head */
   ctx.fillStyle = skinDark;
@@ -348,7 +401,17 @@ function paintPerson(ctx, look, frame) {
   ctx.fillStyle = shade(look.hair, 0.3);
   ctx.beginPath(); ctx.ellipse(-hr * 0.42, hy - hr * 0.72, hr * 0.42, hr * 0.2, -0.5, 0, Math.PI * 2); ctx.fill();
 
-  if (look.hat) {
+  if (look.staff) {
+    /* headband in the trade's colour, with a feather */
+    ctx.fillStyle = look.cloth;
+    roundRect(ctx, -hr * 1.02, hy - hr * 0.72, hr * 2.04, 2.2, 1); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.3)';
+    ctx.fillRect(-hr * 1.02, hy - hr * 0.72, hr * 0.8, 2.2);
+    ctx.strokeStyle = shade(look.cloth, 0.3); ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(hr * 0.5, hy - hr * 0.7); ctx.lineTo(hr * 1.1, hy - hr * 2.1);
+    ctx.stroke();
+  } else if (look.hat) {
     ctx.fillStyle = shade(look.hat, -0.25);
     ctx.beginPath(); ctx.ellipse(0, hy - hr * 0.95, 6.4 * k, 2.3 * k, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = look.hat;
@@ -368,7 +431,8 @@ function paintPerson(ctx, look, frame) {
 }
 
 function getPerson(look, frame) {
-  const key = look.skin + look.cloth + look.hair + (look.hat || '-') + (look.kid ? 'k' : 'a') + frame;
+  const key = look.skin + look.cloth + look.hair + (look.hat || '-') + (look.staff || '-')
+    + (look.kid ? 'k' : 'a') + frame;
   let spr = _personCache.get(key);
   if (spr) return spr;
   const c = makeCanvas(PERSON_W * PERSON_SS, PERSON_H * PERSON_SS);

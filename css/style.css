@@ -60,6 +60,8 @@ body {
 }
 #hud .stat b { font-weight: 650; letter-spacing: .01em; }
 #hud .ico { font-size: 15px; line-height: 1; }
+/* the staff tally shares the visitors chip, set off by a hairline */
+#hud .staff-ico { margin-left: 3px; padding-left: 8px; border-left: 1px solid var(--line); opacity: .85; }
 #hud .grow { flex: 1; }
 #hud .moon { padding-left: 4px; gap: 4px; }
 #moon { display: block; }
@@ -353,12 +355,14 @@ table.data th { color: var(--ink-mute); font-weight: 600; }
 }
 
 @media (max-width: 620px) {
-  #hud { gap: 4px; padding-left: 6px; padding-right: 6px; }
+  #hud { gap: 3px; padding-left: 5px; padding-right: 5px; }
   #hud .hide-sm { display: none; }
-  #hud .stat { padding: 4px 8px 4px 6px; font-size: 12px; gap: 4px; }
+  #hud .stat { padding: 4px 7px 4px 5px; font-size: 12px; gap: 3px; }
   #hud .ico { font-size: 13px; }
+  #hud .staff-ico { margin-left: 0; padding-left: 4px; }
+  #hud .moon { padding: 3px 5px 3px 3px; }
   #hud .moon b { display: none; }
-  #moon { width: 24px; height: 24px; }
+  #moon { width: 22px; height: 22px; }
   .speeds { padding: 2px; }
   .speeds button { min-width: 22px; padding: 5px 4px; font-size: 10px; }
   #toasts { top: 46px; width: min(94vw, 420px); }
@@ -377,7 +381,14 @@ table.data th { color: var(--ink-mute); font-weight: 600; }
   .panel .close-x { font-size: 20px; padding: 4px 8px; top: 4px; right: 4px; }
 }
 
-@media (max-width: 380px) {
+/* Below this the balance, the crowd and the speed buttons will not all fit
+   next to the moon; the month is still on the Stats panel. */
+@media (max-width: 400px) {
+  #hud .moon { display: none; }
+}
+
+@media (max-width: 340px) {
   #hud .stat.rating-sm { display: none; }
   #hud .speeds button[data-speed="6"] { display: none; }
+  #hud .staff-ico { padding-left: 3px; }
 }

@@ -346,7 +346,12 @@ function Staff(role, x, y) {
   this.job = null;          // building being repaired
   this.speed = VIS_SPEED * 1.1;
   this.look = makeLook();
+  /* staff are in uniform: the trade's colour, never a child, and a headband
+     rather than whatever hat a visitor happened to get */
   this.look.cloth = this.def.color;
+  this.look.kid = false;
+  this.look.hat = null;
+  this.look.staff = role;
   this.thought = 'Looking for work';
   this.bubble = null; this.bubbleT = 0;
 }
