@@ -114,6 +114,17 @@ The game saves to `localStorage` automatically at every new moon, and from
 Meet all four objectives (cash, visitors, happiness, working rides) and the tribe
 makes you chief.
 
+## The advisor
+
+Now and then the park tells you what is actually wrong with it, and the same
+list — worst first — sits under **Goals**. Every tip names a real thing in your
+park rather than offering general advice: which ride has no path at its exit,
+which stall is standing idle for want of a salesman, what share of your visitors
+are hunting for a toilet, which ride people think is overpriced and what they
+reckon it is worth. When everyone is happy and nothing is broken, it stays quiet.
+
+![The Goals panel listing what to fix](docs/screenshots/tips.png)
+
 ## Project layout
 
 ```
@@ -129,6 +140,7 @@ js/scenery.js       the wild valley: procedural terrain, forest, volcano, palisa
 js/traffic.js       the road: carts, wagons and mammoth buses, and their artwork
 js/agents.js        visitor and staff behaviour
 js/sim.js           clock, money, ride cycles, statistics, save/load
+js/advice.js        the advisor: what is wrong with the park, worst first
 js/render.js        isometric renderer, ground cache, day/night lighting
 js/ui.js            HUD, build menu, inspector panels, statistics charts
 js/main.js          input handling and the frame loop

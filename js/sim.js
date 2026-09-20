@@ -35,6 +35,7 @@ const sim = {
     this.selected = null; this.monthIncome = 0; this.monthOutlay = 0; this.totalEarned = 0;
     this.won = false; this.fights = 0;
     traffic.reset();
+    if (typeof advice !== 'undefined') advice.reset();
     this.refreshUnlocks(true);
     this.toast('🦴 Welcome to your park! Lay a path, then build a ride.');
   },
@@ -62,8 +63,8 @@ const sim = {
   fairPrice(b) { return b.item.fee !== undefined ? b.item.fee : (b.item.price || 0); },
 
   /* --------------------------------------------------------- feedback */
-  toast(msg) {
-    this.toasts.push({ msg, t: 4.5 });
+  toast(msg, kind) {
+    this.toasts.push({ msg, kind: kind || '', t: kind === 'tip' ? 7 : 4.5 });
     if (this.toasts.length > 4) this.toasts.shift();
   },
   effect(x, y, text, color) {
@@ -90,6 +91,7 @@ const sim = {
     traffic.update(dt);
     this.updateEffects(dt);
     this.decayToasts(dtReal);
+    advice.tick(dtReal);
     this.checkObjectives();
   },
 
@@ -184,6 +186,8 @@ const sim = {
     if (guarded) return;
     a.fightT = b.fightT = 3.5;
     a.state = b.state = 'fight';
+    a.needs.health = clamp(a.needs.health - rnd(30, 55), 0, 100);
+    b.needs.health = clamp(b.needs.health - rnd(30, 55), 0, 100);
     a.say('💢', 3.5); b.say('💢', 3.5);
     this.fights++;
     this.toast('💢 A fight broke out! Hire a guard.');

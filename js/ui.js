@@ -467,13 +467,13 @@ const ui = {
 
   renderToasts() {
     const box = this.el.toasts;
-    const want = sim.toasts.map(t => t.msg).join('|');
+    const want = sim.toasts.map(t => t.kind + t.msg).join('|');
     if (box.dataset.k === want) return;
     box.dataset.k = want;
     box.innerHTML = '';
     for (const t of sim.toasts) {
       const d = document.createElement('div');
-      d.className = 'toast';
+      d.className = 'toast' + (t.kind ? ' ' + t.kind : '');
       d.textContent = t.msg;
       box.appendChild(d);
     }
@@ -712,6 +712,13 @@ const ui = {
     h += '<div class="row"><span class="k">Land owned</span><span class="v">' + park.plotsBought + ' plots · next ' + money(park.plotPrice()) + '</span></div>';
     h += '<div class="row"><span class="k">Earned all time</span><span class="v">' + money(sim.totalEarned) + '</span></div>';
     h += '<div class="row"><span class="k">Fights broken out</span><span class="v">' + sim.fights + '</span></div>';
+
+    const tips = advice.top(4);
+    h += '<h3>Making them happier</h3>';
+    if (!tips.length) h += '<div class="role">Nothing is going wrong that I can see — the park is running well.</div>';
+    else h += '<div class="tips-list">' + tips.map(t =>
+      '<div class="tip-row' + (t.score >= 70 ? ' hot' : '') + '"><span class="b">'
+      + (t.score >= 70 ? '⚠️' : '💡') + '</span><span>' + t.text + '</span></div>').join('') + '</div>';
     this.modal(h);
   },
 
