@@ -2,7 +2,7 @@
 
 /* generic stone-age hut used by most stalls: log walls, thatch roof, counter */
 function hutArt(w, h, opts) {
-  const g = spriteCtx(w, h, opts.extra || 46), ctx = g.ctx;
+  const g = spriteCtx(w, h, opts.extra || 60), ctx = g.ctx;
   pad(g, opts.pad || '#a4906a', shade(opts.pad || '#a4906a', -.2));
   const [cx, cy] = g.mid;
   const bw = TILE_W * (w * 0.42 + h * 0.42) * 0.5, bh = TILE_H * (w * 0.42 + h * 0.42) * 0.5;
@@ -44,23 +44,113 @@ function hutArt(w, h, opts) {
     /* goods laid out on the counter */
     if (opts.goods) for (let i = 0; i < 3; i++) opts.goods(ctx, cx + (i - 1) * 11, cyy - 1);
   }
-  /* a sign hung from the ridge of the roof */
+  /* whatever makes this shop itself rather than a generic hut */
+  if (opts.detail) opts.detail(ctx, g, cx, cy, bw, bh, wallH);
+
+  /* A painted board hung from a crossbar. It used to be a pale disc floating
+     over the roof, which is exactly what a visitor's thought looks like — a
+     board on two ropes reads as a shop sign instead. */
   if (opts.emblem) {
     const peak = opts.peak || 22;
-    const sy = cy - wallH - peak - 6;
-    ctx.strokeStyle = '#6b5233'; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(cx, cy - wallH - peak + 2); ctx.lineTo(cx, sy - 2); ctx.stroke();
+    const bwid = 26, bhig = 17;
+    const top = cy - wallH - peak - bhig - 6;
+    ctx.strokeStyle = '#6b5233'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - wallH - peak + 4); ctx.lineTo(cx, top - 6);
+    ctx.moveTo(cx - bwid / 2 - 3, top - 6); ctx.lineTo(cx + bwid / 2 + 3, top - 6);
+    ctx.stroke();
+    ctx.lineWidth = 1.1;
+    for (const rx of [cx - bwid / 2 + 4, cx + bwid / 2 - 4]) {
+      ctx.beginPath(); ctx.moveTo(rx, top - 6); ctx.lineTo(rx, top + 1); ctx.stroke();
+    }
     ctx.fillStyle = 'rgba(0,0,0,.3)';
-    ctx.beginPath(); ctx.ellipse(cx, sy + 1.5, 9, 9, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = opts.emblemBg || '#f0e2bd';
-    ctx.beginPath(); ctx.ellipse(cx, sy, 8.5, 8.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#6b5233'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.ellipse(cx, sy, 8.5, 8.5, 0, 0, Math.PI * 2); ctx.stroke();
-    ctx.font = 'bold 11px system-ui, sans-serif';
+    roundRect(ctx, cx - bwid / 2 + 1.5, top + 2.5, bwid, bhig, 3); ctx.fill();
+    ctx.fillStyle = opts.emblemBg || '#e8d5a8';
+    roundRect(ctx, cx - bwid / 2, top, bwid, bhig, 3); ctx.fill();
+    ctx.strokeStyle = '#6b5233'; ctx.lineWidth = 1.5;
+    roundRect(ctx, cx - bwid / 2, top, bwid, bhig, 3); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.32)';
+    ctx.fillRect(cx - bwid / 2 + 2, top + 1.6, bwid - 4, 2.2);
+    ctx.font = 'bold 12px system-ui, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(opts.emblem, cx, sy + 0.5);
+    ctx.fillText(opts.emblem, cx, top + bhig / 2 + 0.5);
   }
   return g;
+}
+
+/* ------------------------------------------------- what tells shops apart */
+/* a spit of meat over coals, off to one side of the snack bar */
+function detailSpit(ctx, g, cx, cy, bw) {
+  const x = cx - bw * 0.95, y = cy + 4;
+  ctx.fillStyle = '#3b3129';
+  ctx.beginPath(); ctx.ellipse(x, y, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = i % 2 ? '#d9662f' : '#f0a442';
+    ctx.beginPath(); ctx.ellipse(x - 4 + i * 2.6, y - 0.5, 1.6, 1, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.strokeStyle = '#7d5a35'; ctx.lineWidth = 1.8;
+  for (const px of [x - 7, x + 7]) {
+    ctx.beginPath(); ctx.moveTo(px, y - 1); ctx.lineTo(px, y - 13); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px - 2.5, y - 16); ctx.lineTo(px, y - 13); ctx.lineTo(px + 2.5, y - 16); ctx.stroke();
+  }
+  ctx.strokeStyle = PALETTE.bone; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(x - 9, y - 13); ctx.lineTo(x + 9, y - 13); ctx.stroke();
+  for (const mx of [-4, 1]) {
+    ctx.fillStyle = '#a8503a';
+    ctx.beginPath(); ctx.ellipse(x + mx, y - 12, 3.4, 2.6, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,220,180,.25)';
+    ctx.beginPath(); ctx.ellipse(x + mx - 0.8, y - 13, 1.6, 1, 0.2, 0, Math.PI * 2); ctx.fill();
+  }
+  g.spit = [x, y - 16];
+}
+
+/* gourd jars and a dripping tap for the juice hut */
+function detailGourds(ctx, g, cx, cy, bw) {
+  const x = cx - bw * 0.9, y = cy + 5;
+  for (const [ox, oy, r] of [[0, 0, 5], [8, -1, 4], [4, -7, 4.2]]) {
+    ctx.fillStyle = '#9a7c3f';
+    ctx.beginPath(); ctx.ellipse(x + ox, y + oy, r, r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#b89a55';
+    ctx.beginPath(); ctx.ellipse(x + ox - r * 0.3, y + oy - r * 0.35, r * 0.45, r * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#5f4a2a';
+    ctx.fillRect(x + ox - 1, y + oy - r - 1.5, 2, 2.5);
+  }
+  g.tap = [cx + bw * 0.5, cy - 12];
+}
+
+/* a plank door with a bone handle, and no counter — it is a privy */
+function detailDoor(ctx, g, cx, cy, bw, bh, wallH) {
+  const dw = bw * 0.44, dh = wallH * 0.82;
+  ctx.fillStyle = '#5d5448';
+  roundRect(ctx, cx - dw / 2, cy - dh - 1, dw, dh, 1.5); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 0.9;
+  for (let i = 1; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx - dw / 2 + (dw * i) / 3, cy - dh - 1);
+    ctx.lineTo(cx - dw / 2 + (dw * i) / 3, cy - 1);
+    ctx.stroke();
+  }
+  ctx.fillStyle = PALETTE.bone;
+  ctx.beginPath(); ctx.ellipse(cx + dw * 0.28, cy - dh * 0.5, 1.6, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.14)';
+  roundRect(ctx, cx - dw / 2, cy - dh - 1, dw * 0.3, dh, 1.5); ctx.fill();
+}
+
+/* bundles of herbs drying under the eaves of the aid post */
+function detailHerbs(ctx, g, cx, cy, bw, bh, wallH) {
+  for (let i = 0; i < 3; i++) {
+    const x = cx + (i - 1) * bw * 0.45, y = cy - wallH - 2;
+    ctx.strokeStyle = '#8a7a52'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 4); ctx.stroke();
+    ctx.strokeStyle = i % 2 ? '#6f9e5a' : '#588a4c'; ctx.lineWidth = 1.5;
+    for (let k = -1; k <= 1; k++) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + 4); ctx.lineTo(x + k * 2.4, y + 10);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#c9b27a';
+    ctx.fillRect(x - 2, y + 3.4, 4, 1.6);
+  }
 }
 
 const goodsMeat = (ctx, x, y) => {
@@ -83,14 +173,17 @@ const goodsPot = (ctx, x, y) => {
 };
 
 ART.snack   = (w, h) => hutArt(w, h, { wall: '#9b6b40', roof: PALETTE.thatch, counter: true, emblem: '🍖',
-                                       awning: ['#c44a3f', '#f0dcae'], goods: goodsMeat });
-ART.drinks  = (w, h) => hutArt(w, h, { wall: '#4f8a86', roof: '#d0b45e', counter: true, emblem: '🥤', peak: 18,
-                                       awning: ['#3f7d9b', '#f0dcae'], goods: goodsCup });
+                                       awning: ['#c44a3f', '#f0dcae'], goods: goodsMeat, detail: detailSpit,
+                                       emblemBg: '#e8b98a' });
+ART.drinks  = (w, h) => hutArt(w, h, { wall: '#4f8a86', roof: '#d0b45e', counter: true, emblem: '🥤', peak: 26,
+                                       awning: ['#3f7d9b', '#f0dcae'], goods: goodsCup, detail: detailGourds,
+                                       emblemBg: '#a8d8d2' });
 ART.balloon = (w, h) => hutArt(w, h, { wall: '#a8567e', roof: '#e2c15c', counter: true, emblem: '🎈', peak: 18,
                                        awning: ['#a8567e', '#f0dcae'] });
-ART.toilet  = (w, h) => hutArt(w, h, { wall: '#8e8778', roof: '#b3a279', emblem: '🚻', peak: 16, wallH: 24 });
+ART.toilet  = (w, h) => hutArt(w, h, { wall: '#8e8778', roof: '#b3a279', emblem: '🚻', peak: 14, wallH: 30,
+                                       detail: detailDoor, emblemBg: '#c8d2dc' });
 ART.aid     = (w, h) => hutArt(w, h, { wall: '#7f6aa8', roof: '#e0d6b4', emblem: '🌿', peak: 18, counter: true,
-                                       goods: goodsPot });
+                                       goods: goodsPot, detail: detailHerbs, emblemBg: '#cdbde8' });
 ART.gate    = (w, h) => hutArt(w, h, { wall: '#8a6a45', roof: '#c2953f', counter: true, emblem: '🎟️', peak: 18,
                                        awning: ['#c2953f', '#f0dcae'] });
 
@@ -120,6 +213,41 @@ ANIM.cafe = function (ctx, sx, sy, g, t, b) {
     ctx.fill(); ctx.restore();
   }
 };
+/* smoke curling off the spit, and the coals breathing under it */
+ANIM.snack = function (ctx, sx, sy, g, t, b) {
+  if (!g.spit) return;
+  const [x0, y0] = g.spit;
+  const x = sx + x0, y = sy + y0;
+  ctx.save();
+  for (let i = 0; i < 4; i++) {
+    const p = ((t * 0.42 + i * 0.25) % 1);
+    ctx.globalAlpha = (1 - p) * 0.3;
+    ctx.fillStyle = '#d8d2c6';
+    const r = 2 + p * 5.5;
+    ctx.beginPath();
+    ctx.ellipse(x + Math.sin(p * 4 + i) * 4.5, y - p * 26, r, r * 0.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 0.3 + Math.sin(t * 3) * 0.12;
+  ctx.fillStyle = '#ff9a3c';
+  ctx.beginPath(); ctx.ellipse(x, y + 16, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+};
+
+/* a dribble from the tap into a waiting cup */
+ANIM.drinks = function (ctx, sx, sy, g, t, b) {
+  if (!g.tap) return;
+  const [x0, y0] = g.tap;
+  const p = (t * 1.3) % 1;
+  ctx.save();
+  ctx.globalAlpha = 1 - p * 0.8;
+  ctx.fillStyle = '#7fc9e8';
+  ctx.beginPath();
+  ctx.ellipse(sx + x0, sy + y0 + p * 11, 1.3, 2 + p, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+};
+
 ANIM.balloon = function (ctx, sx, sy, g, t, b) {
   if (!b.worker) return;
   const [cx, cy] = [g.mid[0] + sx, g.mid[1] + sy];
