@@ -286,6 +286,15 @@ const sim = {
     for (const b of park.buildings.values()) upkeep += b.item.upkeep || 0;
     this.spend(salaries + upkeep);
 
+    /* what each attraction took and served this moon, so the Stats page can
+       rank them rather than only showing money since it was built */
+    for (const b of park.buildings.values()) {
+      b.moonEarned = (b.earned || 0) - (b.earnedMark || 0);
+      b.moonVisits = (b.visits || 0) - (b.visitsMark || 0);
+      b.earnedMark = b.earned || 0;
+      b.visitsMark = b.visits || 0;
+    }
+
     const income = Math.round(this.monthIncome);
     const outlay = Math.round(this.monthOutlay);   // build costs + wages + upkeep
     this.stats.push({
@@ -479,7 +488,9 @@ const sim = {
       plots: Array.from(park.plots),
       buildings: Array.from(park.buildings.values()).map(b => ({
         key: b.key, x: b.x, y: b.y, rot: b.rot, fee: b.fee, open: b.open,
-        condition: b.condition, broke: b.brokeDown, earned: b.earned, visits: b.visits
+        condition: b.condition, broke: b.brokeDown, earned: b.earned, visits: b.visits,
+        cycle: b.cycle, earnedMark: b.earnedMark, visitsMark: b.visitsMark,
+        moonEarned: b.moonEarned, moonVisits: b.moonVisits
       })),
       staff: this.staff.map(s => s.role)
     };
@@ -525,6 +536,9 @@ const sim = {
       if (!b) continue;
       b.fee = s.fee; b.open = s.open; b.condition = s.condition;
       b.brokeDown = s.broke; b.earned = s.earned || 0; b.visits = s.visits || 0;
+      b.cycle = s.cycle || 0;
+      b.earnedMark = s.earnedMark || 0; b.visitsMark = s.visitsMark || 0;
+      b.moonEarned = s.moonEarned || 0; b.moonVisits = s.moonVisits || 0;
     }
     for (const role of d.staff || []) {
       const s = new Staff(role, park.gate.x, park.gate.y);

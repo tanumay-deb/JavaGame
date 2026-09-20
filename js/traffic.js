@@ -49,6 +49,7 @@ const traffic = {
       x: dir > 0 ? -MARGIN - 3 : GRID_W + MARGIN + 3,
       y: ROAD_Y + (dir > 0 ? 0.55 : 1.45),
       state: 'in', timer: 0, bob: rnd(0, 6), done: false,
+      vel: 0, braking: false, settle: 0,
       seats: VEHICLES[type].cap,          /* how many it can carry home */
       tone: pick(type === 'bus' ? BUS_COLOURS : CAR_COLOURS)
     };
@@ -59,12 +60,46 @@ const traffic = {
     let ahead = 0;
     for (const o of this.vehicles) if (o !== v && o.state === 'stopped' && o.dir === v.dir) ahead++;
     const stop = this.dropX() - v.dir * (0.4 + ahead * 1.9);
-    if (v.state === 'in') {
-      v.x += v.def.speed * v.dir * dt;
-      if ((v.dir > 0 && v.x >= stop) || (v.dir < 0 && v.x <= stop)) {
-        v.x = stop; v.state = 'stopped'; v.timer = 0.4;
+    v.settle = Math.max(0, (v.settle || 0) - dt * 3.2);
+
+    if (v.state === 'in' || v.state === 'out') {
+      const cruise = v.def.speed;
+      let target = cruise;
+
+      /* slow into the stop rather than arriving at full speed and freezing */
+      if (v.state === 'in') {
+        const ds = (stop - v.x) * v.dir;
+        if (ds <= 0.02) {
+          v.x = stop; v.vel = 0; v.state = 'stopped'; v.timer = 0.45;
+          v.settle = 1;                       /* the suspension dips as it halts */
+          return;
+        }
+        /* with a floor under it, or the last hand's breadth takes forever */
+        target = Math.min(target, cruise * Math.max(0.16, Math.min(1, ds / 2.8)));
       }
-    } else if (v.state === 'stopped') {
+
+      /* and keep off the back of whoever is in front in the same direction */
+      let gap = 1e9;
+      for (const o of this.vehicles) {
+        if (o === v || o.dir !== v.dir) continue;
+        const d = (o.x - v.x) * v.dir;
+        if (d > 0 && d < gap) gap = d;
+      }
+      const headway = 1.3 + (v.def.len + 34) / 64;
+      if (gap < headway + 1.4) target = Math.min(target, cruise * clamp((gap - headway) / 1.4, 0, 1));
+
+      v.vel = v.vel === undefined ? 0 : v.vel;
+      v.braking = target < v.vel - 0.05;
+      /* brakes bite harder than the engine pulls away */
+      const rate = (target > v.vel ? 2.0 : 5.5) * dt;
+      v.vel += clamp(target - v.vel, -rate, rate);
+      v.x += v.vel * v.dir * dt;
+
+      if (v.state === 'out' && (v.x < -MARGIN - 5 || v.x > GRID_W + MARGIN + 5)) v.done = true;
+      return;
+    }
+
+    if (v.state === 'stopped') {
       v.timer -= dt;
       if (v.timer <= 0) {
         if (v.load > 0) {
@@ -79,11 +114,9 @@ const traffic = {
           v.timer = 0.3;
         } else {
           v.state = 'out';
+          v.settle = 0.6;                     /* and again as it pulls away */
         }
       }
-    } else {
-      v.x += v.def.speed * v.dir * dt;
-      if (v.x < -MARGIN - 5 || v.x > GRID_W + MARGIN + 5) v.done = true;
     }
   },
 
@@ -124,9 +157,12 @@ function windowStrip(ctx, x, y, w, h, r) {
 
 function drawVehicle(ctx, v, t) {
   const cx = isoX(v.x + 0.5, v.y + 0.5), cy = isoY(v.x + 0.5, v.y + 0.5);
-  const moving = v.state !== 'stopped';
-  const phase = moving ? v.x * 2.2 : 0;
-  const bounce = moving ? Math.sin(t * 13 + v.bob) * 0.5 : 0;
+  const speed = v.vel === undefined ? v.def.speed : v.vel;
+  const phase = v.x * 2.2;                /* wheels turn with distance, not time */
+  /* the faster it goes the more it jiggles, and it dips on its springs as it
+     stops and again as it pulls away */
+  const bounce = Math.sin(t * 13 + v.bob) * 0.5 * clamp(speed / v.def.speed, 0, 1)
+    + Math.sin((v.settle || 0) * 9) * (v.settle || 0) * 1.4;
   const col = v.tone;
 
   ctx.save();
@@ -135,6 +171,17 @@ function drawVehicle(ctx, v, t) {
   if (v.dir < 0) ctx.scale(-1, 1);        /* mirror for the other direction */
   blob(ctx, 0, 2, v.def.len * 0.5, 6, 0.22);
   ctx.translate(0, bounce);
+
+  /* brake lights, so slowing down reads before the vehicle has stopped */
+  if (v.braking || v.state === 'stopped') {
+    const L0 = v.def.len;
+    ctx.fillStyle = 'rgba(232,70,50,.85)';
+    for (const ly of [-9, -15]) {
+      ctx.beginPath(); ctx.ellipse(-L0 / 2 - 1, ly, 2.2, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(232,70,50,.22)';
+    ctx.beginPath(); ctx.ellipse(-L0 / 2 - 4, -12, 7, 7, 0, 0, Math.PI * 2); ctx.fill();
+  }
 
   if (v.type === 'bus') {
     const L = 62, H = 26;

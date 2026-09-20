@@ -1,6 +1,7 @@
 /* HUD, build sheet, inspector panels and the statistics modals. */
 
 const CHART = { profit: '#3AA98F', loss: '#D06B4A', visitors: '#5D8FD6', happy: '#B07BD0' };
+const WARN = '#E8A53C';      /* reserved for a state, never for a series */
 
 const ui = {
   build: { key: null, rot: 0 },
@@ -770,12 +771,66 @@ const ui = {
         + '<td>' + r.visitors + '</td><td>' + r.happiness + '%</td></tr>';
     }
     h += '</tbody></table>';
+    h += this.attractionTable();
     this.modal(h);
     requestAnimationFrame(() => {
       this.barChart(document.getElementById('c-profit'), s.map(r => r.profit), true);
       this.barChart(document.getElementById('c-vis'), s.map(r => r.visitors), false, CHART.visitors);
       this.lineChart(document.getElementById('c-hap'), s.map(r => r.happiness));
     });
+  },
+
+  /* How each attraction is doing, worst-to-best decided by what it has taken
+     this moon. One measure, so one hue: the bars are a magnitude, not a set of
+     categories, and the state is spelled out rather than left to a colour. */
+  attractionTable() {
+    const rows = [];
+    for (const b of park.buildings.values()) {
+      const c = b.item.cat;
+      if (c !== 'ride' && c !== 'stall' && c !== 'service') continue;
+      if (c === 'service' && !b.item.need) continue;          /* the ticket office */
+      const took = Math.max(0, (b.earned || 0) - (b.earnedMark || 0));
+      const served = Math.max(0, (b.visits || 0) - (b.visitsMark || 0));
+      let state = 'Running', tone = CHART.profit;
+      if (c === 'ride') {
+        if (!park.reachable(b)) { state = 'No path'; tone = CHART.loss; }
+        else if (b.item.power && !b.powered) { state = 'No power'; tone = CHART.loss; }
+        else if (b.brokeDown) { state = 'Broken'; tone = CHART.loss; }
+        else if (!b.open) { state = 'Closed'; tone = WARN; }
+      } else {
+        state = 'Open';
+        if (b.item.worker && !b.worker) { state = 'No staff'; tone = CHART.loss; }
+        else if (!b.open) { state = 'Closed'; tone = WARN; }
+      }
+      /* how full it runs: riders taken against the seats it has offered */
+      let full = null;
+      if (c === 'ride' && b.cycle > 0) full = Math.round(100 * b.visits / (b.cycle * b.item.cap));
+      rows.push({ name: b.item.name, took, served, fee: b.fee, state, tone,
+                  queue: b.queue ? b.queue.length : 0, full, ride: c === 'ride',
+                  last: b.moonEarned || 0 });
+    }
+    if (!rows.length) return '';
+    rows.sort((a, b) => b.took - a.took || b.served - a.served);
+    const top = Math.max(1, rows[0].took);
+
+    let h = '<h3>How each attraction is doing</h3>'
+      + '<div class="role">Taken so far this moon, most first.</div>'
+      + '<table class="data perf"><thead><tr><th>Attraction</th><th>Taken</th>'
+      + '<th>Used</th><th>Price</th><th>Queue</th><th>State</th></tr></thead><tbody>';
+    for (const r of rows) {
+      const pct = Math.round((r.took / top) * 100);
+      const hint = r.ride && r.full !== null ? r.name + ' runs ' + r.full + '% full' : r.name;
+      h += '<tr title="' + hint + (r.last ? ' \u00b7 last moon ' + money(r.last) : '') + '">'
+        + '<td>' + r.name + (r.ride && r.full !== null
+            ? '<span class="sub">' + r.full + '% full</span>' : '') + '</td>'
+        + '<td class="num"><div class="perfbar"><i style="width:' + pct + '%"></i></div>'
+        + '<b>' + money(r.took) + '</b></td>'
+        + '<td class="num">' + r.served + '</td>'
+        + '<td class="num">' + (r.fee ? money(r.fee) : 'free') + '</td>'
+        + '<td class="num">' + (r.ride ? r.queue : '\u2014') + '</td>'
+        + '<td style="color:' + r.tone + '">' + r.state + '</td></tr>';
+    }
+    return h + '</tbody></table>';
   },
 
   chartBlock(title, headline, id) {

@@ -392,3 +392,26 @@ table.data th { color: var(--ink-mute); font-weight: 600; }
   #hud .speeds button[data-speed="6"] { display: none; }
   #hud .staff-ico { padding-left: 3px; }
 }
+
+/* per-attraction performance: one measure, so one hue; the bar is the
+   magnitude and the figure beside it is the exact value */
+.data.perf td { vertical-align: middle; }
+.data.perf .num { text-align: right; white-space: nowrap; }
+.data.perf .sub { display: block; font-size: 10px; color: var(--ink-mute); font-weight: 500; }
+.perfbar {
+  display: inline-block; vertical-align: middle;
+  width: 54px; height: 7px; margin-right: 7px;
+  border-radius: 4px; background: rgba(255,255,255,.09); overflow: hidden;
+}
+.perfbar i { display: block; height: 100%; border-radius: 4px; background: var(--good); }
+@media (max-width: 620px) {
+  /* the monthly table loses its Outlay column before it loses Happy off the
+     right-hand edge — income and profit are what the column was there for */
+  .data th:nth-child(3), .data td:nth-child(3) { display: none; }
+  .data.perf th:nth-child(3), .data.perf td:nth-child(3) { display: none; }
+  /* a phone has room for the name, what it took and whether it is working */
+  .data.perf th:nth-child(3), .data.perf td:nth-child(3),
+  .data.perf th:nth-child(4), .data.perf td:nth-child(4) { display: none; }
+  .data.perf th, .data.perf td { padding-left: 4px; padding-right: 4px; font-size: 11px; }
+  .perfbar { width: 28px; margin-right: 5px; }
+}
