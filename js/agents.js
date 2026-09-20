@@ -134,9 +134,12 @@ Visitor.prototype.decide = function () {
      before they are desperate — which matters, because everything keeps
      draining while they walk. */
   const guide = park.signNear(this.x, this.y) ? SIGN_LIFT : 0;
+  /* health and joy are not errands you run because a signpost pointed the way,
+     so the guide only moves the needs a stall can fix */
   const order = [
-    { k: 'bladder', lim: 32 + guide }, { k: 'health', lim: 55 }, { k: 'thirst', lim: 30 + guide },
-    { k: 'hunger', lim: 30 + guide }, { k: 'energy', lim: 28 + guide }, { k: 'joy', lim: 60 }
+    { k: 'bladder', lim: NEED_LIMIT.bladder + guide }, { k: 'health', lim: NEED_LIMIT.health },
+    { k: 'thirst', lim: NEED_LIMIT.thirst + guide }, { k: 'hunger', lim: NEED_LIMIT.hunger + guide },
+    { k: 'energy', lim: NEED_LIMIT.energy + guide }, { k: 'joy', lim: NEED_LIMIT.joy }
   ].filter(o => n[o.k] < o.lim).sort((a, b) => n[a.k] - n[b.k]);
 
   for (const o of order) {
@@ -298,16 +301,40 @@ Visitor.prototype.update = function (dt) {
     }
   }
 
-  /* happiness follows the needs, the scenery and the path underfoot */
+  /* What the mood is made of. Every term is something the park can be built to
+     change, which is the point: the old sum was four fifths need score, so a
+     beautifully run park topped out in the fifties however it was decorated
+     and there was nothing much the player could do about it. */
   const n = this.needs;
+  const tx = Math.round(this.x), ty = Math.round(this.y);
   const needScore = (n.hunger + n.thirst + n.bladder + n.energy + n.joy + n.health) / 6;
-  const pretty = park.beautyAt(Math.round(this.x), Math.round(this.y));
+  const pretty = park.beautyAt(tx, ty);
   /* what is underfoot: the path items carry a comfort value, which the build
      menu was already describing as comfy or cheap while the simulation ignored
      it and checked for stone by hand */
-  const comfy = park.comfortAt(Math.round(this.x), Math.round(this.y)) * 6.5;
+  const comfy = park.comfortAt(tx, ty) * 6.5;
+  /* standing in torchlight */
+  const lit = park.litNear(tx, ty) ? LIGHT_CHEER : 0;
+  /* Nothing nagging. Measured all-or-nothing first — not one need below the
+     point at which they would go and do something about it — and across a
+     full park that came out at 0.1 out of 12: with six needs draining at once
+     there is almost always one of them low. It counts how many are satisfied
+     instead, so a park with enough stalls close enough together earns most of
+     it and a park with none earns nothing. */
+  let ok = 0, needCount = 0;
+  for (const k in NEED_LIMIT) { needCount++; if (n[k] >= NEED_LIMIT[k]) ok++; }
+  const content = CONTENT_LIFT * (ok / needCount);
+  /* What the park is for. Somebody who has been on four rides has had a good
+     day out, and until now that counted for nothing beyond topping up joy —
+     which drains away again within the minute. */
+  const thrill = Math.min(RIDE_LIFT, this.rides * RIDE_STEP);
   const queuePain = this.state === 'queue' ? -this.queueTime * 0.55 : 0;
-  const goal = clamp(needScore * 0.72 + pretty + comfy + queuePain + 8, 0, 100);
+  const goal = clamp(needScore * NEED_WEIGHT + pretty + comfy + lit + content + thrill + queuePain + MOOD_BASE, 0, 100);
+  /* the same object every frame — a fresh one per visitor per frame is 300
+     pieces of garbage a frame for a panel nobody may have open */
+  const mp = this.moodParts || (this.moodParts = {});
+  mp.needs = needScore * NEED_WEIGHT; mp.pretty = pretty; mp.comfy = comfy;
+  mp.lit = lit; mp.content = content; mp.thrill = thrill; mp.queue = queuePain; mp.base = MOOD_BASE;
   this.happiness = clamp(lerp(this.happiness, goal, 1 - Math.exp(-dt * 0.55)), 0, 100);
   if (n.bladder < 8 || n.hunger < 8) this.happiness = clamp(this.happiness - dt * 4, 0, 100);
 

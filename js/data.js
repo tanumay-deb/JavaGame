@@ -24,6 +24,15 @@ const MONTH_SECONDS = 48;     // real seconds per in-game month at 1x speed
 const FIGHT_AT = 18;          // happiness below which tempers can flare
 const SIGN_RANGE = 7;         // how far a signpost guides people
 const SIGN_LIFT = 13;         // how much sooner they set off when they can see one
+const LIGHT_RANGE = 5;        // how far a torch throws its light
+const LIGHT_CHEER = 5;        // how much better people feel standing in it
+const BEAUTY_RANGE = 6;       // how far a pretty thing is worth looking at
+const BEAUTY_CAP = 20;        // the most the scenery alone can be worth
+const NEED_WEIGHT = 0.60;     // how much of the mood is simply being fed and rested
+const CONTENT_LIFT = 12;      // how much of the mood is having nothing nagging you
+const RIDE_STEP = 3;          // what each ride they get on is worth to them
+const RIDE_LIFT = 12;         // and the most a day of riding can be worth
+const MOOD_BASE = 8;          // everybody starts the day in a reasonable temper
 const DAYS_PER_MONTH = 28;
 
 /* ---------------------------------------------------------------- palettes */
@@ -127,7 +136,7 @@ const ITEMS = {
   flowers: { name: 'Flowers', cat: 'decor', w: 1, h: 1, cost: 35, upkeep: 1, beauty: 2, unlock: 0, art: 'flowers' },
   rock:    { name: 'Boulder', cat: 'decor', w: 1, h: 1, cost: 60, upkeep: 1, beauty: 1, unlock: 0, art: 'rock' },
   torch:   { name: 'Torch', cat: 'decor', w: 1, h: 1, cost: 120, upkeep: 2, beauty: 2, light: true, unlock: 2, art: 'torch',
-             desc: 'Pretty by day, lights the park at night.' },
+             desc: 'Warm light for five tiles around. People like standing in it, and tempers stay cooler.' },
   fountain:{ name: 'Tar Fountain', cat: 'decor', w: 2, h: 2, cost: 420, upkeep: 5, beauty: 6, unlock: 6, art: 'fountain' }
 };
 
@@ -158,6 +167,12 @@ const NEED_INFO = {
 };
 
 /* ground type -> how comfortable it is underfoot, from the path items above */
+/* The point at which a need starts to nag. A visitor sets off to do something
+   about a need below these, and the happiness sum treats somebody with nothing
+   below them as properly looked after. One table, read by both — the same
+   mistake as two copies of the decay rates, avoided. */
+const NEED_LIMIT = { bladder: 32, health: 55, thirst: 30, hunger: 30, energy: 28, joy: 60 };
+
 const GROUND_COMFORT = (() => {
   const out = {};
   for (const k in ITEMS) {

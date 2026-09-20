@@ -773,6 +773,35 @@ const ui = {
     }
     h += '</tbody></table>';
 
+    /* Where the mood actually comes from. Every row is a term of the sum the
+       simulation runs, averaged over everyone in the park, so the player can
+       see which lever is slack rather than guessing at it. */
+    const parts = [
+      { k: 'needs',   cap: 100 * NEED_WEIGHT, label: 'Fed, watered and rested', how: 'stalls close to the paths' },
+      { k: 'pretty',  cap: BEAUTY_CAP,        label: 'Something to look at',    how: 'decor along the routes' },
+      { k: 'thrill',  cap: RIDE_LIFT,         label: 'Rides they have been on', how: 'more rides, shorter queues' },
+      { k: 'content', cap: CONTENT_LIFT,      label: 'Nothing nagging them',    how: 'enough stalls to keep up' },
+      { k: 'lit',     cap: LIGHT_CHEER,       label: 'Standing in torchlight',  how: 'torches along the paths' },
+      { k: 'comfy',   cap: 6.5 * 0.6,         label: 'Comfortable underfoot',   how: 'stone instead of gravel' }
+    ];
+    const withParts = vs.filter(v => v.moodParts);
+    if (withParts.length) {
+      h += '<h3>Where the mood comes from</h3>';
+      h += '<table class="data perf"><tbody>';
+      for (const p of parts) {
+        let sum = 0;
+        for (const v of withParts) sum += v.moodParts[p.k] || 0;
+        const val = sum / withParts.length;
+        const pct = Math.round(clamp(val / p.cap, 0, 1) * 100);
+        h += '<tr><td>' + p.label + '<span class="sub">' + p.how + '</span></td>'
+          + '<td class="num"><div class="perfbar"><i style="width:' + pct + '%;background:'
+          + (pct >= 66 ? MOOD_BANDS[1] : pct >= 33 ? MOOD_BANDS[2] : MOOD_BANDS[3]) + '"></i></div>'
+          + '<b>' + val.toFixed(1) + '</b></td>'
+          + '<td class="num">of ' + p.cap.toFixed(0) + '</td></tr>';
+      }
+      h += '</tbody></table>';
+    }
+
     /* what is actually pulling it down, counted rather than guessed */
     const need = { hunger: 0, thirst: 0, bladder: 0, energy: 0, joy: 0, health: 0 };
     let queueing = 0, fighting = 0;

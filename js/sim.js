@@ -212,6 +212,8 @@ const sim = {
     if (!b) return;
     const guarded = this.staff.some(s => s.role === 'guard' && dist2(s.x, s.y, a.x, a.y) < 36);
     if (guarded) return;
+    /* people square up in the dark corners, not under the torches */
+    if (park.litNear(Math.round(a.x), Math.round(a.y)) && chance(0.75)) return;
     this.fightCool = 6;
     a.fightT = b.fightT = 3.5;
     a.state = b.state = 'fight';

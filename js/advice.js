@@ -90,6 +90,9 @@ const advice = {
         + '. A guard on patrol stops them before they spoil the mood nearby.');
     if (s.needy.health > 2 && !park.list('service').some(b => b.key === 'aid' && b.worker))
       add('aid', 58, 'Some visitors got hurt in the scuffles. An Aid Post with a shaman patches them up.');
+    if (s.n > 8 && !park.litTiles().length && s.decor.length)
+      add('torch', 46, 'Not a torch in the park. People are happier standing in the light, '
+        + 'and tempers stay cooler where everyone can see what is going on.');
     if (s.n > 6 && s.decor.length < Math.ceil(park.pathTiles() / 12))
       add('beauty', 44, 'A bare park is a dull one. Palms, flowers and torches along the paths lift the mood.');
     if (s.n > 8 && park.countOf(b => b.key === 'stone') === 0 && sim.money > 2000

@@ -333,14 +333,29 @@ const park = {
   },
 
   /* scenery quality around a tile: decor nearby makes visitors happier */
+  /* How pleasant the view is from a tile. Every visitor asks this every frame,
+     and answering it walked every building in the park, so a full park spent
+     tens of thousands of checks a frame on it. The answers are baked into a
+     grid the first time each tile is asked for and thrown away whole whenever
+     anything is built or knocked down. */
   beautyAt(x, y) {
-    let s = 0;
+    if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return 0;
+    if (this._beautyVer !== this.version) {
+      this._beauty = new Float32Array(GRID_W * GRID_H).fill(-1);
+      this._beautyVer = this.version;
+    }
+    const i = y * GRID_W + x;
+    let v = this._beauty[i];
+    if (v >= 0) return v;
+    v = 0;
     for (const b of this.buildings.values()) {
       if (!b.item.beauty) continue;
       const dx = Math.abs(b.x - x), dy = Math.abs(b.y - y);
-      if (dx < 5 && dy < 5) s += b.item.beauty * (1 - Math.max(dx, dy) / 5);
+      if (dx < BEAUTY_RANGE && dy < BEAUTY_RANGE) v += b.item.beauty * (1 - Math.max(dx, dy) / BEAUTY_RANGE);
     }
-    return Math.min(20, s);
+    v = Math.min(BEAUTY_CAP, v);
+    this._beauty[i] = v;
+    return v;
   },
 
   /* Signposts, cached until something is built or knocked down. A visitor who
@@ -359,6 +374,34 @@ const park = {
     const signs = this.signTiles();
     for (const sgn of signs) if (Math.abs(sgn.x - x) <= SIGN_RANGE && Math.abs(sgn.y - y) <= SIGN_RANGE) return true;
     return false;
+  },
+
+  /* Torches, cached the same way. The `light` flag used to be read only by the
+     night pass, which is switched off, so the torch's whole headline feature
+     did nothing. A torch now throws real light whatever the hour: people are
+     happier standing in it and less likely to come to blows there. */
+  litTiles() {
+    if (this._litVer === this.version && this._lit) return this._lit;
+    const out = [];
+    for (const b of this.buildings.values())
+      if (b.item.light) out.push({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+    this._lit = out; this._litVer = this.version;
+    return out;
+  },
+  litNear(x, y) {
+    if (this._litMapVer !== this.version) {
+      this._litMap = new Uint8Array(GRID_W * GRID_H);   // 0 unknown, 1 dark, 2 lit
+      this._litMapVer = this.version;
+    }
+    const inside = x >= 0 && y >= 0 && x < GRID_W && y < GRID_H;
+    const i = inside ? y * GRID_W + x : -1;
+    if (i >= 0 && this._litMap[i]) return this._litMap[i] === 2;
+    let hit = false;
+    for (const l of this.litTiles()) {
+      if (Math.abs(l.x - x) <= LIGHT_RANGE && Math.abs(l.y - y) <= LIGHT_RANGE) { hit = true; break; }
+    }
+    if (i >= 0) this._litMap[i] = hit ? 2 : 1;
+    return hit;
   },
 
   /* how pleasant the ground here is to stand on, straight off the path item.

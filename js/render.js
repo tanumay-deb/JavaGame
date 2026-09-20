@@ -1223,29 +1223,41 @@ const renderer = {
     }
   },
 
-  /* night tint plus warm pools of light around torches and huts */
+  /* Night tint plus warm pools of light. A torch burns whatever the hour, so
+     its pool is drawn in daylight too — tighter and much fainter, but there,
+     which is the point: a lit path is something you can see you have built.
+     Huts and rides only glow once it is actually dark. */
   drawLighting(ctx, light, t) {
     const dark = 1 - light;
-    if (dark < 0.04) return;
+    const night = dark >= 0.04;
+    const lamps = park.litTiles();
+    if (!night && !lamps.length) return;
+
+    const lights = [];
+    if (night) {
+      for (const b of park.buildings.values()) {
+        if (b.item.light) lights.push([b.x + 0.5, b.y + 0.5, 100, 0.75 * dark]);
+        else if (b.item.cat === 'stall' && b.worker) lights.push([b.x + b.w / 2, b.y + b.h / 2, 78, 0.5 * dark]);
+        else if (b.item.cat === 'ride' && b.powered && b.open) lights.push([b.x + b.w / 2, b.y + b.h / 2, 95, 0.45 * dark]);
+      }
+      lights.push([park.gate.x + 0.5, park.gate.y + 0.5, 88, 0.55 * dark]);
+    } else {
+      for (const l of lamps) lights.push([l.x, l.y, 62, 0.17]);
+    }
+
     ctx.save();
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.fillStyle = 'rgba(26,34,72,' + (dark * 0.50).toFixed(3) + ')';
-    ctx.fillRect(0, 0, this.W, this.H);
-
-    ctx.globalCompositeOperation = 'lighter';
-    const lights = [];
-    for (const b of park.buildings.values()) {
-      if (b.item.light) lights.push([b.x + 0.5, b.y + 0.5, 100, 0.75]);
-      else if (b.item.cat === 'stall' && b.worker) lights.push([b.x + b.w / 2, b.y + b.h / 2, 78, 0.5]);
-      else if (b.item.cat === 'ride' && b.powered && b.open) lights.push([b.x + b.w / 2, b.y + b.h / 2, 95, 0.45]);
+    if (night) {
+      ctx.fillStyle = 'rgba(26,34,72,' + (dark * 0.50).toFixed(3) + ')';
+      ctx.fillRect(0, 0, this.W, this.H);
     }
-    lights.push([park.gate.x + 0.5, park.gate.y + 0.5, 88, 0.55]);
+    ctx.globalCompositeOperation = 'lighter';
     for (const L of lights) {
       const [sx, sy] = this.worldToScreen(isoX(L[0], L[1]), isoY(L[0], L[1]));
       const r = L[2] * view.zoom * (0.95 + Math.sin(t * 2.5 + L[0]) * 0.05);
       if (sx < -r || sy < -r || sx > this.W + r || sy > this.H + r) continue;
       const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
-      g.addColorStop(0, 'rgba(255,190,110,' + (L[3] * dark).toFixed(3) + ')');
+      g.addColorStop(0, 'rgba(255,190,110,' + L[3].toFixed(3) + ')');
       g.addColorStop(1, 'rgba(255,170,90,0)');
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
