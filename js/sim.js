@@ -22,6 +22,7 @@ const sim = {
   totalEarned: 0,
   won: false,
   fights: 0,
+  fightCool: 0,      /* seconds before tempers can flare again */
 
   /* ------------------------------------------------------------- setup */
   newGame() {
@@ -33,7 +34,7 @@ const sim = {
     this.stats.length = 0; this.toasts.length = 0;
     this.unlocked = new Set();
     this.selected = null; this.monthIncome = 0; this.monthOutlay = 0; this.totalEarned = 0;
-    this.won = false; this.fights = 0;
+    this.won = false; this.fights = 0; this.fightCool = 0;
     traffic.reset();
     if (typeof advice !== 'undefined') advice.reset();
     this.refreshUnlocks(true);
@@ -60,6 +61,10 @@ const sim = {
     if (x !== undefined) this.effect(x, y, '+' + money(amount), '#ffe08a');
   },
   spend(amount) { this.money -= amount; this.monthOutlay += amount; },
+  /* Cash back from selling something you own. It belongs in the month's books
+     — otherwise the Stats page shows a loss that never happened — but not in
+     what the park has earned from its visitors. */
+  refund(amount) { this.money += amount; this.monthIncome += amount; },
   fairPrice(b) { return b.item.fee !== undefined ? b.item.fee : (b.item.price || 0); },
 
   /* --------------------------------------------------------- feedback */
@@ -175,15 +180,24 @@ const sim = {
     this.maybeFight(dt);
   },
 
+  /* A brawl used to feed itself: the shock it gave bystanders was enough to
+     push them under the threshold that starts the next one, so one scuffle
+     cascaded until every visitor in the park was permanently fighting — and a
+     fighter is frozen, so the park could never recover. Three things break the
+     loop: tempers cool between brawls, the shock cannot on its own drop a
+     bystander below the threshold, and a pair calms down afterwards. */
   maybeFight(dt) {
+    this.fightCool -= dt;
+    if (this.fightCool > 0) return;
     if (!chance(dt * 0.35)) return;
-    const angry = this.visitors.filter(v => v.happiness < 18 && v.state !== 'riding' && v.fightT <= 0);
+    const angry = this.visitors.filter(v => v.happiness < FIGHT_AT && v.state !== 'riding' && v.fightT <= 0);
     if (angry.length < 2) return;
     const a = pick(angry);
     const b = angry.find(o => o !== a && dist2(o.x, o.y, a.x, a.y) < 4);
     if (!b) return;
     const guarded = this.staff.some(s => s.role === 'guard' && dist2(s.x, s.y, a.x, a.y) < 36);
     if (guarded) return;
+    this.fightCool = 6;
     a.fightT = b.fightT = 3.5;
     a.state = b.state = 'fight';
     a.needs.health = clamp(a.needs.health - rnd(30, 55), 0, 100);
@@ -191,7 +205,11 @@ const sim = {
     a.say('💢', 3.5); b.say('💢', 3.5);
     this.fights++;
     this.toast('💢 A fight broke out! Hire a guard.');
-    for (const v of this.visitors) if (dist2(v.x, v.y, a.x, a.y) < 25) v.happiness = clamp(v.happiness - 12, 0, 100);
+    for (const v of this.visitors) {
+      if (v === a || v === b || v.fightT > 0) continue;
+      if (dist2(v.x, v.y, a.x, a.y) >= 25) continue;
+      v.happiness = clamp(Math.max(v.happiness - 12, FIGHT_AT + 2), 0, 100);
+    }
   },
 
   /* ---------------------------------------------------------- visitors */
@@ -421,7 +439,7 @@ const sim = {
     const g = park.groundAt(x, y);
     if (g === GROUND.GRAVEL || g === GROUND.STONE) {
       const cost = (g === GROUND.STONE ? ITEMS.stone.cost : ITEMS.gravel.cost);
-      if (park.clearPath(x, y)) { this.money += Math.round(cost * 0.5); return true; }
+      if (park.clearPath(x, y)) { this.refund(Math.round(cost * 0.5)); return true; }
     }
     return false;
   },
@@ -431,7 +449,7 @@ const sim = {
     this.release(b);
     if (this.selected === b) this.selected = null;
     park.demolish(b);
-    this.money += refund;
+    this.refund(refund);
     this.puff(b.x + b.w / 2, b.y + b.h / 2);
     this.toast('Sold the ' + b.item.name + ' for ' + money(refund));
   },

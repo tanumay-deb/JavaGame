@@ -74,11 +74,15 @@ const advice = {
       add('queues', 58, 'Queues are long: ' + s.queue + ' people waiting for ' + s.seats
         + ' seats. Build another ride, or charge a little more on the busiest one.');
 
-    for (const r of s.working) {
+    for (const r of s.working.concat(s.stalls)) {
       const worth = sim.fairPrice(r);
-      if (r.visits > 6 && r.fee > worth * 1.35)
+      if (!worth || r.visits <= 6) continue;
+      if (r.fee > worth * 1.35)
         add('price-' + r.id, 56, 'Visitors think the ' + r.item.name + ' is dear at ' + money(r.fee)
           + '. It is worth about ' + money(worth) + ' to them.');
+      else if (r.fee < worth * 0.7 && r.visits > 20)
+        add('cheap-' + r.id, 34, 'The ' + r.item.name + ' is busy at ' + money(r.fee)
+          + '. Visitors would still pay about ' + money(worth) + '.');
     }
 
     if (sim.fights > 0 && !s.hasStaff('guard'))

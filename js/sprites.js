@@ -446,6 +446,9 @@ function getPerson(look, frame) {
   spr = { c, ox: PERSON_AX, oy: PERSON_AY, w: PERSON_W, h: PERSON_H };
   /* a hint of sun on the sunward edge — any more and it reads as white hair */
   addRimLight(spr, 1.5, 'rgba(255,243,216,0.45)');
+  /* The wardrobe is fixed, so this never bites today; it is here so that
+     widening it later cannot quietly fill the tab with canvases. */
+  if (_personCache.size >= 900) _personCache.delete(_personCache.keys().next().value);
   _personCache.set(key, spr);
   return spr;
 }

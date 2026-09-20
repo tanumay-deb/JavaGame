@@ -22,8 +22,13 @@ const traffic = {
 
   update(dt) {
     this.gap -= dt;
-    if (this.pending > 0 && this.gap <= 0 && this.vehicles.length < 7) {
-      const type = this.pending >= 10 ? 'bus' : this.pending >= 5 ? 'van' : 'car';
+    /* A lift is worth sending for people going home, not only for people
+       coming in. Without this, anyone who left the park while nobody happened
+       to be arriving stood at the roadside for good — and a crowd of stranded,
+       miserable visitors is what tips the park into brawling. */
+    const demand = Math.max(this.pending, this.leaving.length);
+    if (demand > 0 && this.gap <= 0 && this.vehicles.length < 7) {
+      const type = demand >= 10 ? 'bus' : demand >= 5 ? 'van' : 'car';
       const def = VEHICLES[type];
       const take = Math.min(def.cap, this.pending);
       this.pending -= take;
@@ -44,6 +49,7 @@ const traffic = {
       x: dir > 0 ? -MARGIN - 3 : GRID_W + MARGIN + 3,
       y: ROAD_Y + (dir > 0 ? 0.55 : 1.45),
       state: 'in', timer: 0, bob: rnd(0, 6), done: false,
+      seats: VEHICLES[type].cap,          /* how many it can carry home */
       tone: pick(type === 'bus' ? BUS_COLOURS : CAR_COLOURS)
     };
   },
@@ -65,8 +71,9 @@ const traffic = {
           v.load--;
           sim.arrive(v.x + rnd(-0.3, 0.3), v.y - 0.3);
           v.timer = 0.34;
-        } else if (this.leaving.length) {
-          /* fill up with people going home */
+        } else if (this.leaving.length && v.seats > 0) {
+          /* fill up with people going home, but only to the seats it has */
+          v.seats--;
           const p = this.leaving.pop();
           if (p && !p.dead) { p.dead = true; sim.visitorLeft(p); }
           v.timer = 0.3;

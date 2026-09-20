@@ -6,15 +6,26 @@ const NEED_DECAY = { hunger: 0.85, thirst: 1.0, bladder: 0.7, energy: 0.5, joy: 
 
 let _agentId = 1;
 
-function makeLook() {
-  return {
-    cloth: pick(CLOTH_TONES),
-    skin: pick(SKIN_TONES),
-    hair: pick(HAIR_TONES),
-    hat: chance(0.25) ? pick(['#c9a24a', '#8a5a33', '#c94f4f']) : null,
-    kid: chance(0.22)
-  };
-}
+/* Every pose of every look is baked into its own canvas, so picking colours
+   freely would open a wardrobe of over a thousand outfits and grow that cache
+   without bound across a long session — and canvas memory never shows up in
+   the JS heap, so the tab just dies. The crowd draws from a fixed wardrobe
+   instead, which is ample variety at the size a visitor is actually drawn. */
+const HAT_TONES = ['#c9a24a', '#8a5a33', '#c94f4f'];
+const LOOKS = (() => {
+  const out = [];
+  for (let i = 0; i < 32; i++) out.push({
+    cloth: CLOTH_TONES[i % CLOTH_TONES.length],
+    skin: SKIN_TONES[(i * 3) % SKIN_TONES.length],
+    hair: HAIR_TONES[(i * 2) % HAIR_TONES.length],
+    hat: i % 4 === 0 ? HAT_TONES[i % HAT_TONES.length] : null,
+    kid: i % 5 === 0
+  });
+  return out;
+})();
+
+/* a copy, because staff overwrite the clothing on theirs */
+function makeLook() { return Object.assign({}, pick(LOOKS)); }
 
 /* ====================================================================== */
 function Visitor(x, y) {
@@ -118,7 +129,9 @@ Visitor.prototype.seekNeed = function (need) {
   for (const b of park.buildings.values()) {
     if (b.item.need !== need || !b.open) continue;
     if (b.item.worker && !b.worker) continue;
-    if ((b.item.price || 0) > this.money) continue;
+    /* b.fee, not item.price: the price is set per stall and item.price is the
+       catalogue default shared by every stall of the kind */
+    if (b.fee > this.money) continue;
     const d = dist2(this.x, this.y, b.x + b.w / 2, b.y + b.h / 2);
     if (d < bestD) { bestD = d; best = b; }
   }
@@ -209,7 +222,7 @@ Visitor.prototype.arrive = function () {
   if (!park.buildings.has(b.id)) { this.state = 'idle'; this.timer = 0.5; return; }
 
   if (t.kind === 'use') {
-    const price = b.item.price || 0;
+    const price = b.fee || 0;
     if (price > this.money) { this.state = 'idle'; this.timer = 1; return; }
     this.money -= price; this.spent += price;
     sim.income(price, b, this.x, this.y);
@@ -267,7 +280,11 @@ Visitor.prototype.update = function (dt) {
   /* fights */
   if (this.fightT > 0) {
     this.fightT -= dt;
-    if (this.fightT <= 0) { this.state = 'idle'; this.timer = 0.5; }
+    /* having had it out, they are not instantly ready to go again */
+    if (this.fightT <= 0) {
+      this.state = 'idle'; this.timer = 0.5;
+      this.happiness = Math.max(this.happiness, FIGHT_AT + 8);
+    }
     return;
   }
 
@@ -345,7 +362,9 @@ function Staff(role, x, y) {
   this.assigned = null;     // building id this worker runs
   this.job = null;          // building being repaired
   this.speed = VIS_SPEED * 1.1;
-  this.look = makeLook();
+  /* a narrow slice of the wardrobe, so six trades do not multiply out into
+     six times the whole crowd's worth of baked poses */
+  this.look = Object.assign({}, LOOKS[rndInt(0, 5)]);
   /* staff are in uniform: the trade's colour, never a child, and a headband
      rather than whatever hat a visitor happened to get */
   this.look.cloth = this.def.color;
