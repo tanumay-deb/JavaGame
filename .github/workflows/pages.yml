@@ -31,6 +31,23 @@ jobs:
       - name: Check the JavaScript parses
         run: for f in js/*.js; do node --check "$f"; done
 
+      # There is no build step, so a mistyped script tag would only show up as a
+      # blank page once it is live. Check the page can find everything it asks
+      # for, and that nothing has been left out of the deploy.
+      - name: Check every file index.html asks for is here
+        run: |
+          missing=0
+          for f in $(grep -oE '(src|href)="[^"]+"' index.html | cut -d'"' -f2 \
+                     | grep -vE '^(https?:)?//' | grep -v '^data:'); do
+            if [ -f "$f" ]; then
+              echo "  ok      $f"
+            else
+              echo "::error file=index.html::index.html references $f, which is not in the repository"
+              missing=1
+            fi
+          done
+          exit $missing
+
       - name: Is Pages switched on?
         id: pages_check
         env:
@@ -57,3 +74,8 @@ jobs:
         id: deploy
         if: steps.pages_check.outputs.ready == 'true'
         uses: actions/deploy-pages@v4
+
+      - name: Say where it went
+        if: steps.pages_check.outputs.ready == 'true'
+        run: echo "Deployed to ${{ steps.deploy.outputs.page_url }}" >> "$GITHUB_STEP_SUMMARY"
+
