@@ -119,6 +119,21 @@ const sim = {
   updateRides(dt) {
     for (const b of park.buildings.values()) {
       if (b.item.cat !== 'ride') continue;
+
+      /* How hard the ride is working, and the angle that follows from it. A
+         ride used to animate straight off the wall clock, so it ran at full
+         speed forever whether or not anybody was on it. Now it winds up when
+         a car loads and coasts down as the cycle ends, and its moving parts
+         are driven by this instead of by the time of day. */
+      const dur = b.item.dur || 1;
+      const through = b.timer > 0 ? clamp(1 - b.timer / dur, 0, 1) : 0;
+      const wanted = b.timer > 0 && b.powered && !b.brokeDown
+        ? Math.max(0, Math.min(1, through / 0.16, (1 - through) / 0.2)) : 0;
+      b.run = lerp(b.run || 0, wanted, 1 - Math.exp(-dt * 3.2));
+      if (b.run < 0.001) b.run = 0;
+      b.spin = (b.spin || 0) + b.run * dt;
+      b.through = through;
+
       if (b.timer > 0) {
         b.timer -= dt;
         if (b.timer <= 0) this.unload(b);

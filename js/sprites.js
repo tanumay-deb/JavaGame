@@ -9,7 +9,8 @@ const ANIM = {};   // art id -> function(ctx, x, y, spec, t, b)  moving parts
 const _spriteCache = new Map();
 
 /* a stand-in building so a ghost can show its moving parts before it exists */
-const GHOST_BUILDING = { powered: true, open: true, riders: [{}, {}], worker: 1, queue: [], spinPhase: 0 };
+const GHOST_BUILDING = { powered: true, open: true, riders: [{}, {}], worker: 1, queue: [],
+  run: 1, spin: 1.25, through: 0.5, timer: 1 };
 
 /* Build a drawing context for a footprint of w x h tiles with `extra` px of
    headroom above the ground plane. g.P(tx,ty) converts local tile coords into

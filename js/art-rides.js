@@ -29,6 +29,12 @@ function spline(pts, samples) {
 }
 
 /* ------------------------------------------------------------------ seesaw */
+/* A ride's own clock. It advances only while the ride is actually running, so
+   every moving part winds up with the ride and coasts to a stop with it
+   instead of turning forever off the time of day. */
+const rideT = (b, k) => ((b && b.spin) || 0) * (k || 1);
+const rideRun = (b) => (b && b.run !== undefined ? b.run : 1);
+
 ART.seesaw = function (w, h) {
   const g = spriteCtx(w, h, 30), ctx = g.ctx;
   pad(g, SAND, SAND_E);
@@ -46,7 +52,7 @@ ART.seesaw = function (w, h) {
 ANIM.seesaw = function (ctx, sx, sy, g, t, b) {
   const cx = g.mid[0] + sx, cy = g.mid[1] + sy;
   const busy = b.riders && b.riders.length;
-  const a = Math.sin(t * 2.2) * (busy ? 0.34 : 0.05);
+  const a = Math.sin(rideT(b, 2.6)) * 0.34 * rideRun(b) + Math.sin(t * 0.7) * 0.03;
   ctx.save(); ctx.translate(cx, cy - 13); ctx.rotate(a);
   beam(ctx, -34, 0, 34, 0, 8, WOOD);
   for (const s of [-1, 1]) {
@@ -55,7 +61,10 @@ ANIM.seesaw = function (ctx, sx, sy, g, t, b) {
     ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(s * 22, -3); ctx.lineTo(s * 22, -12); ctx.stroke();
   }
-  if (busy) { drawMiniPerson(ctx, -32, -9, CLOTH_TONES[1]); drawMiniPerson(ctx, 32, -9, CLOTH_TONES[3]); }
+  if (busy) {
+    drawMiniPerson(ctx, -32, -9, CLOTH_TONES[1], b.riders && b.riders[0]);
+    drawMiniPerson(ctx, 32, -9, CLOTH_TONES[3], b.riders && b.riders[1]);
+  }
   ctx.restore();
 };
 
@@ -95,9 +104,9 @@ ANIM.trampoline = function (ctx, sx, sy, g, t, b) {
   if (!b.riders || !b.riders.length) return;
   const cx = g.mid[0] + sx, cy = g.mid[1] + sy;
   for (let i = 0; i < Math.min(3, b.riders.length); i++) {
-    const hop = Math.abs(Math.sin(t * 3.4 + i * 2.1)) * 24;
+    const hop = Math.abs(Math.sin(rideT(b, 4.2) + i * 2.1)) * 24 * rideRun(b);
     blob(ctx, cx + (i - 1) * 14, cy - 15, 6 - hop * 0.08, 3, 0.2);
-    drawMiniPerson(ctx, cx + (i - 1) * 14, cy - 16 - hop, CLOTH_TONES[i % CLOTH_TONES.length]);
+    drawMiniPerson(ctx, cx + (i - 1) * 14, cy - 16 - hop, CLOTH_TONES[i % CLOTH_TONES.length], b.riders && b.riders[i]);
   }
 };
 
@@ -126,67 +135,132 @@ ANIM.swing = function (ctx, sx, sy, g, t, b) {
   const run = b.riders && b.riders.length ? 1 : 0.18;
   for (let i = 0; i < 2; i++) {
     const ax = cx - 14 + i * 28, ay = cy - 43;
-    const a = Math.sin(t * 2 + i * Math.PI) * 0.5 * run;
+    const a = Math.sin(rideT(b, 2.4) + i * Math.PI) * 0.5 * run;
     const len = 28;
     const ex = ax + Math.sin(a) * len, ey = ay + Math.cos(a) * len;
     ctx.strokeStyle = '#6d5b45'; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(ax - 4, ay); ctx.lineTo(ex - 4, ey); ctx.moveTo(ax + 4, ay); ctx.lineTo(ex + 4, ey); ctx.stroke();
     ctx.fillStyle = WOOD;
     roundRect(ctx, ex - 8, ey, 16, 4.5, 2); ctx.fill();
-    if (b.riders && b.riders.length > i) drawMiniPerson(ctx, ex, ey - 1, CLOTH_TONES[(i + 2) % 7]);
+    if (b.riders && b.riders.length > i) drawMiniPerson(ctx, ex, ey - 1, CLOTH_TONES[(i + 2) % 7], b.riders[i]);
   }
 };
 
 /* -------------------------------------------------------------- stone slide */
 ART.slide = function (w, h, rot) {
-  const g = spriteCtx(w, h, 70), ctx = g.ctx;
+  const g = spriteCtx(w, h, 78), ctx = g.ctx;
   pad(g, SAND, SAND_E);
   const top = g.C(0.5, (h - 1) / 2), bot = g.C(w - 0.7, (h - 1) / 2);
-  const H = 50;
-  /* stacked stone tower */
-  for (let i = 0; i < 4; i++) {
-    const hh = H - i * 12;
-    const sw = TILE_W * (0.86 - i * 0.06);
-    isoBox(ctx, top[0], top[1] - i * 12, sw, TILE_H * (0.86 - i * 0.06), 13,
-      mixColor(PALETTE.rock, '#d6dae0', i / 6), shade(PALETTE.rockDark, -0.12), PALETTE.rockDark);
-  }
-  /* steps up the back */
-  ctx.fillStyle = shade(PALETTE.rock, -0.08);
-  for (let i = 0; i < 5; i++) {
+  const H = 52;
+
+  /* A hewn rock stack rather than a smooth grey tower: each slab is a rough
+     polygon with its own lean, so the silhouette reads as quarried stone. */
+  const slab = (x, y, rw, rh, hh, seed) => {
+    const j = (n) => (hash2(seed, n) - 0.5) * 4;
+    const pts = [
+      [x - rw + j(1), y + j(2)], [x + j(3), y - rh + j(4)],
+      [x + rw + j(5), y + j(6)], [x + j(7), y + rh + j(8)]
+    ];
+    ctx.fillStyle = shade(PALETTE.rockDark, -0.34);          /* the side in shade */
     ctx.beginPath();
-    ctx.moveTo(top[0] - 30 - i * 2, top[1] - 4 - i * 9);
-    ctx.lineTo(top[0] - 16 - i * 2, top[1] + 3 - i * 9);
-    ctx.lineTo(top[0] - 16 - i * 2, top[1] - 3 - i * 9);
-    ctx.lineTo(top[0] - 30 - i * 2, top[1] - 10 - i * 9);
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    ctx.lineTo(pts[3][0], pts[3][1]);
+    ctx.lineTo(pts[2][0], pts[2][1]);
+    ctx.lineTo(pts[2][0], pts[2][1] + hh);
+    ctx.lineTo(pts[3][0], pts[3][1] + hh);
+    ctx.lineTo(pts[0][0], pts[0][1] + hh);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = PALETTE.rock;                            /* the lit face */
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    ctx.lineTo(pts[3][0], pts[3][1]);
+    ctx.lineTo(pts[3][0], pts[3][1] + hh);
+    ctx.lineTo(pts[0][0], pts[0][1] + hh);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = mixColor(PALETTE.rock, '#eef1f4', 0.45); /* the top */
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) ctx[i ? 'lineTo' : 'moveTo'](pts[i][0], pts[i][1]);
+    ctx.closePath(); ctx.fill();
+    /* a couple of chisel marks, so it is not a flat colour */
+    ctx.strokeStyle = 'rgba(0,0,0,.13)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 2; i++) {
+      const u = 0.3 + i * 0.35;
+      ctx.beginPath();
+      ctx.moveTo(x - rw * 0.7, y + hh * u + 2); ctx.lineTo(x + rw * 0.2, y + hh * u + rh * 0.5);
+      ctx.stroke();
+    }
+  };
+  /* the stair goes in first so the tower stands in front of it */
+  /* a timber stair lashed up the back */
+  for (let i = 0; i < 6; i++) {
+    const sx0 = top[0] - 34 + i * 3, sy0 = top[1] - 2 - i * 8.6;
+    ctx.fillStyle = shade(WOOD, -0.2);
+    ctx.beginPath();
+    ctx.moveTo(sx0, sy0); ctx.lineTo(sx0 + 15, sy0 + 7);
+    ctx.lineTo(sx0 + 15, sy0 + 3); ctx.lineTo(sx0, sy0 - 4);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = WOOD_L;
+    ctx.beginPath();
+    ctx.moveTo(sx0, sy0 - 4); ctx.lineTo(sx0 + 15, sy0 + 3);
+    ctx.lineTo(sx0 + 15, sy0 + 1); ctx.lineTo(sx0, sy0 - 6);
     ctx.closePath(); ctx.fill();
   }
-  /* chute with raised side rails */
-  const ax = top[0] + 8, ay = top[1] - H - 4, bx = bot[0] + 4, by = bot[1] - 4;
-  ctx.fillStyle = '#9aa3ab';
+  /* the tower itself, stacked from the ground up so each slab sits on the last */
+  for (let i = 0; i <= 3; i++)
+    slab(top[0], top[1] - i * 12, TILE_W * (0.46 - i * 0.035), TILE_H * (0.46 - i * 0.035), 14, i + 1);
+
+  /* the chute: a worn stone trough with raised lips and a polished centre */
+  const ax = top[0] + 8, ay = top[1] - H - 6, bx = bot[0] + 4, by = bot[1] - 4;
+  ctx.fillStyle = shade(PALETTE.rockDark, -0.1);
   ctx.beginPath();
-  ctx.moveTo(ax - 8, ay); ctx.lineTo(ax + 9, ay + 5); ctx.lineTo(bx + 11, by + 1); ctx.lineTo(bx - 8, by - 5);
+  ctx.moveTo(ax - 10, ay); ctx.lineTo(ax + 11, ay + 6); ctx.lineTo(bx + 13, by + 2); ctx.lineTo(bx - 10, by - 6);
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#c2cad1';
+  const gr = ctx.createLinearGradient(ax, ay, bx, by);
+  gr.addColorStop(0, mixColor(PALETTE.rock, '#f2f4f6', 0.4));
+  gr.addColorStop(0.5, mixColor(PALETTE.rock, '#e0e4e8', 0.2));
+  gr.addColorStop(1, PALETTE.rock);
+  ctx.fillStyle = gr;
   ctx.beginPath();
-  ctx.moveTo(ax - 6, ay - 1); ctx.lineTo(ax + 4, ay + 2); ctx.lineTo(bx + 6, by - 2); ctx.lineTo(bx - 6, by - 6);
+  ctx.moveTo(ax - 6, ay + 1); ctx.lineTo(ax + 6, ay + 4); ctx.lineTo(bx + 8, by - 1); ctx.lineTo(bx - 7, by - 5);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = shade('#9aa3ab', -0.3); ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(ax - 8, ay); ctx.lineTo(bx - 8, by - 5); ctx.moveTo(ax + 9, ay + 5); ctx.lineTo(bx + 11, by + 1); ctx.stroke();
-  /* landing sand */
-  ctx.fillStyle = shade(SAND, 0.16);
-  ctx.beginPath(); ctx.ellipse(bx + 8, by + 6, 20, 10, 0, 0, Math.PI * 2); ctx.fill();
+  /* the polish down the middle where everyone slides */
+  ctx.fillStyle = 'rgba(255,255,255,.3)';
+  ctx.beginPath();
+  ctx.moveTo(ax - 2, ay + 2); ctx.lineTo(ax + 2, ay + 3); ctx.lineTo(bx + 3, by - 2); ctx.lineTo(bx - 2, by - 3.5);
+  ctx.closePath(); ctx.fill();
+  /* raised lips */
+  ctx.strokeStyle = shade(PALETTE.rockDark, -0.28); ctx.lineWidth = 2.6;
+  ctx.beginPath(); ctx.moveTo(ax - 8, ay); ctx.lineTo(bx - 9, by - 5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ax + 10, ay + 5); ctx.lineTo(bx + 11, by + 1); ctx.stroke();
+
+  /* landing pit, raked sand with a few pebbles */
+  ctx.fillStyle = shade(SAND, 0.18);
+  ctx.beginPath(); ctx.ellipse(bx + 9, by + 7, 22, 11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = shade(SAND, -0.12);
+  for (let i = 0; i < 7; i++) {
+    const a2 = hash2(i * 5 + 1, 9) * 6.28, r2 = 5 + hash2(i, 3) * 14;
+    ctx.beginPath();
+    ctx.ellipse(bx + 9 + Math.cos(a2) * r2, by + 7 + Math.sin(a2) * r2 * 0.5, 1.6, 1, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   g.slideA = [ax, ay - 2]; g.slideB = [bx + 6, by];
   return g;
 };
 ANIM.slide = function (ctx, sx, sy, g, t, b) {
-  if (!b.riders || !b.riders.length) return;
-  const p = (t * 0.55) % 1;
-  const x = lerp(g.slideA[0], g.slideB[0], p) + sx;
-  const y = lerp(g.slideA[1], g.slideB[1], p) + sy;
-  drawMiniPerson(ctx, x, y, '#e0c04a');
-  if (p > 0.9) {
-    ctx.fillStyle = 'rgba(214,198,160,.7)';
-    for (let i = 0; i < 4; i++) ctx.fillRect(x + rnd(-10, 10), y + rnd(-2, 3), 2, 2);
+  const n = b.riders ? b.riders.length : 0;
+  if (!n) return;
+  /* the whole car goes down one after another, not just one rider forever */
+  for (let i = 0; i < Math.min(3, n); i++) {
+    const p = (rideT(b, 0.62) - i * 0.26) % 1;
+    if (p < 0 || p > 1) continue;
+    const x = lerp(g.slideA[0], g.slideB[0], p) + sx;
+    const y = lerp(g.slideA[1], g.slideB[1], p) + sy;
+    drawMiniPerson(ctx, x, y, '#e0c04a', b.riders[i]);
+    if (p > 0.88) {
+      ctx.fillStyle = 'rgba(214,198,160,.6)';
+      for (let k = 0; k < 4; k++)
+        ctx.fillRect(x + Math.sin(t * 11 + k) * 9, y + 1 + (k % 3), 2.2, 2.2);
+    }
   }
 };
 
@@ -228,7 +302,7 @@ ART.range = function (w, h) {
 };
 ANIM.range = function (ctx, sx, sy, g, t, b) {
   if (!b.riders || !b.riders.length) return;
-  const p = (t * 1.1) % 1;
+  const p = rideT(b, 1.25) % 1;
   const x = lerp(g.throwFrom[0], g.throwTo[0], p) + sx;
   const y = lerp(g.throwFrom[1], g.throwTo[1] - 28, p) - Math.sin(p * Math.PI) * 16 + sy;
   ctx.fillStyle = PALETTE.rockDark;
@@ -266,8 +340,7 @@ ART.carousel = function (w, h) {
 };
 ANIM.carousel = function (ctx, sx, sy, g, t, b) {
   const cx = g.mid[0] + sx, cy = g.mid[1] + sy;
-  const spin = b.powered && b.open ? t * 0.85 : (b.spinPhase || 0);
-  b.spinPhase = spin;
+  const spin = rideT(b, 0.95);
   const R = TILE_W * 0.66, RY = TILE_H * 0.66, n = 6;
   const mounts = [];
   for (let i = 0; i < n; i++) {
@@ -326,7 +399,7 @@ ART.catapult = function (w, h) {
 ANIM.catapult = function (ctx, sx, sy, g, t, b) {
   const px = g.pivot[0] + sx, py = g.pivot[1] + sy;
   const run = b.powered && b.open && b.riders && b.riders.length;
-  const ph = (t * 0.6) % 1;
+  const ph = rideT(b, 0.68) % 1;
   const a = run ? (ph < 0.3 ? lerp(0.95, -1.15, ph / 0.3) : lerp(-1.15, 0.95, (ph - 0.3) / 0.7)) : 0.95;
   ctx.save(); ctx.translate(px, py); ctx.rotate(a);
   beam(ctx, -18, 0, 30, 0, 6, WOOD_L);
@@ -341,7 +414,7 @@ ANIM.catapult = function (ctx, sx, sy, g, t, b) {
   ctx.restore();
   if (run && ph > 0.3 && ph < 0.8) {
     const f = (ph - 0.3) / 0.5;
-    drawMiniPerson(ctx, px + 22 + f * 62, py - 16 - Math.sin(f * Math.PI) * 44, '#d6604a');
+    drawMiniPerson(ctx, px + 22 + f * 62, py - 16 - Math.sin(f * Math.PI) * 44, '#d6604a', b.riders && b.riders[0]);
   }
 };
 
@@ -378,8 +451,7 @@ ART.ferris = function (w, h) {
 };
 ANIM.ferris = function (ctx, sx, sy, g, t, b) {
   const hx = g.hub[0] + sx, hy = g.hub[1] + sy, R = g.R;
-  const spin = b.powered && b.open ? t * 0.42 : (b.spinPhase || 0);
-  b.spinPhase = spin;
+  const spin = rideT(b, 0.48);
   ctx.strokeStyle = '#caa96a'; ctx.lineWidth = 4;
   ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 1.6;
@@ -534,7 +606,7 @@ ART.tower = function (w, h) {
 };
 ANIM.tower = function (ctx, sx, sy, g, t, b) {
   const run = b.powered && b.open && b.riders && b.riders.length;
-  const ph = (t * 0.32) % 1;
+  const ph = rideT(b, 0.36) % 1;
   let f = run ? (ph < 0.72 ? ph / 0.72 : 1 - (ph - 0.72) / 0.28) : 0;
   f = clamp(f, 0, 1);
   const y = lerp(g.botY, g.topY, f) + sy, x = g.cx + sx;
@@ -612,7 +684,7 @@ ART.chute = function (w, h) {
 };
 ANIM.chute = function (ctx, sx, sy, g, t, b) {
   if (!(b.powered && b.open)) return;
-  const p = (t * 0.4) % 1;
+  const p = rideT(b, 0.45) % 1;
   const x = lerp(g.rideA[0], g.rideB[0], p) + sx, y = lerp(g.rideA[1], g.rideB[1], p) + sy;
   /* hollowed log boat */
   ctx.fillStyle = '#7a4a2a';
@@ -705,7 +777,7 @@ ART.coaster = function (w, h) {
 ANIM.coaster = function (ctx, sx, sy, g, t, b) {
   if (!(b.powered && b.open)) return;
   const pts = g.track, n = pts.length;
-  const head = (t * 0.085) % 1;
+  const head = rideT(b, 0.095) % 1;
   for (let c = 2; c >= 0; c--) {
     const u = (head - c * 0.02 + 1) % 1;
     const f = u * n, i = Math.floor(f), fr = f - i;
@@ -727,7 +799,17 @@ ANIM.coaster = function (ctx, sx, sy, g, t, b) {
 };
 
 /* -------------------------------------------------------------- tiny props */
-function drawMiniPerson(ctx, x, y, cloth) {
+/* Somebody on a ride. When we know which visitor it is — and on every ride we
+   do, because b.riders holds them — draw the same figure that walks around the
+   park, so the person who queued is recognisably the person on the ride.
+   Anything without a known rider falls back to a plain figure. */
+function drawMiniPerson(ctx, x, y, cloth, who) {
+  if (who && who.look) {
+    const spr = getPerson(who.look, PERSON_SIT);
+    const k = 0.84;
+    ctx.drawImage(spr.c, x - spr.ox * k, y - spr.oy * k + 3, spr.w * k, spr.h * k);
+    return;
+  }
   ctx.fillStyle = cloth;
   roundRect(ctx, x - 3.5, y - 9, 7, 9, 2.5); ctx.fill();
   ctx.fillStyle = SKIN_TONES[1];
