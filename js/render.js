@@ -676,36 +676,13 @@ const renderer = {
       ctx.restore();
     }
 
-    /* the little run of path that will be laid with it */
-    if (pend && pend.links && pend.links.length) {
-      ctx.save();
-      const t = 0.55 + Math.sin(this.time * 4) * 0.2;
-      for (const tile of pend.links) {
-        const cx = isoX(tile.x + 0.5, tile.y + 0.5), cy = isoY(tile.x + 0.5, tile.y + 0.5);
-        ctx.globalAlpha = t;
-        ctx.fillStyle = PALETTE.gravel;
-        diamond(ctx, cx, cy, TILE_W - 4, TILE_H - 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = 'rgba(255,236,180,.8)';
-        ctx.lineWidth = 1.4;
-        ctx.setLineDash([4, 3]);
-        diamond(ctx, cx, cy, TILE_W - 6, TILE_H - 3);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      ctx.restore();
-    }
-
     /* show where the entrance and exit will land, and whether a path reaches them */
     if (item.cat === 'ride') {
       const e = park.rotPoint(item.ent[0], item.ent[1], item.w, item.h, rot);
       const x2 = park.rotPoint(item.ext[0], item.ext[1], item.w, item.h, rot);
       const doors = [[h.x + e[0], h.y + e[1], '#5fd06a', 'IN'], [h.x + x2[0], h.y + x2[1], '#e06a5f', 'OUT']];
-      const planned = (pend && pend.links) || [];
       for (const [dx, dy, col, label] of doors) {
-        const linked = park.accessTiles({ x: dx, y: dy }).length > 0
-          || planned.some(t => Math.abs(t.x - dx) + Math.abs(t.y - dy) === 1);
+        const linked = park.accessTiles({ x: dx, y: dy }).length > 0;
         const cx = isoX(dx + 0.5, dy + 0.5), cy = isoY(dx + 0.5, dy + 0.5);
         ctx.save();
         ctx.fillStyle = col;

@@ -316,42 +316,15 @@ const ui = {
     /* the footprint sits under the finger, not down and to the right of it */
     const ox = clamp(x - ((w - 1) >> 1), 0, GRID_W - w);
     const oy = clamp(y - ((h - 1) >> 1), 0, GRID_H - h);
-    const same = this.pending && this.pending.x === ox && this.pending.y === oy
-      && this.pending.rot === this.build.rot && this.pending.key === key;
-    this.pending = { key, rot: this.build.rot, x: ox, y: oy, w, h, links: [], linkCost: 0 };
-    if (!same || !this.pending.linked) this.planLinks();
+    this.pending = { key, rot: this.build.rot, x: ox, y: oy, w, h };
     this.el.confirm.classList.remove('hidden');
     this.positionConfirm();
-  },
-
-  /* Work out the paving that would join the ride's doors to the network, so
-     one tap builds the ride and the little bit of path it needs. */
-  planLinks() {
-    const p = this.pending;
-    const item = ITEMS[p.key];
-    p.links = []; p.linkCost = 0; p.unlinkable = false;
-    if (item.cat !== 'ride') return;
-    const seen = new Set();
-    for (const door of ['ent', 'ext']) {
-      const d = park.rotPoint(item[door][0], item[door][1], item.w, item.h, p.rot);
-      const tile = { x: p.x + d[0], y: p.y + d[1] };
-      const run = park.linkPathFrom(tile, p.x, p.y, p.w, p.h);
-      if (run === null) { p.unlinkable = true; continue; }
-      for (const t of run) {
-        const k = t.x + ',' + t.y;
-        if (seen.has(k)) continue;
-        seen.add(k);
-        p.links.push(t);
-      }
-    }
-    p.linkCost = p.links.length * ITEMS.gravel.cost;
-    p.linked = true;
   },
 
   pendingCost() {
     const p = this.pending;
     if (!p) return 0;
-    return (this.build.moving ? 0 : ITEMS[p.key].cost) + (p.linkCost || 0);
+    return this.build.moving ? 0 : ITEMS[p.key].cost;
   },
 
   clearPending() {
@@ -412,19 +385,11 @@ const ui = {
       sim.toast(why.ok ? 'Not enough money for a ' + ITEMS[p.key].name : why.why);
       return;
     }
-    const links = p.links || [];
     if (this.build.moving) {
-      if (sim.placeMoved(p.x, p.y, p.rot)) {
-        for (const t of links) sim.build('gravel', t.x, t.y, 0);
-        this.clearPending();
-        this.endMove(false);
-      }
+      if (sim.placeMoved(p.x, p.y, p.rot)) { this.clearPending(); this.endMove(false); }
       return;
     }
     if (sim.build(p.key, p.x, p.y, p.rot)) {
-      let paved = 0;
-      for (const t of links) if (sim.build('gravel', t.x, t.y, 0)) paved++;
-      if (paved) sim.toast('🛠️ Laid ' + paved + ' path tile' + (paved > 1 ? 's' : '') + ' to the doors');
       const placed = park.buildingAt(p.x, p.y);
       this.clearPending();
       this.setBuild(null);
@@ -462,10 +427,8 @@ const ui = {
     tag.style.top = clamp(top - drop - 10, 62, renderer.H - 60) + 'px';
     tag.classList.toggle('bad', !ok);
     if (!why.ok) tag.textContent = why.why;
-    else if (this.build.moving) tag.textContent = p.linkCost ? 'Move · path ' + money(p.linkCost) : 'Move here';
-    else tag.innerHTML = money(ITEMS[p.key].cost) +
-      (p.linkCost ? ' <span class="plus">+ ' + money(p.linkCost) + ' path</span>' : '') +
-      (p.unlinkable ? ' <span class="plus">· no route</span>' : '');
+    else if (this.build.moving) tag.textContent = 'Move here';
+    else tag.textContent = money(ITEMS[p.key].cost);
   },
 
   /* ------------------------------------------------------------ HUD tick */

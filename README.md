@@ -21,9 +21,10 @@ the gateway; nothing on wheels comes inside the park:
 
 Nothing is built by a stray tap. Drag a ride out of the tray or slide it around
 the map; the ghost carries a price tag, a tick, a cross and a rotate button, and
-the little run of path needed to reach its doors is quoted and laid with it.
+marks any doorway that still needs a path as **IN?** or **OUT?**. Paths are
+yours to lay — nothing paves itself.
 
-![A carousel ghost with its price, connecting path and confirm buttons](docs/screenshots/place.png)
+![A carousel ghost with its price and confirm buttons](docs/screenshots/place.png)
 
 The tray shows each ride as it will actually look, with its rating, capacity and
 ticket price; picking one open its panel so the price can be set straight away.
