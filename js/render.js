@@ -115,10 +115,14 @@ const renderer = {
       const raw = fbm(x * 0.085 + 17, y * 0.085 + 29) * 0.62 + fbm(x * 0.21 + 5, y * 0.21 + 41) * 0.38;
       roll = clamp((raw - 0.5) * 3.4 + 0.5, 0, 1);
       const fine = fbm(x * 0.36 + 3, y * 0.36 + 11);
-      const base = mixColor(PALETTE.grass[1], PALETTE.grassAlt[3], fine);
-      col = roll > 0.52
+      let base = mixColor(PALETTE.grass[1], PALETTE.grassAlt[3], fine);
+      base = roll > 0.52
         ? mixColor(base, PALETTE.grassDry, Math.min(1, (roll - 0.52) * 1.9))
         : mixColor(base, PALETTE.grassDeep, Math.min(1, (0.52 - roll) * 1.7));
+      /* Mown in squares, the way a groundsman runs a roller up and back: the
+         chequer is what you read first, the noise underneath keeps it from
+         looking like graph paper. */
+      col = mixColor(base, (x + y) % 2 === 0 ? PALETTE.grassPale : PALETTE.grassRich, 0.55);
     } else if (g === GROUND.SAND) col = mixColor(PALETTE.sand, '#c2ad78', n);
     else if (g === GROUND.WATER) col = mixColor(PALETTE.water, '#286c9b', n);
     else col = g === GROUND.STONE ? PALETTE.stone : PALETTE.gravel;

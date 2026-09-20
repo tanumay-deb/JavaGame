@@ -28,6 +28,8 @@ const PALETTE = {
   grassAlt:   ['#72ad52', '#569444', '#69a64e', '#7cb257'],
   grassDry:   '#a8ad5f',        // sun-bleached meadow on the high ground
   grassDeep:  '#3d7a3c',        // damp, shaded hollows
+  grassPale:  '#7cbb5c',        // the light square of the mown chequerboard
+  grassRich:  '#478a3f',        // the dark square
   grassDark:  '#477c33',
   gravel:     '#b39a6c',
   gravelEdge: '#8f7a52',
