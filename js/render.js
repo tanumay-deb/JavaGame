@@ -676,13 +676,36 @@ const renderer = {
       ctx.restore();
     }
 
+    /* the little run of path that will be laid with it */
+    if (pend && pend.links && pend.links.length) {
+      ctx.save();
+      const t = 0.55 + Math.sin(this.time * 4) * 0.2;
+      for (const tile of pend.links) {
+        const cx = isoX(tile.x + 0.5, tile.y + 0.5), cy = isoY(tile.x + 0.5, tile.y + 0.5);
+        ctx.globalAlpha = t;
+        ctx.fillStyle = PALETTE.gravel;
+        diamond(ctx, cx, cy, TILE_W - 4, TILE_H - 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = 'rgba(255,236,180,.8)';
+        ctx.lineWidth = 1.4;
+        ctx.setLineDash([4, 3]);
+        diamond(ctx, cx, cy, TILE_W - 6, TILE_H - 3);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+    }
+
     /* show where the entrance and exit will land, and whether a path reaches them */
     if (item.cat === 'ride') {
       const e = park.rotPoint(item.ent[0], item.ent[1], item.w, item.h, rot);
       const x2 = park.rotPoint(item.ext[0], item.ext[1], item.w, item.h, rot);
       const doors = [[h.x + e[0], h.y + e[1], '#5fd06a', 'IN'], [h.x + x2[0], h.y + x2[1], '#e06a5f', 'OUT']];
+      const planned = (pend && pend.links) || [];
       for (const [dx, dy, col, label] of doors) {
-        const linked = park.accessTiles({ x: dx, y: dy }).length > 0;
+        const linked = park.accessTiles({ x: dx, y: dy }).length > 0
+          || planned.some(t => Math.abs(t.x - dx) + Math.abs(t.y - dy) === 1);
         const cx = isoX(dx + 0.5, dy + 0.5), cy = isoY(dx + 0.5, dy + 0.5);
         ctx.save();
         ctx.fillStyle = col;
@@ -788,18 +811,42 @@ const renderer = {
     else if (!b.open) this.badge(ctx, bx, by, '⛔', '#999', t);
     else if (b.item.cat === 'ride' && !park.reachable(b)) this.badge(ctx, bx, by, '🚧', '#e0a33c', t);
 
-    /* queue */
+    /* the queue: a roped-off lane, and a counter over the entrance */
     if (b.queue && b.queue.length) {
+      const l = park.queueLine(b);
+      if (l) {
+        const runs = Math.min(l.len + 0.5, Math.max(1, b.queue.length * 0.52));
+        ctx.save();
+        ctx.globalAlpha = 0.85;
+        for (const side of [-0.32, 0.32]) {
+          const px0 = l.x + 0.5 - l.dy * side, py0 = l.y + 0.5 + l.dx * side;
+          ctx.strokeStyle = 'rgba(214,190,130,.85)';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(isoX(px0, py0), isoY(px0, py0) - 8);
+          ctx.lineTo(isoX(px0 + l.dx * runs, py0 + l.dy * runs), isoY(px0 + l.dx * runs, py0 + l.dy * runs) - 8);
+          ctx.stroke();
+          for (let i = 0; i <= Math.ceil(runs); i += 1) {
+            const qx = px0 + l.dx * i, qy = py0 + l.dy * i;
+            const sx2 = isoX(qx, qy), sy2 = isoY(qx, qy);
+            ctx.fillStyle = PALETTE.woodDark;
+            ctx.fillRect(sx2 - 1.3, sy2 - 10, 2.6, 10);
+            ctx.fillStyle = shade(PALETTE.wood, .2);
+            ctx.fillRect(sx2 - 1.3, sy2 - 10, 1, 10);
+          }
+        }
+        ctx.restore();
+      }
       const a = park.accessTiles(b.ent)[0];
       if (a) {
         ctx.save();
         ctx.font = 'bold 9px system-ui, sans-serif';
         ctx.textAlign = 'center';
         const qx = isoX(a.x + 0.5, a.y + 0.5), qy = isoY(a.x + 0.5, a.y + 0.5);
-        ctx.fillStyle = 'rgba(0,0,0,.45)';
-        roundRect(ctx, qx - 12, qy - 34, 24, 12, 6); ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.fillText('⏳' + b.queue.length, qx, qy - 25);
+        ctx.fillStyle = 'rgba(0,0,0,.5)';
+        roundRect(ctx, qx - 13, qy - 36, 26, 13, 6); ctx.fill();
+        ctx.fillStyle = b.queue.length > b.item.cap * 1.5 ? '#f0b9a6' : '#fff';
+        ctx.fillText('⏳' + b.queue.length, qx, qy - 26.5);
         ctx.restore();
       }
     }
@@ -822,13 +869,20 @@ const renderer = {
   },
 
   drawPerson(ctx, p, t) {
-    let ox = 0, oy = 0;
+    let px = p.x, py = p.y, ox = 0;
     if (p.state === 'queue' && p.queuedFor) {
       const qi = p.queuedFor.queue.indexOf(p);
-      ox = (qi % 3) * 5 - 5; oy = Math.floor(qi / 3) * 4;
-    }
-    const cx = isoX(p.x + 0.5, p.y + 0.5) + ox;
-    const cy = isoY(p.x + 0.5, p.y + 0.5) + oy;
+      const slot = park.queueSlot(p.queuedFor, qi);
+      if (slot) {
+        /* ease into place so the line shuffles forward rather than snapping */
+        p.qx = p.qx === undefined ? p.x : lerp(p.qx, slot.x, 0.12);
+        p.qy = p.qy === undefined ? p.y : lerp(p.qy, slot.y, 0.12);
+        px = p.qx; py = p.qy;
+        ox = (qi % 2) * 7 - 3.5;        /* two abreast, so long queues stay short */
+      }
+    } else { p.qx = undefined; p.qy = undefined; }
+    const cx = isoX(px + 0.5, py + 0.5) + ox;
+    const cy = isoY(px + 0.5, py + 0.5);
     const walking = p.state === 'walk' || p.state === 'leaving';
     const bob = walking ? Math.abs(Math.sin(t * 7 + p.id)) * 2 : 0;
     const k = p.look.kid ? 0.78 : 1;

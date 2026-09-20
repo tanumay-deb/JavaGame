@@ -4,6 +4,13 @@
   const canvas = document.getElementById('game');
   let dragging = false, dragged = false, painting = false;
   let pressTimer = null, pressAt = null, dragMove = false;
+  let positioning = false, lastDragPt = null;
+  const TOUCH_LIFT = 74;            /* how far above the finger the ghost sits */
+
+  /* tile under a pointer, lifted clear of the finger on touch */
+  function ghostTile(p, touch) {
+    return renderer.screenToTile(p.x, p.y - (touch ? TOUCH_LIFT : 0));
+  }
   let lastPt = { x: 0, y: 0 };
   const pointers = new Map();
   let pinchDist = 0, pinchZoom = 1, pinchMid = null;
@@ -73,6 +80,16 @@
     dragging = true; dragged = false;
     lastPt = p;
     renderer.hover = renderer.screenToTile(p.x, p.y);
+    /* an item in hand: dragging slides it around the map instead of panning */
+    if (ui.build.key && ITEMS[ui.build.key].cat !== 'path') {
+      positioning = true;
+      lastDragPt = { x: p.x, y: p.y, touch: e.pointerType === 'touch' };
+      const t = ghostTile(p, lastDragPt.touch);
+      renderer.hover = t;
+      ui.setPending(t.x, t.y);
+      canvas.classList.add('dragging');
+      return;
+    }
     /* drag-paint paths */
     if (ui.build.key && !ui.build.moving && ITEMS[ui.build.key].cat === 'path') {
       painting = true;
@@ -119,9 +136,20 @@
       return;
     }
     if (pressAt && (Math.abs(p.x - pressAt.x) + Math.abs(p.y - pressAt.y) > 12)) cancelPress();
+    if (positioning) {
+      lastDragPt = { x: p.x, y: p.y, touch: e.pointerType === 'touch' };
+      const t = ghostTile(p, lastDragPt.touch);
+      renderer.hover = t;
+      ui.setPending(t.x, t.y);
+      dragged = true;
+      return;
+    }
     if (dragMove) {
       /* carrying a building: the ghost follows the finger, the map stays put */
-      ui.setPending(renderer.hover.x, renderer.hover.y);
+      lastDragPt = { x: p.x, y: p.y, touch: e.pointerType === 'touch' };
+      const t = ghostTile(p, lastDragPt.touch);
+      renderer.hover = t;
+      ui.setPending(t.x, t.y);
       return;
     }
     if (!dragging) return;
@@ -143,9 +171,15 @@
   function endPointer(e) {
     const p = localPt(e);
     cancelPress();
+    if (positioning) {
+      positioning = false; dragging = false; lastDragPt = null;
+      pointers.delete(e.pointerId);
+      canvas.classList.remove('dragging');
+      return;
+    }
     if (dragMove) {
       /* dropped: the tick and cross are showing, so leave them to decide */
-      dragMove = false; dragging = false; painting = false;
+      dragMove = false; dragging = false; painting = false; lastDragPt = null;
       pointers.delete(e.pointerId);
       canvas.classList.remove('dragging');
       return;
@@ -213,6 +247,40 @@
       x.classList.toggle('on', +x.dataset.speed === (sim.paused ? 0 : sim.speed));
   }
 
+  document.addEventListener('pointermove', e => {
+    if (!ui.trayDrag) return;
+    if (ui.trayDragMove(e)) {
+      lastDragPt = { x: e.clientX - canvas.getBoundingClientRect().left,
+                     y: e.clientY - canvas.getBoundingClientRect().top,
+                     touch: e.pointerType === 'touch' };
+      e.preventDefault();
+    }
+  }, { passive: false });
+  document.addEventListener('pointerup', e => {
+    if (!ui.trayDrag) return;
+    ui.trayDragEnd(e);
+    lastDragPt = null;
+  });
+  document.addEventListener('pointercancel', e => { if (ui.trayDrag) { ui.trayDragEnd(e); lastDragPt = null; } });
+
+  /* scroll the map when the ghost is dragged against the edge of the screen */
+  function edgePan(dt) {
+    if (!lastDragPt || !ui.pending) return;
+    const m = 78, speed = 520;
+    let dx = 0, dy = 0;
+    if (lastDragPt.x < m) dx = -(m - lastDragPt.x) / m;
+    else if (lastDragPt.x > renderer.W - m) dx = (lastDragPt.x - (renderer.W - m)) / m;
+    if (lastDragPt.y < m + 40) dy = -((m + 40) - lastDragPt.y) / m;
+    else if (lastDragPt.y > renderer.H - m - 40) dy = (lastDragPt.y - (renderer.H - m - 40)) / m;
+    if (!dx && !dy) return;
+    view.x += dx * speed * dt / view.zoom;
+    view.y += dy * speed * dt / view.zoom;
+    renderer.clampView();
+    const t = ghostTile(lastDragPt, lastDragPt.touch);
+    renderer.hover = t;
+    ui.setPending(t.x, t.y);
+  }
+
   window.addEventListener('resize', () => renderer.resize());
   window.addEventListener('orientationchange', () => setTimeout(() => renderer.resize(), 120));
   document.addEventListener('visibilitychange', () => { if (document.hidden) sim.autoSave(); });
@@ -240,6 +308,7 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     sim.update(dt);
+    edgePan(dt);
     renderer.draw(dt, ui.build);
     ui.update(dt);
     requestAnimationFrame(frame);

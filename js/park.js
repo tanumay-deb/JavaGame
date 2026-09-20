@@ -214,6 +214,76 @@ const park = {
 
   reachable(b) { return this.accessTiles(b.ent).length > 0 && this.accessTiles(b.ext).length > 0; },
 
+  /* Where the queue for a ride forms: from the tile outside its entrance,
+     running back along whichever path leads furthest away from the ride. */
+  queueLine(b) {
+    if (b._qv === this.version && b._q !== undefined) return b._q;
+    b._qv = this.version;
+    b._q = null;
+    const start = this.accessTiles(b.ent)[0];
+    if (start) {
+      let best = null;
+      for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        /* never run the queue back through the ride itself */
+        const nx = start.x + d[0], ny = start.y + d[1];
+        if (nx >= b.x && nx < b.x + b.w && ny >= b.y && ny < b.y + b.h) continue;
+        let n = 0;
+        while (n < 9 && this.isPath(start.x + d[0] * (n + 1), start.y + d[1] * (n + 1))) n++;
+        if (!best || n > best.len) best = { dx: d[0], dy: d[1], len: n };
+      }
+      if (best) b._q = { x: start.x, y: start.y, dx: best.dx, dy: best.dy, len: best.len };
+    }
+    return b._q;
+  },
+
+  /* the spot the i-th person in the queue should stand */
+  queueSlot(b, i) {
+    const l = this.queueLine(b);
+    if (!l) return null;
+    const t = Math.min(i * 0.52, l.len + 0.4);
+    return { x: l.x + l.dx * t, y: l.y + l.dy * t };
+  },
+
+  /* The shortest run of paving that would join `door` to the existing path
+     network, ignoring the footprint the building is about to occupy.
+     [] means it is already connected, null means there is no way through. */
+  linkPathFrom(door, bx, by, w, h) {
+    const inFoot = (x, y) => x >= bx && y >= by && x < bx + w && y < by + h;
+    const free = (x, y) => this.inBounds(x, y) && this.owns(x, y) && !inFoot(x, y)
+      && !this.buildingAt(x, y) && this.ground[this.idx(x, y)] !== GROUND.WATER;
+    const paved = (x, y) => free(x, y) &&
+      (this.ground[this.idx(x, y)] === GROUND.GRAVEL || this.ground[this.idx(x, y)] === GROUND.STONE);
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const prev = new Map();
+    const q = [];
+    for (const d of dirs) {
+      const x = door.x + d[0], y = door.y + d[1];
+      if (!free(x, y)) continue;
+      if (paved(x, y)) return [];
+      const k = x + ',' + y;
+      if (prev.has(k)) continue;
+      prev.set(k, null);
+      q.push([x, y]);
+    }
+    let head = 0;
+    while (head < q.length && head < 900) {
+      const [cx, cy] = q[head++];
+      for (const d of dirs) {
+        const x = cx + d[0], y = cy + d[1], k = x + ',' + y;
+        if (prev.has(k) || !free(x, y)) continue;
+        prev.set(k, [cx, cy]);
+        if (paved(x, y)) {
+          const out = [];
+          let cur = [cx, cy];
+          while (cur) { out.push({ x: cur[0], y: cur[1] }); cur = prev.get(cur[0] + ',' + cur[1]); }
+          return out.reverse();
+        }
+        q.push([x, y]);
+      }
+    }
+    return null;
+  },
+
   /* closest walkable tile to a point — a safety net so riders are never
      set down inside a building with no way out */
   nearestPath(x, y) {

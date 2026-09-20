@@ -19,11 +19,13 @@ const ui = {
       toasts: $('toasts'), inspector: $('inspector'), sheet: $('sheet'),
       tabs: $('sheet-tabs'), cards: $('sheet-cards'), modal: $('modal'), modalBody: $('modal-body'),
       buildbar: $('buildbar'), buildbarName: $('buildbar-name'), dock: $('dock'),
-      confirm: $('confirm'), yes: $('confirm-yes'), no: $('confirm-no')
+      confirm: $('confirm'), yes: $('confirm-yes'), no: $('confirm-no'),
+      rot: $('confirm-rot'), tag: $('confirm-tag')
     };
 
     this.el.yes.addEventListener('click', () => this.confirmPlace());
     this.el.no.addEventListener('click', () => this.clearPending());
+    this.el.rot.addEventListener('click', () => this.rotate());
 
     $('speeds').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -165,36 +167,51 @@ const ui = {
       cv.width = 240; cv.height = 112;
       card.appendChild(cv);
 
+      const row1 = document.createElement('div');
+      row1.className = 'row1';
       const nm = document.createElement('div');
       nm.className = 'nm'; nm.textContent = item.name;
-      card.appendChild(nm);
-
       const pr = document.createElement('div');
       pr.className = 'price'; pr.textContent = money(item.cost);
-      card.appendChild(pr);
+      row1.appendChild(nm); row1.appendChild(pr);
+      card.appendChild(row1);
 
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-      if (item.cat === 'ride') meta.textContent = '★' + item.rating + ' · seats ' + item.cap + (item.power ? ' · ⚡' : '');
-      else if (item.cat === 'engine') meta.textContent = 'powers ' + item.radius + ' tiles · needs rider';
-      else if (item.worker) meta.textContent = 'needs a ' + STAFF[item.worker].name;
-      else if (item.need) meta.textContent = NEED_INFO[item.need] ? NEED_INFO[item.need].label : '';
-      else if (item.beauty) meta.textContent = 'beauty +' + item.beauty;
-      else meta.textContent = item.desc ? '' : '';
-      card.appendChild(meta);
+      const chips = document.createElement('div');
+      chips.className = 'chips';
+      const chip = (text, cls) => {
+        const c = document.createElement('span');
+        c.className = 'chip2' + (cls ? ' ' + cls : '');
+        c.textContent = text;
+        chips.appendChild(c);
+      };
+      if (item.cat === 'ride') {
+        chip('★ ' + item.rating + '/10', 'rt');
+        chip('👥 ' + item.cap);
+        chip('🎟 ' + money(item.fee));
+        if (item.power) chip('⚡ power', 'pw');
+      } else if (item.cat === 'engine') {
+        chip('⚡ ' + item.radius + ' tiles', 'pw');
+        chip('🦕 rider', 'st');
+      } else if (item.cat === 'path') {
+        chip(item.comfort > 0.4 ? 'comfy' : 'cheap');
+        chip('per tile');
+      } else {
+        if (item.need) chip(NEED_INFO[item.need].icon + ' ' + NEED_INFO[item.need].label);
+        if (item.price) chip('🎟 ' + money(item.price));
+        if (item.beauty) chip('🌿 +' + item.beauty);
+        if (item.rest) chip('💤 rest');
+        if (item.sign) chip('🧭 signs');
+      }
+      if (item.worker) chip('👷 ' + STAFF[item.worker].name, 'st');
+      card.appendChild(chips);
 
       if (locked) {
         const l = document.createElement('div');
         l.className = 'lock';
-        l.textContent = '🔒 invented at moon ' + item.unlock;
+        l.innerHTML = '<span class="big">🔒</span><span class="txt">invented at moon ' + item.unlock + '</span>';
         card.appendChild(l);
       }
-      card.onclick = () => {
-        if (locked) return;
-        this.setBuild(key);
-        /* on a small screen the sheet covers the park, so get out of the way */
-        if (window.innerWidth < 760) this.close('sheet');
-      };
+      if (!locked) card.addEventListener('pointerdown', e => this.startTrayDrag(e, key));
       box.appendChild(card);
       this.thumb(cv, key);
     }
@@ -218,9 +235,11 @@ const ui = {
       ctx.drawImage(g, (cv.width - g.width * s) / 2, (cv.height - g.height * s) / 2, g.width * s, g.height * s);
       return;
     }
-    const spr = getSprite(item.art, item.w || 1, item.h || 1, 0, item);
-    const s = Math.min(cv.width / spr.c.width, cv.height / spr.c.height) * 0.92;
-    ctx.drawImage(spr.c, (cv.width - spr.c.width * s) / 2, (cv.height - spr.c.height * s) / 2, spr.c.width * s, spr.c.height * s);
+    const prev = getPreview(key);
+    const bb = prev.bounds;
+    const s = Math.min(cv.width / bb.w, cv.height / bb.h) * 0.94;
+    ctx.drawImage(prev.c, bb.x, bb.y, bb.w, bb.h,
+      (cv.width - bb.w * s) / 2, (cv.height - bb.h * s) / 2, bb.w * s, bb.h * s);
   },
 
   /* pick the building up and carry it to a new spot */
@@ -295,11 +314,44 @@ const ui = {
     const item = ITEMS[key];
     const [w, h] = park.rotDims(item, this.build.rot);
     /* the footprint sits under the finger, not down and to the right of it */
-    const ox = clamp(x - ((w - 1) >> 1), -0, GRID_W - w);
+    const ox = clamp(x - ((w - 1) >> 1), 0, GRID_W - w);
     const oy = clamp(y - ((h - 1) >> 1), 0, GRID_H - h);
-    this.pending = { key, rot: this.build.rot, x: ox, y: oy, w, h };
+    const same = this.pending && this.pending.x === ox && this.pending.y === oy
+      && this.pending.rot === this.build.rot && this.pending.key === key;
+    this.pending = { key, rot: this.build.rot, x: ox, y: oy, w, h, links: [], linkCost: 0 };
+    if (!same || !this.pending.linked) this.planLinks();
     this.el.confirm.classList.remove('hidden');
     this.positionConfirm();
+  },
+
+  /* Work out the paving that would join the ride's doors to the network, so
+     one tap builds the ride and the little bit of path it needs. */
+  planLinks() {
+    const p = this.pending;
+    const item = ITEMS[p.key];
+    p.links = []; p.linkCost = 0; p.unlinkable = false;
+    if (item.cat !== 'ride') return;
+    const seen = new Set();
+    for (const door of ['ent', 'ext']) {
+      const d = park.rotPoint(item[door][0], item[door][1], item.w, item.h, p.rot);
+      const tile = { x: p.x + d[0], y: p.y + d[1] };
+      const run = park.linkPathFrom(tile, p.x, p.y, p.w, p.h);
+      if (run === null) { p.unlinkable = true; continue; }
+      for (const t of run) {
+        const k = t.x + ',' + t.y;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        p.links.push(t);
+      }
+    }
+    p.linkCost = p.links.length * ITEMS.gravel.cost;
+    p.linked = true;
+  },
+
+  pendingCost() {
+    const p = this.pending;
+    if (!p) return 0;
+    return (this.build.moving ? 0 : ITEMS[p.key].cost) + (p.linkCost || 0);
   },
 
   clearPending() {
@@ -307,11 +359,42 @@ const ui = {
     this.el.confirm.classList.add('hidden');
   },
 
+  /* pull an item straight out of the tray and onto the map */
+  startTrayDrag(e, key) {
+    if (!sim.isUnlocked(key)) return;
+    this.trayDrag = { key, id: e.pointerId, x0: e.clientX, y0: e.clientY, live: false, touch: e.pointerType === 'touch' };
+  },
+
+  trayDragMove(e) {
+    const d = this.trayDrag;
+    if (!d || e.pointerId !== d.id) return false;
+    const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+    if (!d.live) {
+      if (Math.hypot(dx, dy) < 14) return false;
+      d.live = true;
+      this.setBuild(d.key);
+      this.close('sheet');
+    }
+    const r = renderer.canvas.getBoundingClientRect();
+    const lift = d.touch ? 74 : 0;          /* keep the ghost out from under the thumb */
+    const t = renderer.screenToTile(e.clientX - r.left, e.clientY - r.top - lift);
+    renderer.hover = t;
+    this.setPending(t.x, t.y);
+    return true;
+  },
+
+  trayDragEnd(e) {
+    const d = this.trayDrag;
+    this.trayDrag = null;
+    if (d && !d.live) { this.setBuild(d.key); if (window.innerWidth < 760) this.close('sheet'); }
+    return !!(d && d.live);
+  },
+
   pendingOk() {
     const p = this.pending;
     if (!p) return false;
     if (!park.canPlace(p.key, p.x, p.y, p.rot).ok) return false;
-    return this.build.moving || sim.money >= ITEMS[p.key].cost;
+    return sim.money >= this.pendingCost();
   },
 
   confirmPlace() {
@@ -322,31 +405,60 @@ const ui = {
       sim.toast(why.ok ? 'Not enough money for a ' + ITEMS[p.key].name : why.why);
       return;
     }
+    const links = p.links || [];
     if (this.build.moving) {
-      if (sim.placeMoved(p.x, p.y, p.rot)) { this.clearPending(); this.endMove(false); }
+      if (sim.placeMoved(p.x, p.y, p.rot)) {
+        for (const t of links) sim.build('gravel', t.x, t.y, 0);
+        this.clearPending();
+        this.endMove(false);
+      }
       return;
     }
     if (sim.build(p.key, p.x, p.y, p.rot)) {
+      let paved = 0;
+      for (const t of links) if (sim.build('gravel', t.x, t.y, 0)) paved++;
+      if (paved) sim.toast('🛠️ Laid ' + paved + ' path tile' + (paved > 1 ? 's' : '') + ' to the doors');
+      const placed = park.buildingAt(p.x, p.y);
       this.clearPending();
       this.setBuild(null);
+      /* open its panel so the price can be set straight away */
+      if (placed && (placed.item.cat === 'ride' || placed.item.cat === 'stall')) this.select(placed);
     }
   },
 
-  /* keep the two buttons pinned either side of the ghost */
+  /* keep the controls pinned around the ghost: cancel and confirm either
+     side, rotate below, and the price above it */
   positionConfirm() {
     const p = this.pending;
     if (!p) return;
     const [wx, wy] = [isoX(p.x + p.w / 2, p.y + p.h / 2), isoY(p.x + p.w / 2, p.y + p.h / 2)];
     const [sx, sy] = renderer.worldToScreen(wx, wy);
     const spread = Math.max(64, (p.w + p.h) * (TILE_W / 4) * view.zoom + 44);
-    const top = clamp(sy, 78, renderer.H - 96);
+    const drop = Math.max(46, (p.w + p.h) * (TILE_H / 4) * view.zoom + 40);
+    const top = clamp(sy, 84, renderer.H - 120);
     this.el.no.style.left = clamp(sx - spread, 40, renderer.W - 40) + 'px';
     this.el.no.style.top = top + 'px';
     this.el.yes.style.left = clamp(sx + spread, 40, renderer.W - 40) + 'px';
     this.el.yes.style.top = top + 'px';
+    const canRot = !ITEMS[p.key].w || ITEMS[p.key].w !== ITEMS[p.key].h || ITEMS[p.key].cat === 'ride';
+    this.el.rot.classList.toggle('hidden', !canRot);
+    this.el.rot.style.left = clamp(sx, 34, renderer.W - 34) + 'px';
+    this.el.rot.style.top = clamp(top + drop, 84, renderer.H - 84) + 'px';
+
     const ok = this.pendingOk();
+    const why = park.canPlace(p.key, p.x, p.y, p.rot);
     this.el.yes.classList.toggle('muted', !ok);
-    this.el.yes.title = ok ? 'Build here' : (park.canPlace(p.key, p.x, p.y, p.rot).why || 'Not enough money');
+    this.el.yes.title = ok ? 'Build here' : (why.why || 'Not enough money');
+
+    const tag = this.el.tag;
+    tag.style.left = clamp(sx, 60, renderer.W - 60) + 'px';
+    tag.style.top = clamp(top - drop - 10, 62, renderer.H - 60) + 'px';
+    tag.classList.toggle('bad', !ok);
+    if (!why.ok) tag.textContent = why.why;
+    else if (this.build.moving) tag.textContent = p.linkCost ? 'Move · path ' + money(p.linkCost) : 'Move here';
+    else tag.innerHTML = money(ITEMS[p.key].cost) +
+      (p.linkCost ? ' <span class="plus">+ ' + money(p.linkCost) + ' path</span>' : '') +
+      (p.unlinkable ? ' <span class="plus">· no route</span>' : '');
   },
 
   /* ------------------------------------------------------------ HUD tick */
@@ -421,6 +533,9 @@ const ui = {
     else if (s.kind === 'staff') html += this.staffHtml(s);
     else html += this.buildingHtml(s);
     this.el.inspector.innerHTML = html;
+    /* drawn straight away: waiting a frame leaves the panel blank for one */
+    const cv = this.el.inspector.querySelector('#ins-thumb');
+    if (cv && s.item) this.thumb(cv, s.key);
   },
 
   visitorHtml(v) {
@@ -453,54 +568,116 @@ const ui = {
     return h;
   },
 
+  /* a small picture of the thing, drawn into the panel header */
+  headThumb() { return '<canvas id="ins-thumb" width="204" height="156"></canvas>'; },
+
+  stars(n) {
+    const full = Math.round(n / 2);
+    return '<span class="stars">' + '★'.repeat(full) + '<span style="opacity:.3">' + '★'.repeat(5 - full) + '</span></span>';
+  },
+
+  meter(label, value, text, col) {
+    return '<div class="meter"><div class="lab"><span>' + label + '</span><b>' + text + '</b></div>'
+      + this.bar(value, 100, col) + '</div>';
+  },
+
   buildingHtml(b) {
     const it = b.item;
-    let h = '<h3>' + it.name + '</h3><div class="role">' + (it.desc || (it.cat === 'ride' ? 'Ride · rating ' + it.rating : it.cat)) + '</div>';
     const flags = [];
     if (it.power && !b.powered) flags.push('<span class="tag bad">no power</span>');
     if (it.worker && !b.worker) flags.push('<span class="tag warn">needs a ' + STAFF[it.worker].name + '</span>');
     if (b.brokeDown) flags.push('<span class="tag bad">broken down</span>');
-    if (it.cat === 'ride' && !park.reachable(b)) flags.push('<span class="tag warn">no path to IN/OUT</span>');
+    if (it.cat === 'ride' && !park.reachable(b)) {
+      const missing = park.accessTiles(b.ent).length ? 'exit' : 'entrance';
+      flags.push('<span class="tag warn">no path at the ' + missing + '</span>');
+    }
     if (!b.open) flags.push('<span class="tag">closed</span>');
     if (!flags.length) flags.push('<span class="tag ok">running</span>');
-    h += '<div style="margin:4px 0 8px">' + flags.join(' ') + '</div>';
+
+    let h = '<div class="ins-head">' + this.headThumb(b) + '<div class="t"><h3>' + it.name + '</h3>'
+      + '<div class="role">' + (it.cat === 'ride' ? this.stars(it.rating) + ' · seats ' + it.cap
+        : (it.desc || it.cat)) + '</div></div></div>';
+    h += '<div style="margin:2px 0 6px">' + flags.join(' ') + '</div>';
 
     if (it.cat === 'ride') {
-      h += '<div class="row"><span class="k">Condition</span><span class="v">' + Math.round(b.condition) + '%</span></div>';
-      h += this.bar(b.condition, 100, this.needColor(b.condition));
-      h += '<div class="row"><span class="k">Queue</span><span class="v">' + b.queue.length + ' waiting</span></div>';
+      const qPct = clamp(b.queue.length / Math.max(1, it.cap * 2) * 100, 0, 100);
+      h += '<div class="meters">'
+        + this.meter('Condition', b.condition, Math.round(b.condition) + '%', this.needColor(b.condition))
+        + this.meter('Queue', qPct, b.queue.length + ' waiting', qPct > 80 ? '#d06b4a' : '#5d8fd6')
+        + '</div>';
+      h += '<div class="price-row"><div><div class="lab">Ticket price</div>'
+        + '<div class="val">' + money(b.fee) + '</div>'
+        + '<div class="hint ' + this.valueClass(b) + '">' + this.valueText(b) + '</div></div>'
+        + '<div class="stepper big"><button onclick="ui.price(-1)">−</button>'
+        + '<button onclick="ui.price(1)">+</button></div></div>';
       h += '<div class="row"><span class="k">Riders so far</span><span class="v">' + b.visits + '</span></div>';
-      h += '<div class="row"><span class="k">Earned</span><span class="v">' + money(b.earned) + '</span></div>';
-      h += '<div class="row"><span class="k">Ticket price</span><div class="stepper">'
-        + '<button onclick="ui.price(-1)">−</button><b>' + money(b.fee) + '</b><button onclick="ui.price(1)">+</button></div></div>';
-      h += '<div class="row"><span class="k">Worth paying</span><span class="v">' + money(it.rating) + '</span></div>';
+      h += '<div class="row"><span class="k">Taken</span><span class="v">' + money(b.earned) + '</span></div>';
+      h += '<div class="row"><span class="k">Upkeep each moon</span><span class="v">' + money(it.upkeep) + '</span></div>';
       h += '<div class="btns"><button onclick="ui.toggleOpen()">' + (b.open ? '⛔ Close' : '▶ Open') + '</button>'
         + '<button onclick="ui.startMove()">✥ Move</button>'
         + '<button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
+      if (!park.reachable(b)) h += '<div class="btns"><button onclick="ui.connectSelected()">🛠️ Lay a path to the doors</button></div>';
     } else if (it.cat === 'stall' || (it.cat === 'service' && it.price)) {
-      h += '<div class="row"><span class="k">Price</span><div class="stepper">'
-        + '<button onclick="ui.price(-1)">−</button><b>' + money(b.fee) + '</b><button onclick="ui.price(1)">+</button></div></div>';
+      h += '<div class="price-row"><div><div class="lab">Price</div>'
+        + '<div class="val">' + money(b.fee) + '</div>'
+        + '<div class="hint ' + this.valueClass(b) + '">' + this.valueText(b) + '</div></div>'
+        + '<div class="stepper big"><button onclick="ui.price(-1)">−</button>'
+        + '<button onclick="ui.price(1)">+</button></div></div>';
       h += '<div class="row"><span class="k">Served</span><span class="v">' + b.visits + '</span></div>';
-      h += '<div class="row"><span class="k">Earned</span><span class="v">' + money(b.earned) + '</span></div>';
+      h += '<div class="row"><span class="k">Taken</span><span class="v">' + money(b.earned) + '</span></div>';
       h += '<div class="btns"><button onclick="ui.startMove()">✥ Move</button>'
         + '<button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
     } else if (b.key === 'gate') {
-      h += '<div class="row"><span class="k">Entrance fee</span><div class="stepper">'
-        + '<button onclick="ui.fee(-1)">−</button><b>' + money(sim.entranceFee) + '</b><button onclick="ui.fee(1)">+</button></div></div>';
-      h += '<div class="role">A high fee keeps poorer visitors away.</div>';
+      h += '<div class="price-row"><div><div class="lab">Entrance fee</div>'
+        + '<div class="val">' + money(sim.entranceFee) + '</div>'
+        + '<div class="hint">A high fee keeps poorer visitors away</div></div>'
+        + '<div class="stepper big"><button onclick="ui.fee(-1)">−</button>'
+        + '<button onclick="ui.fee(1)">+</button></div></div>';
       h += '<div class="btns"><button onclick="ui.startMove()">✥ Move</button>'
         + '<button class="danger" onclick="ui.sellSelected()">Sell</button></div>';
     } else if (it.cat === 'engine') {
       const powered = park.list('ride').filter(r => r.item.power && r.powered).length;
       h += '<div class="row"><span class="k">Dino rider</span><span class="v">' + (b.worker ? 'on the wheel' : 'none!') + '</span></div>';
       h += '<div class="row"><span class="k">Powered rides</span><span class="v">' + powered + '</span></div>';
+      h += '<div class="row"><span class="k">Reach</span><span class="v">' + it.radius + ' tiles</span></div>';
       h += '<div class="btns"><button onclick="ui.startMove()">✥ Move</button>'
         + '<button class="danger" onclick="ui.sellSelected()">Sell</button></div>';
     } else {
+      if (it.beauty) h += '<div class="row"><span class="k">Beauty</span><span class="v">+' + it.beauty + '</span></div>';
       h += '<div class="btns"><button onclick="ui.startMove()">✥ Move</button>'
         + '<button class="danger" onclick="ui.sellSelected()">Sell ' + money(Math.round(it.cost * 0.5)) + '</button></div>';
     }
     return h;
+  },
+
+  /* is the ticket good value for what the ride is worth? */
+  valueClass(b) {
+    const worth = sim.fairPrice(b);
+    if (b.fee <= worth * 0.85) return 'good';
+    if (b.fee <= worth * 1.25) return 'fair';
+    return 'steep';
+  },
+  valueText(b) {
+    const worth = sim.fairPrice(b);
+    const c = this.valueClass(b);
+    if (c === 'good') return 'Good value · worth ' + money(worth);
+    if (c === 'fair') return 'About right · worth ' + money(worth);
+    return 'Steep · only worth ' + money(worth);
+  },
+
+  /* lay the missing path from the panel */
+  connectSelected() {
+    const b = sim.selected;
+    if (!b || !b.item || b.item.cat !== 'ride') return;
+    let laid = 0, cost = 0;
+    for (const door of [b.ent, b.ext]) {
+      const run = park.linkPathFrom(door, b.x, b.y, b.w, b.h);
+      if (!run || !run.length) continue;
+      for (const t of run) if (sim.build('gravel', t.x, t.y, 0)) { laid++; cost += ITEMS.gravel.cost; }
+    }
+    if (laid) sim.toast('🛠️ Laid ' + laid + ' path tiles for ' + money(cost));
+    else sim.toast('No room to lay a path to the doors');
+    this.renderInspector();
   },
 
   follow() {

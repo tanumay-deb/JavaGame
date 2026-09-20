@@ -19,10 +19,17 @@ the gateway; nothing on wheels comes inside the park:
 
 ![Vehicles at the gate dropping visitors off](docs/screenshots/gate.png)
 
-Nothing is built by a stray tap: picking a spot parks a ghost there, with the
-footprint outlined and a tick and a cross either side of it.
+Nothing is built by a stray tap. Drag a ride out of the tray or slide it around
+the map; the ghost carries a price tag, a tick, a cross and a rotate button, and
+the little run of path needed to reach its doors is quoted and laid with it.
 
-![A carousel ghost waiting to be confirmed, with tick and cross buttons](docs/screenshots/place.png)
+![A carousel ghost with its price, connecting path and confirm buttons](docs/screenshots/place.png)
+
+The tray shows each ride as it will actually look, with its rating, capacity and
+ticket price; picking one open its panel so the price can be set straight away.
+
+![The rides tray](docs/screenshots/build.png)
+![A ride's panel](docs/screenshots/ride-panel.png)
 
 ## Play it
 
@@ -43,7 +50,7 @@ The game saves to `localStorage` automatically at every new moon, and from
 | Zoom | pinch, scroll wheel, or `+` / `-` |
 | Build | **Build** button, then tap the map. Paths can be painted by dragging |
 | Buy land | **Build → 🌄 Land**, then tap a marked plot |
-| Place it | tap the spot, then the green ✓ (or `Enter`). The red ✕ picks a different spot |
+| Place it | drag it out of the tray, or tap the map and slide it; then the green ✓ (or `Enter`). ✕ picks another spot, ⟲ rotates |
 | Move something | **press and hold it, then drag** — or select it and use **✥ Move**. Free, either way |
 | Demolish | **Build → 💥 Demolish**, then tap. Drag to clear a run of paving; half the cost comes back |
 | Rotate a ride | **Rotate** in the build bar, or `R` |
@@ -78,7 +85,8 @@ The game saves to `localStorage` automatically at every new moon, and from
   Unhappy visitors start fights unless a guard is nearby.
 * **Prices matter.** Charge more than a ride is worth and people pay, but sulk.
 * **Every ride is fenced** with a gap at its entrance and exit, so a ride nobody
-  can reach is obvious at a glance.
+  can reach is obvious at a glance, and the queue forms an orderly roped lane
+  running back from the entrance.
 * **Rides wear out and break down.** A repairman walks over and fixes them.
 * **Anything can be picked up and moved** — ride, shop, treadmill or bench — with
   its takings, price and condition intact, and put back if you change your mind.
@@ -122,6 +130,18 @@ layouts, and everything clears the notch and home indicator.
 Long-press belongs to the game, not the browser: the callout menu, text selection
 and magnifier are all suppressed over the map, and holding a building picks it up
 instead.
+
+## On frameworks
+
+There is still no framework, and that is a deliberate call rather than inertia:
+the renderer is already the cheap part (cached sprites, a baked ground layer,
+one depth-sorted pass), and the UI is a few hundred lines of DOM. React or a
+game engine would add a build step and a dependency tree without making anything
+here faster or simpler. The two thresholds worth watching: if the park ever needs
+thousands of moving sprites or real lighting, that is the moment for **PixiJS**
+(WebGL batching, same canvas-style API); if the panels grow into genuinely
+stateful screens — a research tree, a staff roster with filters — that is the
+moment for a small view layer. Neither is true yet.
 
 ### Notes on the rendering
 

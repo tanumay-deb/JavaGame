@@ -162,6 +162,50 @@ function skull(ctx, x, y, s) {
   ctx.fillRect(x - s * 0.3, y + s * 0.45, s * 0.6, s * 0.3);
 }
 
+/* The tight box of non-transparent pixels in a sprite, worked out once, so a
+   thumbnail can crop away the headroom the artwork leaves for tall rides. */
+function spriteBounds(spr) {
+  if (spr.bounds) return spr.bounds;
+  const w = spr.c.width, h = spr.c.height;
+  let x0 = w, y0 = h, x1 = 0, y1 = 0;
+  try {
+    const d = spr.c.getContext('2d').getImageData(0, 0, w, h).data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] < 12) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  } catch (e) { /* fall back to the whole canvas */ }
+  if (x1 < x0 || y1 < y0) { x0 = 0; y0 = 0; x1 = w - 1; y1 = h - 1; }
+  spr.bounds = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  return spr.bounds;
+}
+
+/* A one-off picture of a building for menus and panels: the static sprite with
+   its moving parts drawn in, cropped to what is actually painted. */
+const _previewCache = new Map();
+function getPreview(key) {
+  if (_previewCache.has(key)) return _previewCache.get(key);
+  const item = ITEMS[key];
+  const spr = getSprite(item.art, item.w || 1, item.h || 1, 0, item);
+  const pad = 90;
+  const c = makeCanvas(spr.c.width + pad * 2, spr.c.height + pad * 2);
+  const ctx = c.getContext('2d');
+  ctx.translate(pad, pad);
+  ctx.drawImage(spr.c, 0, 0);
+  const anim = ANIM[item.art];
+  if (anim) { try { anim(ctx, 0, 0, spr, 0.75, GHOST_BUILDING); } catch (e) { /* static only */ } }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const prev = { c };
+  prev.bounds = spriteBounds(prev);
+  _previewCache.set(key, prev);
+  return prev;
+}
+
 /* cached sprite lookup. rot is baked in so asymmetric art can face the right way */
 function getSprite(art, w, h, rot, item) {
   const key = art + '|' + w + 'x' + h + '|' + (rot || 0);

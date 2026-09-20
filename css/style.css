@@ -120,6 +120,17 @@ body {
 .confirm .yes { background: linear-gradient(180deg, #5fd06a, #34a248); color: #06230d; }
 .confirm .no  { background: linear-gradient(180deg, #e8756a, #c0402f); color: #2c0a06; }
 .confirm .yes.muted { background: linear-gradient(180deg, #8d9a8f, #66736a); color: #29302b; }
+.confirm .rot { width: 44px; height: 44px; margin: -22px 0 0 -22px; font-size: 20px;
+  background: linear-gradient(180deg, #4a4336, #332e24); color: var(--ink); border-color: rgba(0,0,0,.45); }
+.tag-price {
+  position: absolute; transform: translate(-50%, -50%); pointer-events: none;
+  background: rgba(20,16,12,.88); border: 1px solid var(--line); color: var(--ink);
+  padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 650; white-space: nowrap;
+  font-variant-numeric: tabular-nums; box-shadow: 0 4px 12px rgba(0,0,0,.4);
+}
+.tag-price .plus { color: var(--accent); }
+.tag-price.bad { color: #f0b9a6; }
+.cards { touch-action: pan-y; }
 
 /* -------------------------------------------------------------- buildbar */
 .buildbar {
@@ -167,14 +178,58 @@ body {
 }
 .card:active { transform: scale(.98); }
 .card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-.card.locked { opacity: .45; cursor: not-allowed; }
+.card.locked { cursor: not-allowed; }
+.card.locked > *:not(.lock) { opacity: .34; }
 .card.poor .price { color: var(--bad); }
-.card canvas { width: 100%; height: 56px; display: block; image-rendering: auto; }
-.card .nm { font-size: 12px; font-weight: 650; line-height: 1.2; }
-.card .price { font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.card canvas {
+  width: 100%; height: 62px; display: block; border-radius: 9px;
+  background: radial-gradient(75% 70% at 50% 62%, rgba(255,232,180,.10), rgba(0,0,0,.16));
+}
+.card .nm { font-size: 12.5px; font-weight: 650; line-height: 1.2; }
+.card .row1 { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.card .price { font-size: 11.5px; color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 650; }
+.card .chips { display: flex; flex-wrap: wrap; gap: 3px; }
+.card .chip2 {
+  font-size: 9.5px; padding: 1px 6px; border-radius: 999px; line-height: 1.5;
+  background: var(--raised); border: 1px solid var(--line); color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.card .chip2.pw { border-color: #5c4a1e; color: #f0c27a; }
+.card .chip2.st { border-color: #24506b; color: #8fc4e8; }
+.card .chip2.rt { border-color: #4a3a1c; color: #f0d79a; }
 .card .meta { font-size: 10px; color: var(--ink-mute); }
-.card .lock { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px;
-  background: rgba(12,10,8,.55); border-radius: 12px; text-align: center; padding: 6px; }
+.card .lock {
+  position: absolute; inset: 0; border-radius: 12px; padding: 8px;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px;
+  background: linear-gradient(180deg, rgba(12,10,8,.15) 30%, rgba(12,10,8,.86) 78%);
+  text-align: center;
+}
+.card .lock .big { font-size: 17px; line-height: 1; }
+.card .lock .txt { font-size: 10.5px; color: var(--ink-2); font-weight: 600; }
+
+/* ------------------------------------------------------ ride panel bits */
+.ins-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.ins-head canvas {
+  width: 68px; height: 52px; flex: none; border-radius: 10px;
+  background: radial-gradient(75% 70% at 50% 62%, rgba(255,232,180,.12), rgba(0,0,0,.2));
+}
+.ins-head .t { min-width: 0; }
+.ins-head h3 { margin: 0; font-size: 15px; line-height: 1.15; }
+.ins-head .role { margin: 2px 0 0; }
+.stars { letter-spacing: 1px; font-size: 11px; color: var(--accent); }
+.meters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 8px 0 2px; }
+.meter .lab { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--ink-mute); }
+.meter .lab b { color: var(--ink-2); font-variant-numeric: tabular-nums; font-weight: 650; }
+.meter .bar { margin: 3px 0 0; height: 6px; }
+.price-row { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 11px; padding: 8px 10px; margin: 10px 0 2px; }
+.price-row .lab { font-size: 11px; color: var(--ink-mute); }
+.price-row .val { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.price-row .hint { font-size: 10.5px; }
+.price-row .hint.good { color: #7fd8c3; }
+.price-row .hint.fair { color: #f0c27a; }
+.price-row .hint.steep { color: #eaa08d; }
+.stepper.big button { width: 36px; height: 36px; font-size: 18px; padding: 0; border-radius: 10px; }
 
 /* -------------------------------------------------------------- inspector */
 .panel {
