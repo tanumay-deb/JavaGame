@@ -1,6 +1,10 @@
 name: Deploy to GitHub Pages
 
 # The game is plain static files, so the whole repository is the site.
+#
+# One-off setup: Settings -> Pages -> Build and deployment -> Source:
+# "GitHub Actions". A workflow token is not allowed to switch Pages on, so
+# until that is done this job reports what to do and stops, rather than failing.
 on:
   push:
     branches: ["claude/new-session-bpq8oq", "main"]
@@ -11,7 +15,6 @@ permissions:
   pages: write
   id-token: write
 
-# Never let two deployments race; always finish the newest one.
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -28,16 +31,29 @@ jobs:
       - name: Check the JavaScript parses
         run: for f in js/*.js; do node --check "$f"; done
 
+      - name: Is Pages switched on?
+        id: pages_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pages" >/dev/null 2>&1; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=GitHub Pages is not switched on::Open Settings -> Pages, set Source to 'GitHub Actions', then re-run this workflow."
+          fi
+
       - name: Configure Pages
+        if: steps.pages_check.outputs.ready == 'true'
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload the site
+        if: steps.pages_check.outputs.ready == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
 
       - name: Deploy
         id: deploy
+        if: steps.pages_check.outputs.ready == 'true'
         uses: actions/deploy-pages@v4

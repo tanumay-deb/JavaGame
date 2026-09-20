@@ -35,11 +35,16 @@ ticket price; picking one open its panel so the price can be set straight away.
 
 Live on GitHub Pages: **https://tanumay-deb.github.io/JavaGame/**
 
-Every push to the default branch redeploys it (`.github/workflows/pages.yml`
-checks that the JavaScript parses, then publishes the repository as the site —
-there is nothing to build). If Pages has never been switched on for the
-repository, the first run turns it on itself; failing that, Settings → Pages →
-Source → GitHub Actions.
+One-off setup: **Settings → Pages → Source → GitHub Actions** (a workflow token
+is not allowed to switch Pages on, so this one click has to be yours). After
+that every push to the default branch redeploys: `.github/workflows/pages.yml`
+checks that the JavaScript parses and publishes the repository as the site —
+there is nothing to build. Until Pages is switched on the job says so and stops,
+rather than failing.
+
+Prefer no workflow at all? **Settings → Pages → Deploy from a branch →
+`claude/new-session-bpq8oq` / `(root)`** serves the same files; the workflow can
+then be deleted.
 
 Or open `index.html` straight off disk, or serve the folder:
 
