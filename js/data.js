@@ -15,11 +15,11 @@ const WILD = 34;              // how far scenery is scattered, so the corners of
 const ROAD_Y = GRID_H + 3;    // the track that brings visitors, south of the park
 const START_PLOTS = 9;        // plots of the valley you begin with
 const PLOT_BASE = 850;        // price of the first plot of land you buy
-const PLOT_STEP = 480;        // each further plot costs this much more
+const PLOT_STEP = 160;        // each further plot costs this much more
 
 const GROUND = { GRASS: 0, GRAVEL: 1, STONE: 2, WATER: 3, SAND: 4, ROAD: 5 };
 
-const VERSION = '1.6';        // shown in the Menu, bumped when the park's rules change
+const VERSION = '1.7';        // shown in the Menu, bumped when the park's rules change
 const MONTH_SECONDS = 48;     // real seconds per in-game month at 1x speed
 const FIGHT_AT = 18;          // happiness below which tempers can flare
 const SIGN_RANGE = 7;         // how far a signpost guides people
@@ -144,14 +144,28 @@ const STAFF = {
 const STAFF_ICON = { guard: '🛡', repairman: '🔧', cook: '🍲', salesman: '🧺', shaman: '🌿', rider: '🦕' };
 
 /* --------------------------------------------------------------- visitors */
+/* The one table of needs. There used to be two — these rates and a separate
+   NEED_DECAY in agents.js — which disagreed, and it was the other one the game
+   actually ran on, so editing these did nothing. The live values are the ones
+   kept here, and agents.js reads them rather than keeping its own copy. */
 const NEED_INFO = {
-  hunger:  { label: 'Hunger',  icon: '🍖', rate: 0.9 },
-  thirst:  { label: 'Thirst',  icon: '💧', rate: 1.1 },
-  bladder: { label: 'Toilet',  icon: '🚻', rate: 0.75 },
-  energy:  { label: 'Energy',  icon: '💤', rate: 0.6 },
+  hunger:  { label: 'Hunger',  icon: '🍖', rate: 0.85 },
+  thirst:  { label: 'Thirst',  icon: '💧', rate: 1.0 },
+  bladder: { label: 'Toilet',  icon: '🚻', rate: 0.7 },
+  energy:  { label: 'Energy',  icon: '💤', rate: 0.5 },
   health:  { label: 'Health',  icon: '🩹', rate: 0.0 },
-  joy:     { label: 'Fun',     icon: '🎢', rate: 1.0 }
+  joy:     { label: 'Fun',     icon: '🎢', rate: 0.95 }
 };
+
+/* ground type -> how comfortable it is underfoot, from the path items above */
+const GROUND_COMFORT = (() => {
+  const out = {};
+  for (const k in ITEMS) {
+    const it = ITEMS[k];
+    if (it.cat === 'path' && it.ground !== undefined) out[it.ground] = it.comfort || 0;
+  }
+  return out;
+})();
 
 const BUILD_TABS = [
   { id: 'path',  label: 'Paths',  items: ['gravel', 'stone'] },

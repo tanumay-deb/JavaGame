@@ -472,3 +472,33 @@ function getPerson(look, frame) {
   _personCache.set(key, spr);
   return spr;
 }
+
+/* ------------------------------------------------------------- emoji */
+/* A colour emoji drawn with fillText at a size that changes from frame to
+   frame makes the browser rasterise a fresh colour bitmap every time, and
+   those live in a glyph cache in native memory — invisible to the JS heap,
+   to the DOM and to any count of canvases. Two visitors scrapping was enough
+   to take the tab down within seconds. Bake each glyph once and scale the
+   picture instead; the animation is identical and the cache cannot grow. */
+const _glyphCache = new Map();
+function getGlyph(ch, size) {
+  const key = ch + '|' + size;
+  let c = _glyphCache.get(key);
+  if (c) return c;
+  const box = Math.ceil(size * 1.5);
+  c = makeCanvas(box, box);
+  const x = c.getContext('2d');
+  x.font = size + 'px system-ui, sans-serif';
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  x.fillText(ch, box / 2, box / 2);
+  _glyphCache.set(key, c);
+  return c;
+}
+
+/* draw a baked glyph centred on (x, y), scaled by `k` */
+function drawGlyph(ctx, ch, size, x, y, k) {
+  const g = getGlyph(ch, size);
+  const w = g.width * (k === undefined ? 1 : k);
+  ctx.drawImage(g, x - w / 2, y - w / 2, w, w);
+}

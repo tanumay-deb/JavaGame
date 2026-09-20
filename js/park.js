@@ -361,6 +361,11 @@ const park = {
     return false;
   },
 
+  /* how pleasant the ground here is to stand on, straight off the path item.
+     Looked up from a table built once, not by scanning the catalogue for every
+     visitor on every frame. */
+  comfortAt(x, y) { return GROUND_COMFORT[this.groundAt(x, y)] || 0; },
+
   countOf(pred) {
     let n = 0;
     for (const b of this.buildings.values()) if (pred(b)) n++;

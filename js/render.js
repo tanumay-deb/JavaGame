@@ -1170,10 +1170,7 @@ const renderer = {
       roundRect(ctx, cx - 7.5, by2 - 7, 15, 14, 3.5); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.2;
       roundRect(ctx, cx - 7.5, by2 - 7, 15, 14, 3.5); ctx.stroke();
-      ctx.fillStyle = '#2a2018';
-      ctx.font = '10px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(STAFF_ICON[p.role] || '\u2022', cx, by2 + 0.5);
+      drawGlyph(ctx, STAFF_ICON[p.role] || '\u2022', 12, cx, by2 + 0.5, 0.8);
       if (sim.selected === p) {
         ctx.font = 'bold 9px system-ui, sans-serif';
         ctx.fillStyle = 'rgba(0,0,0,.55)';
@@ -1191,18 +1188,13 @@ const renderer = {
 
     if (p.fightT > 0) {
       const s = 1 + Math.sin(t * 22) * 0.2;
-      ctx.font = (14 * s) + 'px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('\ud83d\udca2', cx, bodyY - 12);
+      drawGlyph(ctx, '\ud83d\udca2', 16, cx, bodyY - 12, s * 0.9);
     } else if (p.bubble) {
       ctx.save();
       ctx.fillStyle = 'rgba(255,255,255,.92)';
       ctx.beginPath(); ctx.ellipse(cx, bodyY - 14, 9, 7.5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.moveTo(cx - 3, bodyY - 8); ctx.lineTo(cx + 2, bodyY - 8); ctx.lineTo(cx, bodyY - 4); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#2a2018';
-      ctx.font = '10px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(p.bubble, cx, bodyY - 14);
+      drawGlyph(ctx, p.bubble, 12, cx, bodyY - 14, 0.78);
       ctx.restore();
     }
   },

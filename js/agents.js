@@ -2,7 +2,12 @@
    for rides, and can be selected to inspect exactly what they are up to. */
 
 const VIS_SPEED = 1.15;          // tiles per second
-const NEED_DECAY = { hunger: 0.85, thirst: 1.0, bladder: 0.7, energy: 0.5, joy: 0.95, health: 0 };
+/* built from NEED_INFO, so there is one place to change a rate */
+const NEED_DECAY = (() => {
+  const out = {};
+  for (const k in NEED_INFO) out[k] = NEED_INFO[k].rate;
+  return out;
+})();
 
 let _agentId = 1;
 
@@ -297,7 +302,10 @@ Visitor.prototype.update = function (dt) {
   const n = this.needs;
   const needScore = (n.hunger + n.thirst + n.bladder + n.energy + n.joy + n.health) / 6;
   const pretty = park.beautyAt(Math.round(this.x), Math.round(this.y));
-  const comfy = park.groundAt(Math.round(this.x), Math.round(this.y)) === GROUND.STONE ? 4 : 0;
+  /* what is underfoot: the path items carry a comfort value, which the build
+     menu was already describing as comfy or cheap while the simulation ignored
+     it and checked for stone by hand */
+  const comfy = park.comfortAt(Math.round(this.x), Math.round(this.y)) * 6.5;
   const queuePain = this.state === 'queue' ? -this.queueTime * 0.55 : 0;
   const goal = clamp(needScore * 0.72 + pretty + comfy + queuePain + 8, 0, 100);
   this.happiness = clamp(lerp(this.happiness, goal, 1 - Math.exp(-dt * 0.55)), 0, 100);
