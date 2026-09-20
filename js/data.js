@@ -21,6 +21,8 @@ const GROUND = { GRASS: 0, GRAVEL: 1, STONE: 2, WATER: 3, SAND: 4, ROAD: 5 };
 
 const MONTH_SECONDS = 48;     // real seconds per in-game month at 1x speed
 const FIGHT_AT = 18;          // happiness below which tempers can flare
+const SIGN_RANGE = 7;         // how far a signpost guides people
+const SIGN_LIFT = 13;         // how much sooner they set off when they can see one
 const DAYS_PER_MONTH = 28;
 
 /* ---------------------------------------------------------------- palettes */
@@ -115,9 +117,9 @@ const ITEMS = {
              unlock: 2, art: 'engine', desc: 'Powers nearby rides. Needs a dino rider to turn it.' },
 
   /* ---- comfort & decor ---- */
-  bench:   { name: 'Bench', cat: 'decor', w: 1, h: 1, cost: 70, upkeep: 1, rest: true, beauty: 1, unlock: 0, art: 'bench',
+  bench:   { name: 'Bench', cat: 'decor', w: 1, h: 1, cost: 70, upkeep: 1, rest: true, beauty: 2, unlock: 0, art: 'bench',
              desc: 'Tired visitors sit down instead of getting cross.' },
-  sign:    { name: 'Signpost', cat: 'decor', w: 1, h: 1, cost: 90, upkeep: 1, sign: true, beauty: 1, unlock: 1, art: 'sign',
+  sign:    { name: 'Signpost', cat: 'decor', w: 1, h: 1, cost: 90, upkeep: 1, sign: true, beauty: 2, unlock: 1, art: 'sign',
              desc: 'At a crossroads it helps visitors find their way.' },
   palm:    { name: 'Palm', cat: 'decor', w: 1, h: 1, cost: 90, upkeep: 1, beauty: 3, unlock: 0, art: 'palm' },
   bush:    { name: 'Fern', cat: 'decor', w: 1, h: 1, cost: 50, upkeep: 1, beauty: 2, unlock: 0, art: 'bush' },

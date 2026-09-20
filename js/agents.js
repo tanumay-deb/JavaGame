@@ -125,9 +125,13 @@ Visitor.prototype.decide = function () {
     this.say(this.money < 3 ? '💸' : this.happiness < 12 ? '😠' : '👋');
     return this.leave();
   }
+  /* A visitor in sight of a signpost knows where things are, so they set off
+     before they are desperate — which matters, because everything keeps
+     draining while they walk. */
+  const guide = park.signNear(this.x, this.y) ? SIGN_LIFT : 0;
   const order = [
-    { k: 'bladder', lim: 32 }, { k: 'health', lim: 55 }, { k: 'thirst', lim: 30 },
-    { k: 'hunger', lim: 30 }, { k: 'energy', lim: 28 }, { k: 'joy', lim: 60 }
+    { k: 'bladder', lim: 32 + guide }, { k: 'health', lim: 55 }, { k: 'thirst', lim: 30 + guide },
+    { k: 'hunger', lim: 30 + guide }, { k: 'energy', lim: 28 + guide }, { k: 'joy', lim: 60 }
   ].filter(o => n[o.k] < o.lim).sort((a, b) => n[a.k] - n[b.k]);
 
   for (const o of order) {
@@ -327,6 +331,8 @@ Visitor.prototype.update = function (dt) {
       this.timer -= dt;
       if (this.timer <= 0) {
         if (this.restBench) {
+          /* a proper sit down does more than give the legs a rest */
+          this.happiness = clamp(this.happiness + 7, 0, 100);
           this.restBench.sitters = Math.max(0, (this.restBench.sitters || 1) - 1);
           this.restBench = null;
         }

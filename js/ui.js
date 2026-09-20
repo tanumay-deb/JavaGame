@@ -762,7 +762,9 @@ const ui = {
     h += this.chartBlock('Profit each moon', money(last.profit), 'c-profit');
     h += '<div class="legend"><span><i style="background:' + CHART.profit + '"></i>profit</span>'
       + '<span><i style="background:' + CHART.loss + '"></i>loss</span></div>';
-    h += this.chartBlock('Visitors each moon', last.visitors + ' people', 'c-vis');
+    h += this.chartBlock('Visitors each moon',
+      sim.visitors.length + ' of ' + sim.maxVisitors(), 'c-vis');
+    h += '<div class="role">The park holds more people as you buy more land.</div>';
     h += this.chartBlock('Average happiness', last.happiness + '%', 'c-hap');
     h += '<h3>The last months</h3><table class="data"><thead><tr><th>Moon</th><th>Income</th><th>Outlay</th><th>Profit</th><th>Visitors</th><th>Happy</th></tr></thead><tbody>';
     for (const r of s.slice(-8)) {

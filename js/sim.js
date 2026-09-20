@@ -245,23 +245,35 @@ const sim = {
     return clamp((u - 0.22) / 0.34, 0, 1);
   },
 
+  /* How many people the park can hold. A small clearing and the whole valley
+     used to take the same 150; the land you own is the room you have, so the
+     crowd grows with it — the nine plots you start on come out about where
+     the old fixed cap was. The ceiling of 320 is measured, not guessed: on a
+     phone the frame rate is flat from 160 to 320 because most of the crowd is
+     culled off screen anyway, and a desktop window showing far more of the
+     park still holds 51fps with 320 of them in. */
+  maxVisitors() {
+    return Math.min(320, Math.round(70 + park.plotsBought * 9));
+  },
+
   spawn(dt) {
     const rating = park.rating(this.avgHappiness());
     const gateOpen = park.isPath(park.gate.x, park.gate.y);
     if (!gateOpen) return;
     const perMonth = rating * 0.95 * (0.35 + 0.65 * this.dayLight());
     if (perMonth <= 0) return;
+    const cap = this.maxVisitors();
     this.spawnAcc += dt * (perMonth / MONTH_SECONDS);
     while (this.spawnAcc >= 1) {
       this.spawnAcc -= 1;
-      if (this.visitors.length + traffic.pending >= 150) break;
+      if (this.visitors.length + traffic.pending >= cap) break;
       traffic.pending++;        /* they still have to be driven here */
     }
   },
 
   /* a vehicle has set someone down on the road outside the gateway */
   arrive(x, y) {
-    if (this.visitors.length >= 150) return;
+    if (this.visitors.length >= this.maxVisitors()) return;
     const v = new Visitor(x, y);
     if (this.entranceFee > 0) {
       if (v.money < this.entranceFee * 3) return;       /* too dear, they stay on board */

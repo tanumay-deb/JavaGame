@@ -343,6 +343,24 @@ const park = {
     return Math.min(20, s);
   },
 
+  /* Signposts, cached until something is built or knocked down. A visitor who
+     can see one sets off for what they need sooner, because they know where
+     it is — which is the whole point of a signpost, and until now the flag on
+     the item was read by nothing at all. */
+  signTiles() {
+    if (this._signVer === this.version && this._signs) return this._signs;
+    const out = [];
+    for (const b of this.buildings.values())
+      if (b.item.sign) out.push({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+    this._signs = out; this._signVer = this.version;
+    return out;
+  },
+  signNear(x, y) {
+    const signs = this.signTiles();
+    for (const sgn of signs) if (Math.abs(sgn.x - x) <= SIGN_RANGE && Math.abs(sgn.y - y) <= SIGN_RANGE) return true;
+    return false;
+  },
+
   countOf(pred) {
     let n = 0;
     for (const b of this.buildings.values()) if (pred(b)) n++;
