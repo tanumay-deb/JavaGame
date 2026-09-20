@@ -266,38 +266,93 @@ ANIM.slide = function (ctx, sx, sy, g, t, b) {
 
 /* ---------------------------------------------------------- throwing range */
 ART.range = function (w, h) {
-  const g = spriteCtx(w, h, 48), ctx = g.ctx;
+  const g = spriteCtx(w, h, 56), ctx = g.ctx;
   pad(g, SAND, SAND_E);
-  /* back fence */
-  const f1 = g.C(w - 0.35, -0.35), f2 = g.C(w - 0.35, h - 0.65);
-  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 3;
+
+  /* a stop-net of hide behind the targets, so stray rocks do not fly off */
+  const f1 = g.C(w - 0.3, -0.4), f2 = g.C(w - 0.3, h - 0.6);
+  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 3.5;
   for (let i = 0; i <= 5; i++) {
     const x = lerp(f1[0], f2[0], i / 5), y = lerp(f1[1], f2[1], i / 5);
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 30); ctx.stroke();
   }
-  beam(ctx, f1[0], f1[1] - 18, f2[0], f2[1] - 18, 4, WOOD);
-  beam(ctx, f1[0], f1[1] - 8, f2[0], f2[1] - 8, 3, WOOD);
-  /* three skull targets on straw bales */
+  ctx.fillStyle = 'rgba(122,98,66,.55)';
+  ctx.beginPath();
+  ctx.moveTo(f1[0], f1[1] - 28); ctx.lineTo(f2[0], f2[1] - 28);
+  ctx.lineTo(f2[0], f2[1] - 6); ctx.lineTo(f1[0], f1[1] - 6);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(70,56,36,.5)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 8; i++) {
+    const u = i / 8;
+    ctx.beginPath();
+    ctx.moveTo(lerp(f1[0], f2[0], u), lerp(f1[1], f2[1], u) - 28);
+    ctx.lineTo(lerp(f1[0], f2[0], u), lerp(f1[1], f2[1], u) - 6);
+    ctx.stroke();
+  }
+  beam(ctx, f1[0], f1[1] - 28, f2[0], f2[1] - 28, 4.5, WOOD);
+
+  /* three painted targets on straw bales, each with a skull on top */
   for (let i = 0; i < 3; i++) {
     const ty = i * (h - 1) / 2;
-    const [x, y] = g.C(w - 0.75, ty);
+    const [x, y] = g.C(w - 0.78, ty);
+    ctx.fillStyle = 'rgba(0,0,0,.2)';
+    ctx.beginPath(); ctx.ellipse(x, y + 2, 13, 5, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = PALETTE.thatch;
-    roundRect(ctx, x - 11, y - 12, 22, 12, 4); ctx.fill();
+    roundRect(ctx, x - 12, y - 13, 24, 13, 4); ctx.fill();
+    ctx.fillStyle = shade(PALETTE.thatch, 0.14);
+    roundRect(ctx, x - 12, y - 13, 24, 3.5, 2); ctx.fill();
     ctx.strokeStyle = PALETTE.thatchDark; ctx.lineWidth = 1;
-    for (let s = -1; s <= 1; s++) { ctx.beginPath(); ctx.moveTo(x + s * 6, y - 12); ctx.lineTo(x + s * 6, y); ctx.stroke(); }
-    ctx.fillStyle = WOOD_D; ctx.fillRect(x - 1.5, y - 24, 3, 12);
-    skull(ctx, x, y - 29, 7);
+    for (let sgn = -1; sgn <= 1; sgn++) {
+      ctx.beginPath(); ctx.moveTo(x + sgn * 6, y - 12); ctx.lineTo(x + sgn * 6, y - 1); ctx.stroke();
+    }
+    /* the painted rings that make it a target rather than a bale */
+    const ry = y - 6.5;
+    for (const [r, col] of [[8.5, '#e8ddc2'], [6, '#c4453a'], [3.4, '#e8ddc2'], [1.6, '#c4453a']]) {
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.ellipse(x, ry, r, r * 0.62, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = WOOD_D; ctx.fillRect(x - 1.6, y - 26, 3.2, 13);
+    skull(ctx, x, y - 31, 7.5);
   }
-  /* throwing line and a basket of rocks */
-  const a = g.C(0.7, -0.2), c = g.C(0.7, h - 0.8);
+
+  /* the throwing booth: a counter under a hide canopy, with rocks to hand */
+  const bk = g.C(0.55, (h - 1) / 2);
+  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 3;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(bk[0] - 4, bk[1] + s * 13); ctx.lineTo(bk[0] - 4, bk[1] + s * 13 - 26);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#c4453a';
+  ctx.beginPath();
+  ctx.moveTo(bk[0] - 12, bk[1] - 34); ctx.lineTo(bk[0] + 8, bk[1] - 30);
+  ctx.lineTo(bk[0] + 8, bk[1] - 24); ctx.lineTo(bk[0] - 12, bk[1] - 28);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#e8ddc2';
+  ctx.beginPath();
+  ctx.moveTo(bk[0] - 12, bk[1] - 28); ctx.lineTo(bk[0] + 8, bk[1] - 24);
+  ctx.lineTo(bk[0] + 8, bk[1] - 21); ctx.lineTo(bk[0] - 12, bk[1] - 25);
+  ctx.closePath(); ctx.fill();
+  /* counter */
+  ctx.fillStyle = shade(WOOD, -0.3);
+  roundRect(ctx, bk[0] - 12, bk[1] - 8, 20, 9, 2); ctx.fill();
+  ctx.fillStyle = WOOD_L;
+  roundRect(ctx, bk[0] - 13, bk[1] - 13, 22, 6, 2); ctx.fill();
+  /* a basket of throwing rocks on the counter */
+  ctx.fillStyle = '#9b7b45';
+  roundRect(ctx, bk[0] - 9, bk[1] - 19, 14, 7, 3); ctx.fill();
+  ctx.fillStyle = PALETTE.rockDark;
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.arc(bk[0] - 6 + i * 3.4, bk[1] - 20 - (i % 2) * 1.6, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  /* the line they throw from */
+  const a = g.C(0.95, -0.2), c = g.C(0.95, h - 0.8);
   ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.setLineDash([5, 4]); ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke(); ctx.setLineDash([]);
-  const bk = g.C(0.6, (h - 1) / 2);
-  ctx.fillStyle = '#9b7b45';
-  roundRect(ctx, bk[0] - 9, bk[1] - 9, 18, 10, 4); ctx.fill();
-  ctx.fillStyle = PALETTE.rockDark;
-  for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(bk[0] - 5 + i * 3.5, bk[1] - 10, 2.6, 0, Math.PI * 2); ctx.fill(); }
-  g.throwFrom = [bk[0], bk[1] - 14]; g.throwTo = g.C(w - 0.75, (h - 1) / 2);
+
+  g.throwFrom = [bk[0] + 4, bk[1] - 20]; g.throwTo = g.C(w - 0.78, (h - 1) / 2);
   return g;
 };
 ANIM.range = function (ctx, sx, sy, g, t, b) {
@@ -373,27 +428,65 @@ ANIM.carousel = function (ctx, sx, sy, g, t, b) {
 
 /* ---------------------------------------------------------------- catapult */
 ART.catapult = function (w, h) {
-  const g = spriteCtx(w, h, 62), ctx = g.ctx;
+  const g = spriteCtx(w, h, 66), ctx = g.ctx;
   pad(g, SAND, SAND_E);
   const [cx, cy] = g.mid;
-  /* landing mound of straw at the far end */
+
+  /* landing mound of straw at the far end, with a worn hollow where they land */
   const land = g.C(w - 0.6, (h - 1) / 2);
+  ctx.fillStyle = shade(SAND, -0.16);
+  ctx.beginPath(); ctx.ellipse(land[0], land[1] + 2, 24, 12, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = PALETTE.thatch;
-  ctx.beginPath(); ctx.ellipse(land[0], land[1], 20, 10, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(land[0], land[1] - 2, 21, 11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = shade(PALETTE.thatch, 0.16);
+  ctx.beginPath(); ctx.ellipse(land[0] - 4, land[1] - 5, 12, 5, -0.2, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = PALETTE.thatchDark; ctx.lineWidth = 1;
-  for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(land[0] + i * 7, land[1] - 5); ctx.lineTo(land[0] + i * 6, land[1] + 5); ctx.stroke(); }
-  /* sledge base */
-  const base = g.C(0.9, (h - 1) / 2);
-  isoBox(ctx, base[0], base[1], TILE_W * 0.8, TILE_H * 0.8, 9, WOOD_L, WOOD_D, WOOD);
-  /* A-frame */
-  ctx.strokeStyle = WOOD; ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(base[0] - 16, base[1] - 6); ctx.lineTo(base[0], base[1] - 34);
-  ctx.moveTo(base[0] + 16, base[1] - 6); ctx.lineTo(base[0], base[1] - 34);
-  ctx.stroke();
-  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(base[0] - 9, base[1] - 18); ctx.lineTo(base[0] + 9, base[1] - 18); ctx.stroke();
-  g.pivot = [base[0], base[1] - 34];
+  for (let i = -3; i <= 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(land[0] + i * 6, land[1] - 8); ctx.lineTo(land[0] + i * 5.2, land[1] + 6);
+    ctx.stroke();
+  }
+
+  /* a heavy sledge the whole engine is lashed to, pegged into the ground */
+  const base = g.C(0.95, (h - 1) / 2);
+  ctx.fillStyle = 'rgba(0,0,0,.2)';
+  ctx.beginPath(); ctx.ellipse(base[0], base[1] + 6, 30, 13, 0, 0, Math.PI * 2); ctx.fill();
+  isoBox(ctx, base[0], base[1], TILE_W * 0.92, TILE_H * 0.92, 11, WOOD_L, WOOD_D, WOOD);
+  ctx.fillStyle = PALETTE.boneDark;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(base[0] + s * 27, base[1] + 2); ctx.lineTo(base[0] + s * 31, base[1] + 9);
+    ctx.lineTo(base[0] + s * 28, base[1] + 10); ctx.lineTo(base[0] + s * 24, base[1] + 3);
+    ctx.closePath(); ctx.fill();
+  }
+
+  /* two uprights carrying the axle, braced back to the sledge */
+  for (const s of [-1, 1]) {
+    beam(ctx, base[0] + s * 15, base[1] - 7, base[0] + s * 4, base[1] - 36, 7, WOOD);
+    beam(ctx, base[0] + s * 24, base[1] - 2, base[0] + s * 9, base[1] - 24, 4, shade(WOOD, -0.12));
+  }
+  /* the axle beam across the top */
+  beam(ctx, base[0] - 6, base[1] - 36, base[0] + 6, base[1] - 36, 6, WOOD_L);
+
+  /* the twisted rope skein that actually throws the arm */
+  ctx.save();
+  ctx.translate(base[0], base[1] - 36);
+  ctx.fillStyle = '#a89468';
+  ctx.beginPath(); ctx.ellipse(0, 0, 9, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#7d6a45'; ctx.lineWidth = 1.5;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-8, i * 2.6); ctx.quadraticCurveTo(0, i * 2.6 - 2.5, 8, i * 2.6);
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.18)';
+  ctx.beginPath(); ctx.ellipse(-3, -3, 4, 2.4, -0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  /* a stop beam the arm slams into */
+  beam(ctx, base[0] + 16, base[1] - 26, base[0] + 30, base[1] - 22, 5, WOOD_D);
+
+  g.pivot = [base[0], base[1] - 36];
   return g;
 };
 ANIM.catapult = function (ctx, sx, sy, g, t, b) {
@@ -571,37 +664,85 @@ ANIM.cave = function (ctx, sx, sy, g, t, b) {
 
 /* ------------------------------------------------------------- drop tower */
 ART.tower = function (w, h) {
-  const g = spriteCtx(w, h, 160), ctx = g.ctx;
+  const g = spriteCtx(w, h, 170), ctx = g.ctx;
   pad(g, SAND, SAND_E);
   const [cx, cy] = g.mid;
   const H = 124;
-  /* stone footing */
-  isoBox(ctx, cx, cy, TILE_W * 0.9, TILE_H * 0.9, 8, PALETTE.rock, shade(PALETTE.rockDark, -0.1), PALETTE.rockDark);
-  ctx.strokeStyle = WOOD; ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(cx - 21, cy - 6); ctx.lineTo(cx - 7, cy - H);
-  ctx.moveTo(cx + 21, cy - 6); ctx.lineTo(cx + 7, cy - H);
-  ctx.stroke();
-  ctx.strokeStyle = shade(WOOD, -0.18); ctx.lineWidth = 2.6;
-  for (let i = 0; i < 10; i++) {
-    const y0 = cy - 6 - (i / 10) * (H - 6), y1 = cy - 6 - ((i + 1) / 10) * (H - 6);
-    const s0 = lerp(21, 7, i / 10), s1 = lerp(21, 7, (i + 1) / 10);
+
+  /* a stone footing wide enough to look like it holds the thing up */
+  ctx.fillStyle = 'rgba(0,0,0,.22)';
+  ctx.beginPath(); ctx.ellipse(cx, cy + 5, 40, 17, 0, 0, Math.PI * 2); ctx.fill();
+  isoBox(ctx, cx, cy, TILE_W * 1.02, TILE_H * 1.02, 11, PALETTE.rock,
+    shade(PALETTE.rockDark, -0.14), PALETTE.rockDark);
+  isoBox(ctx, cx, cy - 11, TILE_W * 0.74, TILE_H * 0.74, 7,
+    mixColor(PALETTE.rock, '#e6eaee', 0.3), shade(PALETTE.rockDark, -0.1), PALETTE.rockDark);
+
+  /* four legs rather than two, so it reads as a mast and not a ladder */
+  const legX = (u, s) => cx + s * lerp(23, 7, u);
+  const legY = (u) => cy - 16 - u * (H - 16);
+  for (const s of [-1, 1]) {
+    ctx.strokeStyle = shade(WOOD, -0.22); ctx.lineWidth = 5.5;
     ctx.beginPath();
-    ctx.moveTo(cx - s0, y0); ctx.lineTo(cx + s1, y1);
-    ctx.moveTo(cx + s0, y0); ctx.lineTo(cx - s1, y1);
-    ctx.moveTo(cx - s1, y1); ctx.lineTo(cx + s1, y1);
+    ctx.moveTo(legX(0, s) + s * 5, legY(0) + 3); ctx.lineTo(legX(1, s) + s * 2, legY(1));
+    ctx.stroke();
+    ctx.strokeStyle = WOOD; ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(legX(0, s), legY(0)); ctx.lineTo(legX(1, s), legY(1));
+    ctx.stroke();
+    ctx.strokeStyle = shade(WOOD, 0.2); ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(legX(0, s) - 1.4, legY(0)); ctx.lineTo(legX(1, s) - 1.4, legY(1));
     ctx.stroke();
   }
-  /* guy ropes */
-  ctx.strokeStyle = 'rgba(120,100,70,.7)'; ctx.lineWidth = 1.4;
-  for (const s of [-1, 1]) {
-    ctx.beginPath(); ctx.moveTo(cx + s * 7, cy - H + 8); ctx.lineTo(cx + s * 36, cy + 4); ctx.stroke();
-    ctx.fillStyle = WOOD_D; ctx.fillRect(cx + s * 36 - 2, cy, 4, 6);
+  /* lashed cross-bracing, tighter toward the top */
+  ctx.strokeStyle = shade(WOOD, -0.14); ctx.lineWidth = 2.4;
+  for (let i = 0; i < 11; i++) {
+    const u0 = i / 11, u1 = (i + 1) / 11;
+    ctx.beginPath();
+    ctx.moveTo(legX(u0, -1), legY(u0)); ctx.lineTo(legX(u1, 1), legY(u1));
+    ctx.moveTo(legX(u0, 1), legY(u0)); ctx.lineTo(legX(u1, -1), legY(u1));
+    ctx.stroke();
+    ctx.strokeStyle = shade(WOOD, -0.3); ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(legX(u1, -1), legY(u1)); ctx.lineTo(legX(u1, 1), legY(u1));
+    ctx.stroke();
+    ctx.strokeStyle = shade(WOOD, -0.14); ctx.lineWidth = 2.4;
   }
-  skull(ctx, cx, cy - H - 12, 13);
+  /* bindings where the braces meet the legs */
+  ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.8;
+  for (let i = 1; i < 11; i += 2) {
+    const u = i / 11;
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(legX(u, s) - 3, legY(u)); ctx.lineTo(legX(u, s) + 3, legY(u) - 1);
+      ctx.stroke();
+    }
+  }
+
+  /* headframe: a beam across the top with a bone pulley at each end */
+  const topY = cy - 16 - (H - 16);
+  beam(ctx, cx - 12, topY - 4, cx + 12, topY - 4, 6, WOOD_L);
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = PALETTE.bone;
+    ctx.beginPath(); ctx.arc(cx + s * 10, topY - 4, 4.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = PALETTE.boneDark;
+    ctx.beginPath(); ctx.arc(cx + s * 10, topY - 4, 1.6, 0, Math.PI * 2); ctx.fill();
+  }
+
+  /* guy ropes down to pegs */
+  ctx.strokeStyle = 'rgba(150,126,86,.75)'; ctx.lineWidth = 1.5;
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(cx + s * 9, topY + 2); ctx.lineTo(cx + s * 38, cy + 4); ctx.stroke();
+    ctx.fillStyle = WOOD_D; ctx.fillRect(cx + s * 38 - 2, cy, 4, 7);
+  }
+
+  skull(ctx, cx, topY - 16, 13);
   ctx.fillStyle = '#c94f4f';
-  ctx.beginPath(); ctx.moveTo(cx + 12, cy - H - 16); ctx.lineTo(cx + 30, cy - H - 22); ctx.lineTo(cx + 12, cy - H - 26); ctx.closePath(); ctx.fill();
-  g.topY = cy - H + 16; g.botY = cy - 14; g.cx = cx;
+  ctx.beginPath();
+  ctx.moveTo(cx + 12, topY - 20); ctx.lineTo(cx + 31, topY - 26); ctx.lineTo(cx + 12, topY - 30);
+  ctx.closePath(); ctx.fill();
+
+  g.topY = topY + 22; g.botY = cy - 16; g.cx = cx;
   return g;
 };
 ANIM.tower = function (ctx, sx, sy, g, t, b) {
@@ -612,15 +753,22 @@ ANIM.tower = function (ctx, sx, sy, g, t, b) {
   const y = lerp(g.botY, g.topY, f) + sy, x = g.cx + sx;
   ctx.strokeStyle = '#6b5a42'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(x, g.topY + sy - 14); ctx.lineTo(x, y); ctx.stroke();
-  ctx.fillStyle = shade('#b5563f', -0.3);
-  roundRect(ctx, x - 15, y + 8, 30, 5, 2); ctx.fill();
+  /* the car: a bench slung under the mast with a bar across the riders' laps */
+  ctx.fillStyle = shade('#b5563f', -0.35);
+  roundRect(ctx, x - 17, y + 9, 34, 6, 2); ctx.fill();
+  if (run) {
+    const n = Math.min(3, b.riders.length);
+    for (let i = 0; i < n; i++)
+      drawMiniPerson(ctx, x - (n - 1) * 5.5 + i * 11, y + 4, CLOTH_TONES[i % 7], b.riders[i]);
+  }
   ctx.fillStyle = '#b5563f';
-  roundRect(ctx, x - 15, y, 30, 11, 3); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.2)';
-  ctx.fillRect(x - 15, y, 30, 2.5);
-  if (run) for (let i = 0; i < 3; i++) {
-    ctx.fillStyle = SKIN_TONES[i % SKIN_TONES.length];
-    ctx.beginPath(); ctx.arc(x - 9 + i * 9, y - 1, 3, 0, Math.PI * 2); ctx.fill();
+  roundRect(ctx, x - 17, y + 1, 34, 10, 3); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.22)';
+  ctx.fillRect(x - 17, y + 1, 34, 2.4);
+  ctx.strokeStyle = PALETTE.boneDark; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x - 15, y - 2); ctx.lineTo(x + 15, y - 2); ctx.stroke();
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(x + s * 15, y - 2); ctx.lineTo(x + s * 16, y + 4); ctx.stroke();
   }
 };
 

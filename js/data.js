@@ -19,6 +19,7 @@ const PLOT_STEP = 480;        // each further plot costs this much more
 
 const GROUND = { GRASS: 0, GRAVEL: 1, STONE: 2, WATER: 3, SAND: 4, ROAD: 5 };
 
+const VERSION = '1.6';        // shown in the Menu, bumped when the park's rules change
 const MONTH_SECONDS = 48;     // real seconds per in-game month at 1x speed
 const FIGHT_AT = 18;          // happiness below which tempers can flare
 const SIGN_RANGE = 7;         // how far a signpost guides people

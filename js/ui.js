@@ -2,6 +2,13 @@
 
 const CHART = { profit: '#3AA98F', loss: '#D06B4A', visitors: '#5D8FD6', happy: '#B07BD0' };
 const WARN = '#E8A53C';      /* reserved for a state, never for a series */
+/* Mood runs bad-to-good, so it is a diverging scale: two hues with a neutral
+   in the middle, never a rainbow and never a hue at the midpoint. */
+/* Validated: adjacent steps clear the normal-vision floor (18.1) and the CVD
+   floor (13.6). The midpoint reads grey and the poles sit outside the
+   categorical lightness band on purpose — that is what makes it diverging
+   rather than a set of categories. Every band is labelled anyway. */
+const MOOD_BANDS = ['#0E7A66', '#6ED3A4', '#8E8E88', '#F0A868', '#C4453A'];
 
 const ui = {
   build: { key: null, rot: 0 },
@@ -41,6 +48,11 @@ const ui = {
     $('btn-stats').addEventListener('click', () => this.statsModal());
     $('btn-goals').addEventListener('click', () => this.goalsModal());
     $('btn-menu').addEventListener('click', () => this.menuModal());
+    const happyChip = this.el.happy.parentElement;
+    if (happyChip) {
+      happyChip.classList.add('tappable');
+      happyChip.addEventListener('click', () => this.moodModal());
+    }
     $('btn-rotate').addEventListener('click', () => this.rotate());
     $('btn-cancel-build').addEventListener('click', () => {
       if (this.demolishMode) this.stopDemolish();
@@ -726,8 +738,79 @@ const ui = {
     this.modal(h);
   },
 
+  /* The park's mood, broken out. Happiness is one number per visitor, so the
+     bands below are cuts of that number — and each cut is a threshold the game
+     itself already acts on, rather than a round number picked for the table. */
+  moodModal() {
+    const vs = sim.visitors.filter(v => v.state !== 'waiting');
+    let h = '<h2>How the tribe feels</h2>';
+    if (!vs.length) {
+      h += '<div class="role">Nobody is in the park yet.</div>';
+      this.modal(h);
+      return;
+    }
+    const bands = [
+      { k: 'Delighted', icon: '\u{1F600}', min: 75, note: 'smiling as they walk' },
+      { k: 'Happy', icon: '\u{1F642}', min: 55, note: 'enjoying themselves' },
+      { k: 'Content', icon: '\u{1F610}', min: 30, note: 'nothing to complain of' },
+      { k: 'Fed up', icon: '\u{1F620}', min: FIGHT_AT, note: 'scowling, close to leaving' },
+      { k: 'Furious', icon: '\u{1F621}', min: -1, note: 'angry enough to start a fight' }
+    ];
+    const counts = bands.map(() => 0);
+    for (const v of vs) {
+      for (let i = 0; i < bands.length; i++) if (v.happiness >= bands[i].min) { counts[i]++; break; }
+    }
+    h += '<div class="chart"><div class="ct"><span>Average happiness</span><b>'
+      + Math.round(sim.avgHappiness()) + '%</b></div></div>';
+    h += '<table class="data perf mood"><tbody>';
+    for (let i = 0; i < bands.length; i++) {
+      const pct = Math.round((counts[i] / vs.length) * 100);
+      h += '<tr><td>' + bands[i].icon + ' ' + bands[i].k
+        + '<span class="sub">' + bands[i].note + '</span></td>'
+        + '<td class="num"><div class="perfbar"><i style="width:' + pct + '%;background:'
+        + MOOD_BANDS[i] + '"></i></div><b>' + counts[i] + '</b></td>'
+        + '<td class="num">' + pct + '%</td></tr>';
+    }
+    h += '</tbody></table>';
+
+    /* what is actually pulling it down, counted rather than guessed */
+    const need = { hunger: 0, thirst: 0, bladder: 0, energy: 0, joy: 0, health: 0 };
+    let queueing = 0, fighting = 0;
+    for (const v of vs) {
+      for (const k in need) if (v.needs[k] < (k === 'joy' ? 45 : 30)) need[k]++;
+      if (v.state === 'queue') queueing++;
+      if (v.fightT > 0) fighting++;
+    }
+    const gripes = Object.keys(need).map(k => ({ k, n: need[k] }))
+      .filter(g => g.n > 0).sort((a, b) => b.n - a.n);
+    h += '<h3>What is bothering them</h3>';
+    if (!gripes.length && !fighting) {
+      h += '<div class="role">Nothing much — everybody is fed, watered and entertained.</div>';
+    } else {
+      h += '<table class="data perf"><tbody>';
+      for (const g of gripes) {
+        const info = NEED_INFO[g.k];
+        const pct = Math.round((g.n / vs.length) * 100);
+        h += '<tr><td>' + (info ? info.icon + ' ' + info.label : g.k) + '</td>'
+          + '<td class="num"><div class="perfbar"><i style="width:' + pct + '%;background:'
+          + CHART.loss + '"></i></div><b>' + g.n + '</b></td>'
+          + '<td class="num">' + pct + '%</td></tr>';
+      }
+      h += '</tbody></table>';
+    }
+    h += '<div class="role">' + queueing + ' queueing'
+      + (fighting ? ' \u00b7 ' + fighting + ' fighting' : '') + '.</div>';
+
+    const tips = advice.top(4);
+    h += '<h3>What would help</h3>';
+    h += tips.length
+      ? '<ul class="tips">' + tips.map(t => '<li>' + t.text + '</li>').join('') + '</ul>'
+      : '<div class="role">The park is running well — nothing to fix right now.</div>';
+    this.modal(h);
+  },
+
   menuModal() {
-    const h = '<h2>Menu</h2>'
+    const h = '<h2>Menu <span class="ver">v' + VERSION + '</span></h2>'
       + '<div class="btns">'
       + '<button onclick="sim.save()">💾 Save park</button>'
       + '<button onclick="ui.doLoad()">📂 Load park</button>'
@@ -742,7 +825,8 @@ const ui = {
       + 'Wages and upkeep are paid every new moon.</div>'
       + '<h3>About</h3>'
       + '<div class="role">A from-scratch tribute to the 2007 J2ME park builder <i>Prehistoric Fun Park</i> '
-      + '(THQ Wireless / Gear Games). No original code or artwork is used — all the artwork here is drawn by code.</div>';
+      + '(THQ Wireless / Gear Games). No original code or artwork is used — all the artwork here is drawn by code.</div>'
+      + '<div class="role">Version ' + VERSION + '</div>';
     this.modal(h);
   },
 

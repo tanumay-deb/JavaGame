@@ -742,6 +742,11 @@ const renderer = {
   drawMarkers(ctx) {
     for (const b of park.buildings.values()) {
       if (b.item.cat !== 'ride') continue;
+      /* Once a ride is wired up its doors are just clutter, so the badges are
+         kept for the cases where they tell you something: a door with no path
+         beside it, and whatever ride you have selected. */
+      const wired = park.reachable(b);
+      if (wired && sim.selected !== b) continue;
       for (const [tile, col, label] of [[b.ent, '#5fd06a', 'IN'], [b.ext, '#e06a5f', 'OUT']]) {
         const access = park.accessTiles(tile);
         /* with no path beside it, mark the doorway itself so you can see where
