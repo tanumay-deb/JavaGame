@@ -64,6 +64,8 @@ const ui = {
     document.addEventListener('click', e => {
       const c = e.target.closest('[data-close]');
       if (c) this.close(c.dataset.close);
+      /* one listener for every button in the game rather than dozens */
+      if (e.target.closest('button, .card, .tab')) audio.play('tap');
     });
 
     this.buildTabs();
@@ -838,13 +840,89 @@ const ui = {
     this.modal(h);
   },
 
+  /* The park you actually built. Winning used to be a toast and some confetti,
+     which is a thin reward for an hour's work — this is the record of it, and
+     the game carries on afterwards. Reachable again from the Menu. */
+  winModal() {
+    const st = sim.objectiveState();
+    const moons = sim.wonAt || sim.month;
+    /* A grade off the two things that are genuinely hard: getting there
+       quickly, and keeping the tribe happy while you did. */
+    const speed = clamp(1 - (moons - 8) / 26, 0, 1);
+    const mood = clamp((sim.peakHappy - 55) / 35, 0, 1);
+    const score = speed * 0.5 + mood * 0.5;
+    const grade = score > 0.8 ? ['Great Chief', 'the valley will tell stories about this one']
+      : score > 0.6 ? ['Chief', 'a park the tribe is proud of']
+      : score > 0.38 ? ['Elder', 'it took a while, but it works']
+      : ['Keeper of the Gate', 'the park stands — that is the main thing'];
+
+    let h = '<h2>\u{1F3C6} ' + grade[0] + '</h2>';
+    h += '<div class="role">Every objective met in <b>' + moons + ' moon' + (moons === 1 ? '' : 's')
+      + '</b> \u00b7 ' + grade[1] + '.</div>';
+
+    const rows = [
+      ['Guests through the gate', sim.guests.toLocaleString('en-US')],
+      ['Biggest crowd at once', sim.peakCrowd],
+      ['Happiest the tribe got', Math.round(sim.peakHappy) + '%'],
+      ['Best park rating', Math.round(sim.peakRating)],
+      ['Earned all time', money(sim.totalEarned)],
+      ['Left in the pot', money(sim.money)],
+      ['Land owned', park.plotsBought + ' plot' + (park.plotsBought === 1 ? '' : 's')],
+      ['Rides built', park.list('ride').length],
+      ['Shops and services', park.list('stall').length + park.list('service').length],
+      ['On the payroll', sim.staff.length],
+      ['Fights broken out', sim.fights]
+    ];
+    h += '<h3>The park at a glance</h3>';
+    for (const [k, v] of rows)
+      h += '<div class="row"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>';
+
+    /* whichever attraction the visitors actually loved, and whichever paid */
+    let loved = null, richest = null;
+    for (const b of park.buildings.values()) {
+      const c = b.item.cat;
+      if (c !== 'ride' && c !== 'stall' && c !== 'service') continue;
+      if (!b.visits) continue;
+      if (!loved || b.visits > loved.visits) loved = b;
+      if (!richest || (b.earned || 0) > (richest.earned || 0)) richest = b;
+    }
+    if (loved || richest) {
+      h += '<h3>Pick of the park</h3>';
+      if (loved) h += '<div class="row"><span class="k">Most ridden</span><span class="v">'
+        + loved.item.name + ' \u00b7 ' + loved.visits.toLocaleString('en-US') + ' times</span></div>';
+      if (richest) h += '<div class="row"><span class="k">Best earner</span><span class="v">'
+        + richest.item.name + ' \u00b7 ' + money(richest.earned || 0) + '</span></div>';
+    }
+
+    /* the shape of the money, moon by moon */
+    const hist = sim.stats.slice(-18);
+    if (hist.length > 1) {
+      h += this.chartBlock('Profit, moon by moon', money(hist[hist.length - 1].profit), 'c-won');
+      h += '<div class="legend"><span><i style="background:' + CHART.profit + '"></i>profit</span>'
+        + '<span><i style="background:' + CHART.loss + '"></i>loss</span></div>';
+    }
+    h += '<div class="btns"><button class="primary" data-close="modal">Keep playing</button></div>';
+    this.modal(h);
+    if (hist.length > 1)
+      requestAnimationFrame(() => this.barChart(document.getElementById('c-won'), hist.map(r => r.profit), true));
+  },
+
   menuModal() {
     const h = '<h2>Menu <span class="ver">v' + VERSION + '</span></h2>'
       + '<div class="btns">'
-      + '<button onclick="sim.save()">💾 Save park</button>'
-      + '<button onclick="ui.doLoad()">📂 Load park</button>'
+      + '<button onclick="sim.save()">💾 Quick save</button>'
+      + '<button onclick="ui.doLoad()">📂 Quick load</button>'
+      + '<button onclick="ui.slotsModal()">🗄 Saved parks</button>'
       + '<button class="danger" onclick="ui.doNew()">🌱 New park</button>'
+      + (sim.won ? '<button onclick="ui.winModal()">🏆 Park record</button>' : '')
       + '</div>'
+      + '<div class="role">Quick save keeps one park, the one the Continue button opens. '
+      + 'Saved parks keeps three more by name, and can write the park to a file.</div>'
+      + '<h3>Sound</h3>'
+      + '<div class="btns"><button onclick="ui.toggleSound()">'
+      + (audio.on ? '🔊 Sound is on' : '🔇 Sound is off') + '</button></div>'
+      + '<div class="role">Every sound is synthesised as it plays — there are no sound files, '
+      + 'the same way there are no picture files.</div>'
       + '<h3>Controls</h3>'
       + '<div class="role">Drag to scroll · pinch or scroll wheel to zoom · tap to select · <b>R</b> rotates · '
       + '<b>Space</b> pauses · <b>Esc</b> cancels building · <b>Delete</b> removes what is selected.</div>'
@@ -858,6 +936,98 @@ const ui = {
       + '<div class="role">Version ' + VERSION + '</div>';
     this.modal(h);
   },
+
+  /* ------------------------------------------------------- saved parks */
+  /* One localStorage key meant one park, and clearing site data lost it. */
+  slotsModal() {
+    let h = '<h2>Saved parks</h2>';
+    h += '<div class="role">Three slots, kept in this browser. '
+      + 'Clearing site data clears them, so keep anything you care about as a file.</div>';
+    h += '<table class="data slots"><tbody>';
+    for (let n = 1; n <= SLOTS; n++) {
+      const info = sim.slotInfo(n);
+      const when = info && info.savedAt
+        ? new Date(info.savedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+          + ' ' + new Date(info.savedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        : '';
+      h += '<tr><td><b>' + (info ? (info.won ? '\u{1F3C6} ' : '') + info.name : 'Slot ' + n + ' \u2014 empty') + '</b>'
+        + '<span class="sub">' + (info
+          ? (info.broken ? 'damaged' : 'moon ' + info.month + ' \u00b7 ' + money(info.money) + ' \u00b7 '
+             + info.rides + ' ride' + (info.rides === 1 ? '' : 's') + (when ? ' \u00b7 ' + when : ''))
+          : 'nothing saved here yet') + '</span></td>'
+        + '<td class="num"><button class="tag" onclick="ui.slotSave(' + n + ')">Save</button>'
+        + (info ? ' <button class="tag" onclick="ui.slotLoad(' + n + ')">Load</button>'
+                + ' <button class="tag bad" onclick="ui.slotDelete(' + n + ')">Delete</button>' : '')
+        + '</td></tr>';
+    }
+    h += '</tbody></table>';
+    h += '<h3>As a file</h3>';
+    h += '<div class="role">A file survives cleared site data, and opens on another device.</div>';
+    h += '<div class="btns"><button onclick="ui.exportSave()">\u2B07 Save to file</button>'
+      + '<button onclick="ui.importSave()">\u2B06 Open a file</button></div>';
+    this.modal(h);
+  },
+
+  slotSave(n) {
+    const info = sim.slotInfo(n);
+    if (info && !confirm('Slot ' + n + ' holds "' + info.name + '". Write over it?')) return;
+    const name = prompt('Call this park:', info ? info.name : 'Park ' + n);
+    if (name === null) return;
+    if (sim.saveTo(n, name)) this.slotsModal();
+  },
+
+  slotLoad(n) {
+    if (!confirm('Open this park? Anything unsaved in the current one is lost.')) return;
+    if (sim.loadFrom(n)) { renderer.centerOn(park.gate.x, park.gate.y - 5); this.close('modal'); }
+  },
+
+  slotDelete(n) {
+    const info = sim.slotInfo(n);
+    if (!confirm('Delete "' + (info ? info.name : 'slot ' + n) + '"? This cannot be undone.')) return;
+    sim.deleteSlot(n);
+    this.slotsModal();
+  },
+
+  exportSave() {
+    try {
+      const blob = new Blob([sim.exportText()], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'prehistoric-fun-park-moon-' + sim.month + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      /* the browser needs the url to outlive the click */
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      sim.toast('\u2B07 Park written to a file');
+    } catch (e) { sim.toast('Could not write the file'); }
+  },
+
+  importSave() {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'application/json,.json';
+    inp.style.display = 'none';
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0];
+      inp.remove();
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => {
+        if (sim.importText(String(r.result))) {
+          renderer.centerOn(park.gate.x, park.gate.y - 5);
+          this.close('modal');
+        }
+      };
+      r.onerror = () => sim.toast('Could not read that file');
+      r.readAsText(f);
+    };
+    document.body.appendChild(inp);
+    inp.click();
+  },
+
+  toggleSound() { audio.setOn(!audio.on); this.menuModal(); },
 
   doNew() { if (confirm('Start a brand new park? The current one is lost.')) { sim.newGame(); renderer.centerOn(park.gate.x, park.gate.y - 5); this.close('modal'); } },
   doLoad() { if (sim.load()) { renderer.centerOn(park.gate.x, park.gate.y - 5); this.close('modal'); } },

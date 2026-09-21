@@ -297,6 +297,13 @@
   const cont = document.getElementById('btn-continue');
   cont.addEventListener('click', () => start(true));
 
+  /* A browser will not let a page make a sound until somebody has touched it.
+     The two buttons that open a park are the first real gesture there is. */
+  for (const id of ['btn-start', 'btn-continue'])
+    document.getElementById(id).addEventListener('click', () => audio.start(), { once: true });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) audio.resume(); });
+
+  audio.load();
   sim.newGame();
   scenery.build();
   renderer.init(canvas);

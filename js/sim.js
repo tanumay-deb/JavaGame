@@ -1,6 +1,10 @@
 /* Game state: clock, money, ride cycles, visitor flow, statistics, save/load. */
 
+/* The autosave. It keeps its original name so a park saved before there were
+   slots is still there on the Continue button. */
 const SAVE_KEY = 'prehistoric-fun-park-save-v1';
+const SLOT_KEY = 'prehistoric-fun-park-slot-';
+const SLOTS = 3;
 
 const sim = {
   money: 6000,
@@ -21,8 +25,14 @@ const sim = {
   monthOutlay: 0,
   totalEarned: 0,
   won: false,
+  wonAt: 0,          /* the moon the objectives were met on */
   fights: 0,
   fightCool: 0,      /* seconds before tempers can flare again */
+  /* what the park did over its whole life, for the record at the end */
+  guests: 0,         /* everybody admitted through the gate */
+  peakCrowd: 0,      /* the biggest the crowd ever got */
+  peakHappy: 0,      /* and the happiest it ever was */
+  peakRating: 0,
 
   /* ------------------------------------------------------------- setup */
   newGame() {
@@ -34,7 +44,8 @@ const sim = {
     this.stats.length = 0; this.toasts.length = 0;
     this.unlocked = new Set();
     this.selected = null; this.monthIncome = 0; this.monthOutlay = 0; this.totalEarned = 0;
-    this.won = false; this.fights = 0; this.fightCool = 0;
+    this.won = false; this.wonAt = 0; this.fights = 0; this.fightCool = 0;
+    this.guests = 0; this.peakCrowd = 0; this.peakHappy = 0; this.peakRating = 0;
     traffic.reset();
     if (typeof advice !== 'undefined') advice.reset();
     this.refreshUnlocks(true);
@@ -58,6 +69,7 @@ const sim = {
     this.money += amount;
     this.monthIncome += amount;
     this.totalEarned += amount;
+    audio.play('coin');
     if (x !== undefined) this.effect(x, y, '+' + money(amount), '#ffe08a');
   },
   spend(amount) { this.money -= amount; this.monthOutlay += amount; },
@@ -69,6 +81,7 @@ const sim = {
 
   /* --------------------------------------------------------- feedback */
   toast(msg, kind) {
+    if (kind === 'tip') audio.play('tip');
     this.toasts.push({ msg, kind: kind || '', t: kind === 'tip' ? 7 : 4.5 });
     if (this.toasts.length > 4) this.toasts.shift();
   },
@@ -83,6 +96,11 @@ const sim = {
 
   /* ------------------------------------------------------------- loop */
   update(dtReal) {
+    /* the crowd murmur follows the size of the crowd, once a second rather
+       than every frame — it is a slow ramp either way, and scheduling one per
+       frame would pile up values on the gain for nothing */
+    this.soundAcc = (this.soundAcc || 0) + dtReal;
+    if (this.soundAcc >= 1) { this.soundAcc = 0; audio.crowd(this.paused ? 0 : this.visitors.length); }
     if (this.paused) { this.decayToasts(dtReal); return; }
     const dt = dtReal * this.speed;
     const prevMonth = Math.floor(this.time / MONTH_SECONDS);
@@ -153,9 +171,11 @@ const sim = {
       }
       b.timer = b.item.dur;
       b.cycle++;
+      audio.play(b.key === 'chute' ? 'splash' : 'ride');
       b.condition = clamp(b.condition - rnd(0.5, 1.6), 0, 100);
       if (b.condition < 62 && chance((62 - b.condition) / 100 * 0.22)) {
         b.brokeDown = true;
+        audio.play('error');
         this.toast('⚠️ The ' + b.item.name + ' has broken down!');
       }
     }
@@ -220,6 +240,7 @@ const sim = {
     a.needs.health = clamp(a.needs.health - rnd(30, 55), 0, 100);
     b.needs.health = clamp(b.needs.health - rnd(30, 55), 0, 100);
     a.say('💢', 3.5); b.say('💢', 3.5);
+    audio.play('fight');
     this.fights++;
     this.toast('💢 A fight broke out! Hire a guard.');
     for (const v of this.visitors) {
@@ -285,6 +306,8 @@ const sim = {
     }
     v.enterPark();
     this.visitors.push(v);
+    this.guests++;
+    if (this.visitors.length > this.peakCrowd) this.peakCrowd = this.visitors.length;
   },
 
   visitorLeft(v) {
@@ -294,6 +317,7 @@ const sim = {
   /* ------------------------------------------------------------ month */
   endOfMonth() {
     this.month++;
+    audio.play('moon');
     let salaries = 0;
     for (const s of this.staff) salaries += s.def.salary;
     let upkeep = 0;
@@ -308,6 +332,10 @@ const sim = {
       b.earnedMark = b.earned || 0;
       b.visitsMark = b.visits || 0;
     }
+
+    const happyNow = this.avgHappiness(), ratingNow = park.rating(happyNow);
+    if (happyNow > this.peakHappy) this.peakHappy = happyNow;
+    if (ratingNow > this.peakRating) this.peakRating = ratingNow;
 
     const income = Math.round(this.monthIncome);
     const outlay = Math.round(this.monthOutlay);   // build costs + wages + upkeep
@@ -345,7 +373,12 @@ const sim = {
     const s = this.objectiveState();
     if (OBJECTIVES.every(o => s[o.id] >= o.target)) {
       this.won = true;
+      this.wonAt = this.month;
+      audio.play('win');
       this.toast('🏆 Objectives complete — your tribe made you chief!');
+      /* A toast and some confetti was the whole of winning. Show them the park
+         they built; the game carries on afterwards either way. */
+      if (typeof ui !== 'undefined' && ui.winModal) setTimeout(() => ui.winModal(), 900);
       for (let i = 0; i < 40; i++)
         this.effects.push({ x: park.gate.x + rnd(-6, 6), y: park.gate.y - rnd(0, 8), vx: rnd(-1, 1), vy: rnd(-1.6, -0.4), life: rnd(1, 2), max: 2, type: 'spark', r: rnd(2, 4), color: pick(['#ffd54a', '#ff7b54', '#6fe3c1', '#8ab6ff']) });
     }
@@ -396,9 +429,10 @@ const sim = {
   build(key, x, y, rot) {
     const item = ITEMS[key];
     const check = park.canPlace(key, x, y, rot);
-    if (!check.ok) { this.toast(check.why); return false; }
-    if (this.money < item.cost) { this.toast('Not enough money for a ' + item.name); return false; }
+    if (!check.ok) { audio.play('error'); this.toast(check.why); return false; }
+    if (this.money < item.cost) { audio.play('error'); this.toast('Not enough money for a ' + item.name); return false; }
     this.spend(item.cost);
+    audio.play('build');
     const b = park.place(key, x, y, rot);
     /* a puff of dust for a building; paving a tile is too frequent to warrant one */
     if (item.cat !== 'path') this.puff(x + ((item.w || 1) / 2), y + ((item.h || 1) / 2));
@@ -489,6 +523,7 @@ const sim = {
     park.demolish(b);
     this.refund(refund);
     this.puff(b.x + b.w / 2, b.y + b.h / 2);
+    audio.play('demolish');
     this.toast('Sold the ' + b.item.name + ' for ' + money(refund));
   },
 
@@ -497,7 +532,8 @@ const sim = {
     return {
       v: 1,
       money: this.money, time: this.time, month: this.month, fee: this.entranceFee,
-      totalEarned: this.totalEarned, stats: this.stats, won: this.won,
+      totalEarned: this.totalEarned, stats: this.stats, won: this.won, wonAt: this.wonAt,
+      guests: this.guests, peakCrowd: this.peakCrowd, peakHappy: this.peakHappy, peakRating: this.peakRating,
       ground: Array.from(park.ground),
       plots: Array.from(park.plots),
       buildings: Array.from(park.buildings.values()).map(b => ({
@@ -518,6 +554,60 @@ const sim = {
     } catch (e) { this.toast('Could not save (storage blocked)'); return false; }
   },
 
+  /* ------------------------------------------------------------- slots */
+  /* Everything lived in one localStorage key, so clearing site data took the
+     park with it and there was no way to keep two on the go. Three named
+     slots, and a file you can put somewhere safe. */
+  slotKey(n) { return SLOT_KEY + n; },
+
+  slotInfo(n) {
+    let raw;
+    try { raw = localStorage.getItem(this.slotKey(n)); } catch (e) { return null; }
+    if (!raw) return null;
+    try {
+      const d = JSON.parse(raw);
+      return { name: d.name || 'Park ' + n, savedAt: d.savedAt || 0, month: d.month || 0,
+               money: d.money || 0, rides: (d.buildings || []).filter(b => ITEMS[b.key] && ITEMS[b.key].cat === 'ride').length,
+               won: !!d.won };
+    } catch (e) { return { name: 'Damaged save', savedAt: 0, month: 0, money: 0, rides: 0, broken: true }; }
+  },
+
+  saveTo(n, name) {
+    const d = this.serialize();
+    d.name = (name || '').trim() || ('Park ' + n);
+    d.savedAt = Date.now();
+    try {
+      localStorage.setItem(this.slotKey(n), JSON.stringify(d));
+      this.toast('💾 Saved to slot ' + n + ' — ' + d.name);
+      return true;
+    } catch (e) {
+      this.toast(e && e.name === 'QuotaExceededError'
+        ? 'No room left in storage — delete a slot first'
+        : 'Could not save (storage blocked)');
+      return false;
+    }
+  },
+
+  loadFrom(n) {
+    let raw;
+    try { raw = localStorage.getItem(this.slotKey(n)); } catch (e) { raw = null; }
+    if (!raw) { this.toast('Slot ' + n + ' is empty'); return false; }
+    return this.restore(raw, 'Slot ' + n);
+  },
+
+  deleteSlot(n) {
+    try { localStorage.removeItem(this.slotKey(n)); } catch (e) { /* nothing to do */ }
+    this.toast('Slot ' + n + ' cleared');
+  },
+
+  /* The park as a file, so it survives cleared site data and a new device. */
+  exportText() { return JSON.stringify(this.serialize()); },
+
+  importText(text) {
+    if (!text || !text.trim()) { this.toast('Nothing to load'); return false; }
+    return this.restore(text.trim(), 'file');
+  },
+
   autoSave() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.serialize())); } catch (e) { /* ignore */ }
   },
@@ -530,12 +620,21 @@ const sim = {
     let raw;
     try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
     if (!raw) { this.toast('No saved park found'); return false; }
+    return this.restore(raw, 'autosave');
+  },
+
+  restore(raw, where) {
     let d;
-    try { d = JSON.parse(raw); } catch (e) { this.toast('Saved park is damaged'); return false; }
+    try { d = JSON.parse(raw); } catch (e) { this.toast('That ' + (where || 'save') + ' is damaged'); return false; }
+    if (!d || typeof d !== 'object' || !Array.isArray(d.ground)) {
+      this.toast('That does not look like a saved park'); return false;
+    }
     this.newGame();
     this.money = d.money; this.time = d.time || 0; this.month = d.month || 0;
     this.entranceFee = d.fee || 0; this.totalEarned = d.totalEarned || 0;
-    this.stats = d.stats || []; this.won = !!d.won;
+    this.stats = d.stats || []; this.won = !!d.won; this.wonAt = d.wonAt || 0;
+    this.guests = d.guests || 0; this.peakCrowd = d.peakCrowd || 0;
+    this.peakHappy = d.peakHappy || 0; this.peakRating = d.peakRating || 0;
     if (d.plots) {
       park.plots.fill(0); park.plotsBought = 0;
       for (let i = 0; i < park.plots.length && i < d.plots.length; i++) {

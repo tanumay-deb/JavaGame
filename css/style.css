@@ -426,3 +426,10 @@ table.data th { color: var(--ink-mute); font-weight: 600; }
 #hud .stat.tappable { pointer-events: auto; cursor: pointer; }
 #hud .stat.tappable:active { transform: translateY(1px); }
 .data.perf.mood td:first-child { white-space: nowrap; }
+
+/* ------------------------------------------------------------ save slots */
+.data.slots td { vertical-align: middle; padding: 7px 6px; }
+.data.slots .sub { display: block; font-size: 10.5px; color: var(--ink-mute); font-weight: 500; margin-top: 2px; }
+.data.slots .num { white-space: nowrap; }
+button.tag { background: none; cursor: pointer; font-family: inherit; }
+button.tag:active { transform: translateY(1px); }
