@@ -210,6 +210,7 @@ body {
 .card .chip2.pw { border-color: #5c4a1e; color: #f0c27a; }
 .card .chip2.st { border-color: #24506b; color: #8fc4e8; }
 .card .chip2.rt { border-color: #4a3a1c; color: #f0d79a; }
+.card .chip2.fr { border-color: #4a2a28; color: #eab6a6; }
 .card .meta { font-size: 10px; color: var(--ink-mute); }
 .card .lock {
   position: absolute; inset: 0; border-radius: 12px; padding: 8px;
@@ -258,6 +259,7 @@ body {
 .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
 .row .k { color: var(--ink-mute); }
 .row .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+.row .v.bad { color: #eab6a6; }
 .bar { height: 7px; border-radius: 99px; background: var(--raised); overflow: hidden; margin: 3px 0 7px; }
 .bar > i { display: block; height: 100%; border-radius: 99px; }
 .needs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 4px; }
@@ -433,3 +435,7 @@ table.data th { color: var(--ink-mute); font-weight: 600; }
 .data.slots .num { white-space: nowrap; }
 button.tag { background: none; cursor: pointer; font-family: inherit; }
 button.tag:active { transform: translateY(1px); }
+
+/* the money chip while the park is in debt */
+#hud .stat.warn { border-color: #6b2f28; background: rgba(107,47,40,.35); }
+#hud .stat.warn b { color: #f0b9a6; }

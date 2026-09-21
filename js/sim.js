@@ -6,6 +6,23 @@ const SAVE_KEY = 'prehistoric-fun-park-save-v1';
 const SLOT_KEY = 'prehistoric-fun-park-slot-';
 const SLOTS = 3;
 
+/* The shape of a saved park. Raise this whenever serialize() changes in a way
+   an older save would not survive, and add the step that brings the old one
+   forward. */
+const SAVE_FORMAT = 2;
+const SAVE_MIGRATIONS = {
+  /* 1 -> 2: parks saved before the park kept a record of its whole life. The
+     totals are not recoverable, so they start from what the park has now
+     rather than pretending to a history it never had. */
+  1: (d) => {
+    d.guests = d.guests || 0;
+    d.peakCrowd = d.peakCrowd || 0;
+    d.peakHappy = d.peakHappy || 0;
+    d.peakRating = d.peakRating || 0;
+    d.wonAt = d.wonAt || d.month || 0;
+  }
+};
+
 const sim = {
   money: 6000,
   time: 0,               // seconds of game time since the park opened
@@ -26,6 +43,8 @@ const sim = {
   totalEarned: 0,
   won: false,
   wonAt: 0,          /* the moon the objectives were met on */
+  lost: false,
+  debtMoons: 0,      /* new moons in a row that ended owing money */
   fights: 0,
   fightCool: 0,      /* seconds before tempers can flare again */
   /* what the park did over its whole life, for the record at the end */
@@ -44,7 +63,8 @@ const sim = {
     this.stats.length = 0; this.toasts.length = 0;
     this.unlocked = new Set();
     this.selected = null; this.monthIncome = 0; this.monthOutlay = 0; this.totalEarned = 0;
-    this.won = false; this.wonAt = 0; this.fights = 0; this.fightCool = 0;
+    this.won = false; this.wonAt = 0; this.lost = false; this.debtMoons = 0;
+    this.fights = 0; this.fightCool = 0;
     this.guests = 0; this.peakCrowd = 0; this.peakHappy = 0; this.peakRating = 0;
     traffic.reset();
     if (typeof advice !== 'undefined') advice.reset();
@@ -96,6 +116,8 @@ const sim = {
 
   /* ------------------------------------------------------------- loop */
   update(dtReal) {
+    /* a finished park stands still; the player can look at it, but not play on */
+    if (this.lost) { this.decayToasts(dtReal); audio.crowd(0); return; }
     /* the crowd murmur follows the size of the crowd, once a second rather
        than every frame — it is a slow ramp either way, and scheduling one per
        frame would pile up values on the gain for nothing */
@@ -192,15 +214,21 @@ const sim = {
       v.x = exit.x; v.y = exit.y;
       v.state = 'idle'; v.timer = rnd(0.2, 0.9);
       v.path = null; v.target = null;
-      v.needs.joy = clamp(v.needs.joy + b.item.rating * 9, 0, 100);
-      v.needs.energy = clamp(v.needs.energy - 4, 0, 100);
+      /* What they got out of it. A ride that pushed them close to their nerve
+         is the one they will talk about; one well within it passes the time. */
+      const fright = b.item.fright || 0;
+      const gap = Math.max(0, (v.nerve || 0) - fright);   /* a NaN here would poison happiness silently */
+      const matched = gap <= FRIGHT_MARGIN ? 1 : Math.max(0.45, 1 - (gap - FRIGHT_MARGIN) / (BORED_AT * 2));
+      v.needs.joy = clamp(v.needs.joy + (b.item.thrill || 1) * THRILL_JOY * matched, 0, 100);
+      v.needs.energy = clamp(v.needs.energy - 4 - fright * 0.05, 0, 100);
       const value = b.item.rating * 1.15 - b.fee;   /* good value cheers people up */
-      v.happiness = clamp(v.happiness + 9 + value * 1.5, 0, 100);
+      v.happiness = clamp(v.happiness + 9 * matched + value * 1.5, 0, 100);
       v.rides++;
       v.ridden = v.ridden || {};
       v.ridden[b.id] = (v.ridden[b.id] || 0) + 1;
-      v.thought = 'That was fun!';
-      v.say(value > 0 ? '😀' : '😐');
+      v.thought = matched > 0.9 ? 'That was terrifying! Again!'
+        : matched > 0.7 ? 'That was fun!' : 'That was a bit tame';
+      v.say(value > 0 && matched > 0.7 ? '😀' : '😐');
     }
     b.riders = [];
   },
@@ -222,6 +250,16 @@ const sim = {
      loop: tempers cool between brawls, the shock cannot on its own drop a
      bystander below the threshold, and a pair calms down afterwards. */
   maybeFight(dt) {
+    /* Off by default, and not because fights are a bad idea. This one line is
+       the only thing in the game that has ever been shown to bring down the
+       tab, and the investigation is written up in FIGHTS.md: the trigger is
+       isolated to a single statement below, but every mechanism that statement
+       could work through has been tested and ruled out, so there is no fix to
+       apply — only this. With it off, six trials ran 2,500 seconds of park
+       time without a crash; with it on, five ran and five died inside 50
+       seconds. Turn it back on from the Menu if you would rather have the
+       feature than the certainty. */
+    if (!FIGHTS.on) return;
     this.fightCool -= dt;
     if (this.fightCool > 0) return;
     if (!chance(dt * 0.35)) return;
@@ -235,8 +273,14 @@ const sim = {
     /* people square up in the dark corners, not under the torches */
     if (park.litNear(Math.round(a.x), Math.round(a.y)) && chance(0.75)) return;
     this.fightCool = 6;
+    /* A brawl takes them out of whatever they were doing, so they have to let
+       go of it first. Without this a fighter kept their place in a queue and
+       their seat on a bench while frozen, and came out of it holding a path
+       and a target from before the fight. */
+    a.release(); b.release();
+    a.path = null; a.pi = 0; a.target = null;
+    b.path = null; b.pi = 0; b.target = null;
     a.fightT = b.fightT = 3.5;
-    a.state = b.state = 'fight';
     a.needs.health = clamp(a.needs.health - rnd(30, 55), 0, 100);
     b.needs.health = clamp(b.needs.health - rnd(30, 55), 0, 100);
     a.say('💢', 3.5); b.say('💢', 3.5);
@@ -324,6 +368,39 @@ const sim = {
     for (const b of park.buildings.values()) upkeep += b.item.upkeep || 0;
     this.spend(salaries + upkeep);
 
+    /* Wages you cannot pay. Nothing used to happen here at all: the money went
+       negative and the park carried on exactly as before, which meant there
+       was no way to lose and so no reason to watch the books. Staff who have
+       not been paid walk off, worst-paid last, until the wage bill is one the
+       park could meet — so the park shrinks back to something it can afford
+       rather than sinking for ever. */
+    if (this.money < 0 && this.staff.length) {
+      const order = this.staff.slice().sort((a, b2) => b2.def.salary - a.def.salary);
+      const quit = [];
+      let unpaid = 0;
+      for (const st of order) {
+        if (this.money + unpaid >= 0) break;
+        unpaid += st.def.salary;
+        quit.push(st);
+      }
+      for (const st of quit) {
+        const i = this.staff.indexOf(st);
+        if (i < 0) continue;
+        this.staff.splice(i, 1);
+        if (st.assigned) { const bb = park.buildings.get(st.assigned); if (bb) bb.worker = null; }
+        if (this.selected === st) this.selected = null;
+      }
+      if (quit.length) {
+        /* their wages go back: the park is not charged for work it did not
+           get, and the month's books have to agree with that */
+        this.money += unpaid;
+        this.monthOutlay -= unpaid;
+        park.recomputePower();
+        this.toast('💸 ' + quit.length + ' unpaid ' + (quit.length === 1 ? 'worker has' : 'workers have')
+          + ' walked out: ' + quit.map(q => q.def.name).join(', '));
+      }
+    }
+
     /* what each attraction took and served this moon, so the Stats page can
        rank them rather than only showing money since it was built */
     for (const b of park.buildings.values()) {
@@ -352,7 +429,19 @@ const sim = {
     this.monthIncome = 0; this.monthOutlay = 0;
     this.refreshUnlocks(false);
     this.toast('🌙 New moon — wages ' + money(salaries) + ', upkeep ' + money(upkeep));
-    if (this.money < 0) this.toast('❗ You are in debt. Raise prices or cut staff.');
+
+    /* Three moons in the red and the tribe has had enough. One moon is a bad
+       month; three in a row is a park that does not work. */
+    if (this.money < 0) {
+      this.debtMoons++;
+      if (this.debtMoons >= DEBT_MOONS) { this.giveUp(); return; }
+      const left = DEBT_MOONS - this.debtMoons;
+      this.toast('❗ In debt for ' + this.debtMoons + ' moon' + (this.debtMoons === 1 ? '' : 's')
+        + ' — ' + left + ' more and the tribe walks out. Sell what you can, or raise your prices.');
+      audio.play('error');
+    } else {
+      this.debtMoons = 0;
+    }
     this.autoSave();
   },
 
@@ -368,8 +457,20 @@ const sim = {
     };
   },
 
+  /* The tribe has had enough. The park is left standing so the player can see
+     what went wrong; the clock stops until they load or start again. */
+  giveUp() {
+    if (this.lost) return;
+    this.lost = true;
+    this.speed = 0;
+    this.paused = true;
+    audio.play('error');
+    this.toast('🪦 The tribe has walked out. Your park is finished.');
+    if (typeof ui !== 'undefined' && ui.lostModal) setTimeout(() => ui.lostModal(), 700);
+  },
+
   checkObjectives() {
-    if (this.won) return;
+    if (this.won || this.lost) return;
     const s = this.objectiveState();
     if (OBJECTIVES.every(o => s[o.id] >= o.target)) {
       this.won = true;
@@ -530,9 +631,10 @@ const sim = {
   /* --------------------------------------------------------- save/load */
   serialize() {
     return {
-      v: 1,
+      v: SAVE_FORMAT,
       money: this.money, time: this.time, month: this.month, fee: this.entranceFee,
       totalEarned: this.totalEarned, stats: this.stats, won: this.won, wonAt: this.wonAt,
+      lost: this.lost, debtMoons: this.debtMoons,
       guests: this.guests, peakCrowd: this.peakCrowd, peakHappy: this.peakHappy, peakRating: this.peakRating,
       ground: Array.from(park.ground),
       plots: Array.from(park.plots),
@@ -623,16 +725,49 @@ const sim = {
     return this.restore(raw, 'autosave');
   },
 
+  /* Bring an older save forward. Each step moves one version on, so a very
+     old park walks up through them rather than needing a case per pair.
+     Returns false for a version this game no longer knows how to read. */
+  migrate(d, from) {
+    let v = from;
+    while (v < SAVE_FORMAT) {
+      const step = SAVE_MIGRATIONS[v];
+      if (!step) return false;
+      step(d);
+      v++;
+    }
+    d.v = SAVE_FORMAT;
+    return true;
+  },
+
   restore(raw, where) {
     let d;
     try { d = JSON.parse(raw); } catch (e) { this.toast('That ' + (where || 'save') + ' is damaged'); return false; }
     if (!d || typeof d !== 'object' || !Array.isArray(d.ground)) {
       this.toast('That does not look like a saved park'); return false;
     }
+    /* The format number was written on every save and read by nothing, so a
+       save from a different version would have been loaded as though it
+       matched and gone quietly wrong. A save from a newer game cannot be
+       read; an older one is brought forward by migrate(). */
+    const v = d.v || 1;
+    if (v > SAVE_FORMAT) {
+      this.toast('That park was saved by a newer version of the game');
+      return false;
+    }
+    if (v < SAVE_FORMAT && !this.migrate(d, v)) {
+      this.toast('That park is from version ' + v + ' and cannot be brought forward');
+      return false;
+    }
+    if (d.ground.length !== GRID_W * GRID_H) {
+      this.toast('That park was built on a different sized map');
+      return false;
+    }
     this.newGame();
     this.money = d.money; this.time = d.time || 0; this.month = d.month || 0;
     this.entranceFee = d.fee || 0; this.totalEarned = d.totalEarned || 0;
     this.stats = d.stats || []; this.won = !!d.won; this.wonAt = d.wonAt || 0;
+    this.lost = !!d.lost; this.debtMoons = d.debtMoons || 0;
     this.guests = d.guests || 0; this.peakCrowd = d.peakCrowd || 0;
     this.peakHappy = d.peakHappy || 0; this.peakRating = d.peakRating || 0;
     if (d.plots) {

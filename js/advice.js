@@ -27,6 +27,14 @@ const advice = {
     s.provides = need => s.stalls.some(b => b.item.need === need && (!b.item.worker || b.worker));
     s.share = k => (s.n ? s.needy[k] / s.n : 0);
     s.hasStaff = role => sim.staff.some(x => x.role === role);
+    /* how the rides on offer sit against the nerve of the people actually here */
+    const open = s.rides.filter(r => r.open && r.powered && !r.brokeDown && park.reachable(r));
+    const frights = open.map(r => r.item.fright || 0);
+    const mildest = frights.length ? Math.min(...frights) : 0;
+    const boldest = frights.length ? Math.max(...frights) : 0;
+    s.timid = vs.length && frights.length ? vs.filter(v => v.nerve < mildest).length / vs.length : 0;
+    s.bored = vs.length && frights.length
+      ? vs.filter(v => v.nerve - boldest > BORED_AT).length / vs.length : 0;
     return s;
   },
 
@@ -68,6 +76,14 @@ const advice = {
         add('bench', 52, 'Tired visitors get cross. Put a few benches along the busy paths.');
       if (s.share('joy') > 0.4 && s.kinds < 4)
         add('variety', 62, 'Visitors are bored of the same rides. A different kind of ride lifts the whole park.');
+      /* the two halves of the same mistake: a park nobody dares ride, and a
+         park nobody is impressed by */
+      if (s.working.length > 1 && s.timid > 0.3)
+        add('scary', 64, Math.round(s.timid * 100) + '% of your visitors find every ride here too frightening. '
+          + 'Something gentle — a Carousel or a Seesaw — gives them somewhere to go.');
+      else if (s.working.length > 2 && s.bored > 0.35)
+        add('tame', 50, Math.round(s.bored * 100) + '% of your visitors are braver than anything you have built. '
+          + 'A frightening ride is what they came for.');
     }
 
     if (s.seats && s.queue > s.seats * 2)

@@ -304,6 +304,7 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) audio.resume(); });
 
   audio.load();
+  FIGHTS.load();
   sim.newGame();
   scenery.build();
   renderer.init(canvas);

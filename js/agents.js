@@ -50,6 +50,10 @@ function Visitor(x, y) {
   this.speed = VIS_SPEED * rnd(0.85, 1.15) * (this.look.kid ? 1.1 : 1);
   /* which side of the path this one keeps to, so crowds spread out */
   this.lane = rnd(-0.3, 0.3);
+  /* How much nerve this one has. It decides which rides they will go near at
+     all, so a park needs gentle rides and frightening ones, not just the most
+     expensive rides it can afford. Children are braver about nothing. */
+  this.nerve = clamp(rnd(10, 100) * (this.look.kid ? 0.55 : 1), 0, 100);
   this.thought = 'Just arrived';
   this.rides = 0;
   this.spent = 0;
@@ -112,6 +116,14 @@ Visitor.prototype.goalSet = function (tiles) {
 Visitor.prototype.walkTo = function (tiles, state, target) {
   const p = park.findPath(Math.round(this.x), Math.round(this.y), this.goalSet(tiles));
   if (!p) return false;
+  /* Setting off for something new means giving up the queue slot and the seat
+     you were holding. Without this a visitor pulled out of a queue — by a
+     fight, say — and then sent somewhere else stayed in the first ride's queue
+     for ever, because only the newest queue is tracked: the old entry could
+     never be found to remove. The ride would then load a rider who was on the
+     other side of the park and charge them for it. Released only once the path
+     is found, so a visitor who cannot get anywhere keeps what they had. */
+  this.release();
   this.path = p; this.pi = 0;
   this.state = state || 'walk';
   this.target = target || null;
@@ -192,19 +204,32 @@ Visitor.prototype.seekRest = function () {
 
 Visitor.prototype.seekRide = function () {
   const options = [];
+  let tooScary = 0;
   for (const b of park.buildings.values()) {
     if (b.item.cat !== 'ride' || !b.open || !b.powered || b.brokeDown) continue;
     if (!park.reachable(b)) continue;          /* needs a path at the exit too */
     if (b.fee > this.money) continue;
     if (b.queue.length >= b.item.cap * 2) continue;
+    /* Nothing past their nerve. This is what makes an expensive ride not
+       simply a better ride: a coaster the timid half of the park will not
+       go near earns from half the park. */
+    const fright = b.item.fright || 0;
+    if (fright > this.nerve) { tooScary++; continue; }
     const d = Math.sqrt(dist2(this.x, this.y, b.x + b.w / 2, b.y + b.h / 2));
-    /* value = excitement, minus price pain, minus how far it is, minus the queue */
-    const v = b.item.rating * 10 - b.fee * 2.2 - d * 0.6 - b.queue.length * 1.6
+    /* The best ride is the one that just about frightens them. Well under
+       their nerve and it is a gentle thing they have done before. */
+    const gap = this.nerve - fright;
+    const edge = gap <= FRIGHT_MARGIN ? 12 : Math.max(0, 12 - (gap - FRIGHT_MARGIN) * (12 / BORED_AT));
+    const v = (b.item.thrill || 1) * 11 + edge - b.fee * 2.2 - d * 0.6 - b.queue.length * 1.6
       - (this.ridden && this.ridden[b.id] ? this.ridden[b.id] * 6 : 0);
     options.push({ b, v });
   }
   if (!options.length) {
-    if (chance(0.015)) { this.thought = 'Nothing to ride here...'; this.say('🥱'); }
+    if (chance(0.015)) {
+      const scared = tooScary > 0;
+      this.thought = scared ? 'Those rides are far too frightening for me' : 'Nothing to ride here...';
+      this.say(scared ? '😨' : '🥱');
+    }
     return false;
   }
   options.sort((a, b) => b.v - a.v);
@@ -345,15 +370,18 @@ Visitor.prototype.update = function (dt) {
     this.restBench = null;
   }
 
-  /* fights */
+  /* A scuffle no longer stops anybody dead. It is a mood event with a picture
+     over it: they shove each other and carry on walking. The old version held
+     the pair frozen for three and a half seconds by returning from update()
+     here, which was bad for the park in its own right — a frozen visitor
+     cannot be served, cannot spend, cannot leave and cannot cheer up. */
   if (this.fightT > 0) {
     this.fightT -= dt;
-    /* having had it out, they are not instantly ready to go again */
     if (this.fightT <= 0) {
-      this.state = 'idle'; this.timer = 0.5;
+      this.fightT = 0;
+      if (this.state === 'fight') { this.state = 'idle'; this.timer = 0.4; }
       this.happiness = Math.max(this.happiness, FIGHT_AT + 8);
     }
-    return;
   }
 
   switch (this.state) {
@@ -475,6 +503,10 @@ function Staff(role, x, y) {
 
 Staff.prototype.walkTo = Visitor.prototype.walkTo;
 Staff.prototype.goalSet = Visitor.prototype.goalSet;
+/* Staff share walkTo, which gives up whatever the walker was holding. A member
+   of staff holds neither a bench nor a queue slot, so both halves of it do
+   nothing — but it has to be there, or walking would throw. */
+Staff.prototype.release = Visitor.prototype.release;
 Staff.prototype.move = Visitor.prototype.move;
 Staff.prototype.say = Visitor.prototype.say;
 

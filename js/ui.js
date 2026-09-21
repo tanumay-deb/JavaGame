@@ -200,7 +200,8 @@ const ui = {
         chips.appendChild(c);
       };
       if (item.cat === 'ride') {
-        chip('★ ' + item.rating + '/10', 'rt');
+        chip('⚡ thrill ' + item.thrill, 'rt');
+        chip(this.frightLabel(item.fright), 'fr');
         chip('👥 ' + item.cap);
         chip('🎟 ' + money(item.fee));
         if (item.power) chip('⚡ power', 'pw');
@@ -452,6 +453,10 @@ const ui = {
        buttons, so the balance is abbreviated there */
     this.el.money.textContent = renderer.W <= 620 ? moneyShort(sim.money) : money(sim.money);
     this.el.money.style.color = sim.money < 0 ? CHART.loss : '';
+    this.el.money.parentElement.title = sim.debtMoons
+      ? 'In debt for ' + sim.debtMoons + ' of ' + DEBT_MOONS + ' moons'
+      : 'Money';
+    this.el.money.parentElement.classList.toggle('warn', sim.money < 0);
     this.el.happy.textContent = Math.round(sim.avgHappiness()) + '%';
     this.el.visitors.textContent = sim.visitors.length;
     this.el.staff.textContent = sim.staff.length;
@@ -559,6 +564,17 @@ const ui = {
   /* a small picture of the thing, drawn into the panel header */
   headThumb() { return '<canvas id="ins-thumb" width="204" height="156"></canvas>'; },
 
+  /* How frightening a ride is, said in words and with the share of the tribe
+     who will not go near it, which is the number that actually decides whether
+     it was worth building. */
+  frightLabel(f) {
+    f = f || 0;
+    const willRide = Math.round(clamp((100 - f) / 90, 0, 1) * 100);
+    const word = f === 0 ? 'anyone can ride' : f < 20 ? 'gentle' : f < 40 ? 'lively'
+      : f < 60 ? 'frightening' : 'terrifying';
+    return f === 0 ? '😌 ' + word : '😰 ' + word + ' · ' + willRide + '% dare';
+  },
+
   stars(n) {
     const full = Math.round(n / 2);
     return '<span class="stars">' + '★'.repeat(full) + '<span style="opacity:.3">' + '★'.repeat(5 - full) + '</span></span>';
@@ -583,7 +599,9 @@ const ui = {
     if (!flags.length) flags.push('<span class="tag ok">running</span>');
 
     let h = '<div class="ins-head">' + this.headThumb(b) + '<div class="t"><h3>' + it.name + '</h3>'
-      + '<div class="role">' + (it.cat === 'ride' ? this.stars(it.rating) + ' · seats ' + it.cap
+      + '<div class="role">' + (it.cat === 'ride'
+        ? this.stars(it.rating) + ' · thrill ' + it.thrill + ' · ' + this.frightLabel(it.fright)
+          + ' · seats ' + it.cap
         : (it.desc || it.cat)) + '</div></div></div>';
     h += '<div style="margin:2px 0 6px">' + flags.join(' ') + '</div>';
 
@@ -598,6 +616,15 @@ const ui = {
         + '<div class="hint ' + this.valueClass(b) + '">' + this.valueText(b) + '</div></div>'
         + '<div class="stepper big"><button onclick="ui.price(-1)">−</button>'
         + '<button onclick="ui.price(1)">+</button></div></div>';
+      /* Who in the park right now will actually go near it. The catalogue's
+         percentage is the whole population; this is the crowd you have. */
+      if (sim.visitors.length > 3) {
+        const dare = sim.visitors.filter(v => v.nerve >= (it.fright || 0)).length;
+        const pct = Math.round(dare / sim.visitors.length * 100);
+        h += '<div class="row"><span class="k">Dare ride it</span><span class="v'
+          + (pct < 35 ? ' bad' : '') + '">' + dare + ' of ' + sim.visitors.length
+          + ' here (' + pct + '%)</span></div>';
+      }
       h += '<div class="row"><span class="k">Riders so far</span><span class="v">' + b.visits + '</span></div>';
       h += '<div class="row"><span class="k">Taken</span><span class="v">' + money(b.earned) + '</span></div>';
       h += '<div class="row"><span class="k">Upkeep each moon</span><span class="v">' + money(it.upkeep) + '</span></div>';
@@ -907,6 +934,64 @@ const ui = {
       requestAnimationFrame(() => this.barChart(document.getElementById('c-won'), hist.map(r => r.profit), true));
   },
 
+  /* The park did not work. Same record as the win, said the other way round,
+     with what actually went wrong at the top so it reads as a lesson rather
+     than a scolding. */
+  lostModal() {
+    let h = '<h2>\u{1FAA6} The tribe has walked out</h2>';
+    h += '<div class="role">Three new moons in a row in debt. Your park stood for <b>'
+      + sim.month + ' moon' + (sim.month === 1 ? '' : 's') + '</b>.</div>';
+
+    /* the last few moons, so the shape of the failure is visible */
+    const hist = sim.stats.slice(-6);
+    if (hist.length) {
+      h += '<h3>How it went</h3><table class="data"><thead><tr><th>Moon</th><th>Income</th>'
+        + '<th>Outlay</th><th>Profit</th><th>Visitors</th></tr></thead><tbody>';
+      for (const r of hist)
+        h += '<tr><td>' + r.month + '</td><td>' + money(r.income) + '</td><td>' + money(r.outlay) + '</td>'
+          + '<td style="color:' + (r.profit < 0 ? CHART.loss : CHART.profit) + '">' + money(r.profit) + '</td>'
+          + '<td>' + r.visitors + '</td></tr>';
+      h += '</tbody></table>';
+    }
+
+    /* what was actually draining it, counted rather than guessed */
+    let wages = 0;
+    for (const st of sim.staff) wages += st.def.salary;
+    let upkeep = 0;
+    for (const b of park.buildings.values()) upkeep += b.item.upkeep || 0;
+    const last = sim.stats[sim.stats.length - 1];
+    h += '<h3>Where it went</h3>';
+    h += '<div class="row"><span class="k">Wages each moon</span><span class="v">' + money(wages) + '</span></div>';
+    h += '<div class="row"><span class="k">Upkeep each moon</span><span class="v">' + money(upkeep) + '</span></div>';
+    h += '<div class="row"><span class="k">Took last moon</span><span class="v">'
+      + money(last ? last.income : 0) + '</span></div>';
+    h += '<div class="row"><span class="k">Owed at the end</span><span class="v">' + money(sim.money) + '</span></div>';
+    h += '<div class="row"><span class="k">Guests all told</span><span class="v">'
+      + sim.guests.toLocaleString('en-US') + '</span></div>';
+
+    h += '<h3>What would have helped</h3>';
+    const tips = [];
+    if (upkeep + wages > (last ? last.income : 0))
+      tips.push('Upkeep and wages came to more than the park took. Every ride and every torch costs '
+        + 'something every moon, whether anybody uses it or not.');
+    if (sim.staff.length > park.list('stall').length + park.list('service').length + 2)
+      tips.push('You were paying ' + sim.staff.length + ' workers. A worker with nothing to stand behind '
+        + 'still draws wages.');
+    const cheap = park.list('ride').filter(b => b.fee < sim.fairPrice(b) * 0.7);
+    if (cheap.length) tips.push(cheap.length + ' of your rides were charging well under what visitors '
+      + 'would have paid. Tap a ride to set its price.');
+    if (park.list('ride').some(b => !park.reachable(b)))
+      tips.push('Some rides had no path at a door, so nobody could use them — and they cost upkeep anyway.');
+    if (!tips.length) tips.push('The park simply was not taking enough. More visitors need more to spend '
+      + 'their money on, and somewhere to walk to it.');
+    h += '<ul class="tips">' + tips.map(t => '<li>' + t + '</li>').join('') + '</ul>';
+
+    h += '<div class="btns"><button class="primary" onclick="ui.doLoad()">\u{1F4C2} Load last save</button>'
+      + '<button onclick="ui.slotsModal()">\u{1F5C4} Saved parks</button>'
+      + '<button class="danger" onclick="ui.doNew()">\u{1F331} Start again</button></div>';
+    this.modal(h);
+  },
+
   menuModal() {
     const h = '<h2>Menu <span class="ver">v' + VERSION + '</span></h2>'
       + '<div class="btns">'
@@ -915,6 +1000,7 @@ const ui = {
       + '<button onclick="ui.slotsModal()">🗄 Saved parks</button>'
       + '<button class="danger" onclick="ui.doNew()">🌱 New park</button>'
       + (sim.won ? '<button onclick="ui.winModal()">🏆 Park record</button>' : '')
+      + (sim.lost ? '<button onclick="ui.lostModal()">🪦 What went wrong</button>' : '')
       + '</div>'
       + '<div class="role">Quick save keeps one park, the one the Continue button opens. '
       + 'Saved parks keeps three more by name, and can write the park to a file.</div>'
@@ -923,6 +1009,12 @@ const ui = {
       + (audio.on ? '🔊 Sound is on' : '🔇 Sound is off') + '</button></div>'
       + '<div class="role">Every sound is synthesised as it plays — there are no sound files, '
       + 'the same way there are no picture files.</div>'
+      + '<h3>Fights</h3>'
+      + '<div class="btns"><button onclick="ui.toggleFights()">'
+      + (FIGHTS.on ? '💢 Fights are on' : '🕊 Fights are off') + '</button></div>'
+      + '<div class="role">Miserable visitors coming to blows is a real part of the game — it is what '
+      + 'a guard is for. It is off by default because it is also the one thing that has ever crashed '
+      + 'the tab, and the cause has not been found. Switch it on if you would rather have it.</div>'
       + '<h3>Controls</h3>'
       + '<div class="role">Drag to scroll · pinch or scroll wheel to zoom · tap to select · <b>R</b> rotates · '
       + '<b>Space</b> pauses · <b>Esc</b> cancels building · <b>Delete</b> removes what is selected.</div>'
@@ -1028,6 +1120,8 @@ const ui = {
   },
 
   toggleSound() { audio.setOn(!audio.on); this.menuModal(); },
+
+  toggleFights() { FIGHTS.set(!FIGHTS.on); this.menuModal(); },
 
   doNew() { if (confirm('Start a brand new park? The current one is lost.')) { sim.newGame(); renderer.centerOn(park.gate.x, park.gate.y - 5); this.close('modal'); } },
   doLoad() { if (sim.load()) { renderer.centerOn(park.gate.x, park.gate.y - 5); this.close('modal'); } },
