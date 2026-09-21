@@ -36,112 +36,286 @@ const rideT = (b, k) => ((b && b.spin) || 0) * (k || 1);
 const rideRun = (b) => (b && b.run !== undefined ? b.run : 1);
 
 ART.seesaw = function (w, h) {
-  const g = spriteCtx(w, h, 30), ctx = g.ctx;
+  const g = spriteCtx(w, h, 40), ctx = g.ctx;
   pad(g, SAND, SAND_E);
   const [cx, cy] = g.mid;
-  /* a fat log as the fulcrum */
-  ctx.fillStyle = WOOD_D;
-  roundRect(ctx, cx - 10, cy - 12, 20, 12, 5); ctx.fill();
-  ctx.fillStyle = WOOD;
-  ctx.beginPath(); ctx.ellipse(cx - 10, cy - 6, 4, 6, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = shade(WOOD, 0.2);
-  ctx.beginPath(); ctx.ellipse(cx - 10, cy - 6, 2, 3, 0, 0, Math.PI * 2); ctx.fill();
-  blob(ctx, cx, cy + 2, 22, 8, 0.15);
+
+  /* the ground is worn into a hollow at each end, where feet land all day */
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = 'rgba(122,98,64,.30)';
+    ctx.beginPath(); ctx.ellipse(cx + s * 34, cy + 7, 15, 6.5, 0, 0, Math.PI * 2); ctx.fill();
+    /* and a scatter of straw to land on — separate stalks, not a slab */
+    ctx.lineWidth = 0.9;
+    for (let i = 0; i < 14; i++) {
+      const a = (hash2(i, s + 3) - 0.5) * 2.4;
+      const r = 5 + hash2(i + 7, s) * 6;
+      const ox = cx + s * 34 + (hash2(i + 2, s + 1) - 0.5) * 18;
+      const oy = cy + 6 + (hash2(i + 5, s + 2) - 0.5) * 5;
+      ctx.strokeStyle = i % 3 ? 'rgba(186,158,88,.55)' : 'rgba(210,186,120,.5)';
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + Math.cos(a) * r, oy + Math.sin(a) * r * 0.42);
+      ctx.stroke();
+    }
+  }
+
+  /* a trestle, not a log: two legs lashed to a cross-piece on a stone footing */
+  ctx.fillStyle = 'rgba(0,0,0,.20)';
+  ctx.beginPath(); ctx.ellipse(cx, cy + 5, 20, 8, 0, 0, Math.PI * 2); ctx.fill();
+  isoBox(ctx, cx, cy + 1, TILE_W * 0.40, TILE_H * 0.40, 4, PALETTE.rock, shade(PALETTE.rockDark, -0.12), PALETTE.rockDark);
+  for (const s of [-1, 1]) {
+    ctx.strokeStyle = shade(WOOD, -0.2); ctx.lineWidth = 5.5;
+    ctx.beginPath(); ctx.moveTo(cx + s * 9, cy - 3); ctx.lineTo(cx + s * 1.5, cy - 15); ctx.stroke();
+    ctx.strokeStyle = shade(WOOD, 0.14); ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(cx + s * 9 - 1.2, cy - 3); ctx.lineTo(cx + s * 1.5 - 1.2, cy - 15); ctx.stroke();
+  }
+  /* the pivot: a bone roller bound into the fork */
+  ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 2.2;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx - 6, cy - 12 + i * 2.6); ctx.lineTo(cx + 6, cy - 13 + i * 2.6);
+    ctx.stroke();
+  }
+  ctx.fillStyle = PALETTE.bone;
+  ctx.beginPath(); ctx.ellipse(cx, cy - 15, 5, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = PALETTE.boneDark;
+  ctx.beginPath(); ctx.ellipse(cx, cy - 14.4, 2.2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+  g.pivot = [cx, cy - 15];
   return g;
 };
 ANIM.seesaw = function (ctx, sx, sy, g, t, b) {
-  const cx = g.mid[0] + sx, cy = g.mid[1] + sy;
+  const cx = g.pivot[0] + sx, cy = g.pivot[1] + sy;
   const busy = b.riders && b.riders.length;
   const a = Math.sin(rideT(b, 2.6)) * 0.34 * rideRun(b) + Math.sin(t * 0.7) * 0.03;
-  ctx.save(); ctx.translate(cx, cy - 13); ctx.rotate(a);
-  beam(ctx, -34, 0, 34, 0, 8, WOOD);
-  for (const s of [-1, 1]) {
-    ctx.fillStyle = PALETTE.hide;
-    roundRect(ctx, s * 32 - 7, -9, 14, 6, 2); ctx.fill();
-    ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(s * 22, -3); ctx.lineTo(s * 22, -12); ctx.stroke();
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+
+  /* the plank, with grain and a lit top edge */
+  beam(ctx, -36, 0, 36, 0, 8, WOOD_L);
+  ctx.strokeStyle = 'rgba(60,38,18,.45)'; ctx.lineWidth = 0.9;
+  for (const u of [-0.7, -0.25, 0.3, 0.72]) {
+    ctx.beginPath(); ctx.moveTo(u * 34 - 5, -1.2); ctx.lineTo(u * 34 + 6, -0.8); ctx.stroke();
   }
+  for (const s of [-1, 1]) {
+    /* a hide pad to sit on */
+    ctx.fillStyle = shade(PALETTE.hide, -0.18);
+    roundRect(ctx, s * 31 - 8, -8.5, 16, 7, 3); ctx.fill();
+    ctx.fillStyle = PALETTE.hide;
+    roundRect(ctx, s * 31 - 8, -9.5, 16, 6, 3); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.18)';
+    ctx.fillRect(s * 31 - 7, -9, 14, 1.4);
+    /* a carved bone grip to hold on to */
+    ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.moveTo(s * 20, -3); ctx.lineTo(s * 20, -13); ctx.stroke();
+    ctx.fillStyle = PALETTE.boneDark;
+    ctx.beginPath(); ctx.ellipse(s * 20, -13.4, 2.4, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  /* a carved beast's head on the front end, because somebody had the time */
+  ctx.fillStyle = '#5b9449';
+  ctx.beginPath();
+  ctx.moveTo(-35, -5); ctx.lineTo(-44, -5.5); ctx.lineTo(-46, -2.5);
+  ctx.lineTo(-43, -0.5); ctx.lineTo(-35, 0.5);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#6fae5a';
+  ctx.beginPath();
+  ctx.moveTo(-35, -5); ctx.lineTo(-44, -5.5); ctx.lineTo(-44.5, -3.8); ctx.lineTo(-35, -3.4);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#1e1e1e';
+  ctx.beginPath(); ctx.arc(-40.5, -3.6, 0.85, 0, Math.PI * 2); ctx.fill();
+
   if (busy) {
-    drawMiniPerson(ctx, -32, -9, CLOTH_TONES[1], b.riders && b.riders[0]);
-    drawMiniPerson(ctx, 32, -9, CLOTH_TONES[3], b.riders && b.riders[1]);
+    drawMiniPerson(ctx, -31, -8, CLOTH_TONES[1], b.riders && b.riders[0]);
+    drawMiniPerson(ctx, 31, -8, CLOTH_TONES[3], b.riders && b.riders[1]);
   }
   ctx.restore();
 };
 
 /* -------------------------------------------------------------- trampoline */
 ART.trampoline = function (w, h) {
-  const g = spriteCtx(w, h, 34), ctx = g.ctx;
+  const g = spriteCtx(w, h, 44), ctx = g.ctx;
   pad(g, SAND, SAND_E);
   const [cx, cy] = g.mid;
-  const rx = TILE_W * 0.54, ry = TILE_H * 0.58, H = 15;
-  for (const d of [[-0.8, 0], [0.8, 0], [0, -0.8], [0, 0.8]]) {
-    const px = cx + d[0] * rx, py = cy + d[1] * ry * 1.6;
-    ctx.strokeStyle = WOOD_D; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - H); ctx.stroke();
+  const rx = TILE_W * 0.56, ry = TILE_H * 0.60, H = 17;
+
+  ctx.fillStyle = 'rgba(0,0,0,.20)';
+  ctx.beginPath(); ctx.ellipse(cx, cy + 6, rx + 8, ry + 5, 0, 0, Math.PI * 2); ctx.fill();
+
+  /* Four posts on stone footings, lashed rather than bolted. Each one stands
+     on the ground under the point of the rim it holds up, so its top meets the
+     frame rather than sticking out above it. */
+  const posts = [[-0.86, 0], [0.86, 0], [0, -0.92], [0, 0.92]];
+  for (const d of posts) {
+    const px = cx + d[0] * rx, py = cy + d[1] * ry;
+    ctx.fillStyle = PALETTE.rockDark;
+    ctx.beginPath(); ctx.ellipse(px, py + 1, 7, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = shade(WOOD, -0.25); ctx.fillRect(px - 3, py - H, 6, H);
+    ctx.fillStyle = WOOD; ctx.fillRect(px - 3, py - H, 4, H);
+    ctx.fillStyle = shade(WOOD, 0.2); ctx.fillRect(px - 3, py - H, 1.4, H);
+    ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.5;
+    for (const yy of [py - H + 4, py - H + 7]) {
+      ctx.beginPath(); ctx.moveTo(px - 3.4, yy); ctx.lineTo(px + 3.4, yy - 0.8); ctx.stroke();
+    }
   }
-  /* bone frame */
-  ctx.fillStyle = PALETTE.boneDark;
-  ctx.beginPath(); ctx.ellipse(cx, cy - H, rx + 4, ry + 3, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = PALETTE.bone;
-  ctx.beginPath(); ctx.ellipse(cx, cy - H - 1.5, rx + 4, ry + 3, 0, 0, Math.PI * 2); ctx.fill();
-  /* springs */
-  ctx.strokeStyle = '#8d949c'; ctx.lineWidth = 1.4;
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2;
+
+  /* The mat first — a stitched hide with a spiral daubed on it. Filling the
+     frame as a whole ellipse and insetting the mat left a broad white band
+     that read as a plate rather than a rim, so the rim is stroked on top. */
+  ctx.fillStyle = shade(PALETTE.hide, -0.46);
+  ctx.beginPath(); ctx.ellipse(cx, cy - H + 2.5, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = shade(PALETTE.hide, -0.32);
+  ctx.beginPath(); ctx.ellipse(cx, cy - H, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(232,226,207,.4)'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let i = 0; i <= 34; i++) {
+    const a = i * 0.42, r = i / 34;
+    const sxp = cx + Math.cos(a) * (rx - 5) * r, syp = cy - H + Math.sin(a) * (ry - 3.5) * r;
+    i ? ctx.lineTo(sxp, syp) : ctx.moveTo(sxp, syp);
+  }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.09)';
+  ctx.beginPath(); ctx.ellipse(cx - 7, cy - H - 3, rx * 0.32, ry * 0.24, -0.3, 0, Math.PI * 2); ctx.fill();
+
+  /* twisted sinew lacing the mat to the rim */
+  ctx.strokeStyle = 'rgba(157,138,102,.85)'; ctx.lineWidth = 1.2;
+  for (let i = 0; i < 20; i++) {
+    const a = (i / 20) * Math.PI * 2;
     ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a) * (rx + 2), cy - H - 1 + Math.sin(a) * (ry + 1.5));
-    ctx.lineTo(cx + Math.cos(a) * (rx - 5), cy - H - 1 + Math.sin(a) * (ry - 4));
+    ctx.moveTo(cx + Math.cos(a) * (rx - 4), cy - H + Math.sin(a) * (ry - 2.5));
+    ctx.lineTo(cx + Math.cos(a) * (rx + 2.5), cy - H + Math.sin(a) * (ry + 1.8));
     ctx.stroke();
   }
-  /* mat */
-  ctx.fillStyle = '#2f3c46';
-  ctx.beginPath(); ctx.ellipse(cx, cy - H - 1, rx - 5, ry - 4, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.10)';
-  ctx.beginPath(); ctx.ellipse(cx - 6, cy - H - 5, rx * 0.4, ry * 0.32, -0.3, 0, Math.PI * 2); ctx.fill();
+
+  /* the rim itself: a hoop of lashed bone, two strokes thick */
+  ctx.strokeStyle = PALETTE.boneDark; ctx.lineWidth = 4.4;
+  ctx.beginPath(); ctx.ellipse(cx, cy - H + 1, rx + 1.5, ry + 1, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = PALETTE.bone; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(cx, cy - H, rx + 1.5, ry + 1, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(120,108,84,.55)'; ctx.lineWidth = 1.4;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.3;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * (rx - 1), cy - H + Math.sin(a) * (ry - 1) - 2.6);
+    ctx.lineTo(cx + Math.cos(a) * (rx + 3), cy - H + Math.sin(a) * (ry + 2) + 2.6);
+    ctx.stroke();
+  }
+
+  /* a log to step up on */
+  const step = g.C((w - 1) / 2, h - 0.35);
+  ctx.fillStyle = shade(WOOD, -0.3);
+  roundRect(ctx, step[0] - 13, step[1] - 5, 26, 7, 3.2); ctx.fill();
+  ctx.fillStyle = WOOD;
+  roundRect(ctx, step[0] - 13, step[1] - 7, 26, 6, 3); ctx.fill();
+  ctx.fillStyle = shade(WOOD, 0.18);
+  ctx.fillRect(step[0] - 12, step[1] - 6.5, 24, 1.6);
+
+  g.matY = cy - H;
   return g;
 };
 ANIM.trampoline = function (ctx, sx, sy, g, t, b) {
   if (!b.riders || !b.riders.length) return;
-  const cx = g.mid[0] + sx, cy = g.mid[1] + sy;
+  const cx = g.mid[0] + sx, cy = g.matY + sy;
   for (let i = 0; i < Math.min(3, b.riders.length); i++) {
-    const hop = Math.abs(Math.sin(rideT(b, 4.2) + i * 2.1)) * 24 * rideRun(b);
-    blob(ctx, cx + (i - 1) * 14, cy - 15, 6 - hop * 0.08, 3, 0.2);
-    drawMiniPerson(ctx, cx + (i - 1) * 14, cy - 16 - hop, CLOTH_TONES[i % CLOTH_TONES.length], b.riders && b.riders[i]);
+    const phase = rideT(b, 4.2) + i * 2.1;
+    const hop = Math.abs(Math.sin(phase)) * 26 * rideRun(b);
+    const x = cx + (i - 1) * 14;
+    /* the mat gives under them as they land */
+    if (hop < 3) {
+      ctx.strokeStyle = 'rgba(70,46,26,.45)'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.ellipse(x, cy + 2, 11, 4, 0, 0.15, Math.PI - 0.15); ctx.stroke();
+    }
+    blob(ctx, x, cy + 1, 7 - hop * 0.09, 3.2, 0.22);
+    drawMiniPerson(ctx, x, cy - hop, CLOTH_TONES[i % CLOTH_TONES.length], b.riders && b.riders[i]);
   }
 };
 
 /* ------------------------------------------------------------------- swing */
 ART.swing = function (w, h) {
-  const g = spriteCtx(w, h, 58), ctx = g.ctx;
+  const g = spriteCtx(w, h, 66), ctx = g.ctx;
   pad(g, SAND, SAND_E);
   const [cx, cy] = g.mid;
-  const H = 44;
+  const H = 46;
+
+  /* the ground is scuffed where feet drag */
+  ctx.fillStyle = 'rgba(126,102,66,.16)';
   for (const s of [-1, 1]) {
-    const foot = g.C((w - 1) / 2 + s * 0.62, (h - 1) / 2 + s * 0.62);
-    const foot2 = g.C((w - 1) / 2 + s * 0.62, (h - 1) / 2 - s * 0.62);
-    beam(ctx, foot[0], foot[1], cx + s * 5, cy - H, 5, WOOD);
-    beam(ctx, foot2[0], foot2[1], cx + s * 5, cy - H, 5, WOOD);
-    ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo((foot[0] + cx) / 2, (foot[1] + cy - H) / 2); ctx.lineTo((foot2[0] + cx) / 2, (foot2[1] + cy - H) / 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(cx + s * 14, cy + 8, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
   }
-  beam(ctx, cx - 26, cy - H, cx + 26, cy - H, 7, WOOD_L);
-  /* a little hide pennant on top */
-  ctx.fillStyle = '#c94f4f';
-  ctx.beginPath(); ctx.moveTo(cx, cy - H - 4); ctx.lineTo(cx + 13, cy - H - 10); ctx.lineTo(cx, cy - H - 15); ctx.closePath(); ctx.fill();
+
+  /* two A-frames, four legs, on stone pads */
+  const legs = [];
+  for (const s of [-1, 1]) {
+    const foot = g.C((w - 1) / 2 + s * 0.7, (h - 1) / 2 + s * 0.7);
+    const foot2 = g.C((w - 1) / 2 + s * 0.7, (h - 1) / 2 - s * 0.7);
+    legs.push(foot, foot2);
+    for (const f of [foot, foot2]) {
+      ctx.fillStyle = PALETTE.rockDark;
+      ctx.beginPath(); ctx.ellipse(f[0], f[1] + 1, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    beam(ctx, foot[0], foot[1], cx + s * 5, cy - H, 6, WOOD);
+    beam(ctx, foot2[0], foot2[1], cx + s * 5, cy - H, 6, WOOD);
+    /* a collar tie across the A, lashed at both ends */
+    const m1 = [lerp(foot[0], cx + s * 5, 0.42), lerp(foot[1], cy - H, 0.42)];
+    const m2 = [lerp(foot2[0], cx + s * 5, 0.42), lerp(foot2[1], cy - H, 0.42)];
+    ctx.strokeStyle = shade(WOOD, -0.25); ctx.lineWidth = 3.4;
+    ctx.beginPath(); ctx.moveTo(m1[0], m1[1]); ctx.lineTo(m2[0], m2[1]); ctx.stroke();
+    ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.7;
+    for (const m of [m1, m2]) {
+      ctx.beginPath(); ctx.moveTo(m[0] - 4, m[1] - 1); ctx.lineTo(m[0] + 4, m[1] + 1); ctx.stroke();
+    }
+  }
+
+  /* the ridge beam the seats hang from */
+  beam(ctx, cx - 28, cy - H, cx + 28, cy - H, 8, WOOD_L);
+  ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 2;
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(cx + s * 5 - 6, cy - H - 2 + i * 2.4);
+      ctx.lineTo(cx + s * 5 + 6, cy - H - 3 + i * 2.4);
+      ctx.stroke();
+    }
+  }
+  /* a row of little hide pennants along it */
+  for (let i = -2; i <= 2; i++) {
+    ctx.fillStyle = CLOTH_TONES[(i + 2) % CLOTH_TONES.length];
+    ctx.beginPath();
+    ctx.moveTo(cx + i * 11, cy - H - 4);
+    ctx.lineTo(cx + i * 11 + 5, cy - H - 9);
+    ctx.lineTo(cx + i * 11 - 1.5, cy - H - 9.5);
+    ctx.closePath(); ctx.fill();
+  }
+  skull(ctx, cx, cy - H - 7, 6.5);
+
+  /* a log to climb on to the seats from */
+  const step = g.C((w - 1) / 2, h - 0.4);
+  ctx.fillStyle = shade(WOOD, -0.3);
+  roundRect(ctx, step[0] - 12, step[1] - 4, 24, 6, 3); ctx.fill();
+  ctx.fillStyle = WOOD;
+  roundRect(ctx, step[0] - 12, step[1] - 6, 24, 5.5, 2.8); ctx.fill();
+
+  g.barY = cy - H;
   return g;
 };
 ANIM.swing = function (ctx, sx, sy, g, t, b) {
-  const cx = g.mid[0] + sx, cy = g.mid[1] + sy;
-  const run = b.riders && b.riders.length ? 1 : 0.18;
+  const cx = g.mid[0] + sx, barY = g.barY + sy;
+  const run = b.riders && b.riders.length ? 1 : 0.16;
   for (let i = 0; i < 2; i++) {
-    const ax = cx - 14 + i * 28, ay = cy - 43;
-    const a = Math.sin(rideT(b, 2.4) + i * Math.PI) * 0.5 * run;
-    const len = 28;
+    const ax = cx - 14 + i * 28, ay = barY + 3;
+    const a = Math.sin(rideT(b, 2.4) + i * Math.PI) * 0.52 * run;
+    const len = 30;
     const ex = ax + Math.sin(a) * len, ey = ay + Math.cos(a) * len;
-    ctx.strokeStyle = '#6d5b45'; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(ax - 4, ay); ctx.lineTo(ex - 4, ey); ctx.moveTo(ax + 4, ay); ctx.lineTo(ex + 4, ey); ctx.stroke();
-    ctx.fillStyle = WOOD;
-    roundRect(ctx, ex - 8, ey, 16, 4.5, 2); ctx.fill();
+    /* twisted hide rope, two strands */
+    ctx.strokeStyle = '#7d6a4e'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ax - 5, ay); ctx.lineTo(ex - 5, ey); ctx.moveTo(ax + 5, ay); ctx.lineTo(ex + 5, ey); ctx.stroke();
+    ctx.strokeStyle = 'rgba(200,178,134,.55)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(ax - 5.6, ay); ctx.lineTo(ex - 5.6, ey); ctx.moveTo(ax + 4.4, ay); ctx.lineTo(ex + 4.4, ey); ctx.stroke();
+    /* a carved plank seat with a hide pad on it */
+    ctx.save();
+    ctx.translate(ex, ey); ctx.rotate(-a * 0.35);
+    ctx.fillStyle = WOOD_D;
+    roundRect(ctx, -9, 0, 18, 5, 2); ctx.fill();
+    ctx.fillStyle = shade(PALETTE.hide, -0.1);
+    roundRect(ctx, -8, -1.5, 16, 3.4, 1.6); ctx.fill();
+    ctx.restore();
     if (b.riders && b.riders.length > i) drawMiniPerson(ctx, ex, ey - 1, CLOTH_TONES[(i + 2) % 7], b.riders[i]);
   }
 };
@@ -513,152 +687,344 @@ ANIM.catapult = function (ctx, sx, sy, g, t, b) {
 
 /* ------------------------------------------------------------ ferris wheel */
 ART.ferris = function (w, h) {
-  const g = spriteCtx(w, h, 120), ctx = g.ctx;
+  const g = spriteCtx(w, h, 132), ctx = g.ctx;
   pad(g, SAND, SAND_E);
   const [cx, cy] = g.mid;
-  const R = 46, hubY = cy - R - 14;
+  const R = 48, hubY = cy - R - 18;
   g.hub = [cx, hubY]; g.R = R;
-  /* four legs from the corners of the pad up to the hub */
-  const corners = [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]];
-  for (const c of corners) {
-    const p = g.C((w - 1) / 2 + c[0], (h - 1) / 2 + c[1]);
-    beam(ctx, p[0], p[1], cx, hubY, 5.5, WOOD);
+
+  ctx.fillStyle = 'rgba(0,0,0,.20)';
+  ctx.beginPath(); ctx.ellipse(cx, cy + 6, 46, 19, 0, 0, Math.PI * 2); ctx.fill();
+
+  /* Two trestles rather than four bare poles, each pair braced into a triangle
+     and footed on stone — the wheel is the heaviest thing in the park and it
+     used to look like it was balanced on sticks. */
+  const corners = [[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]];
+  const feet = corners.map(c => g.C((w - 1) / 2 + c[0], (h - 1) / 2 + c[1]));
+  for (const f of feet) {
+    ctx.fillStyle = PALETTE.rockDark;
+    ctx.beginPath(); ctx.ellipse(f[0], f[1] + 1, 10, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = PALETTE.rock;
+    ctx.beginPath(); ctx.ellipse(f[0], f[1] - 1, 9, 4.4, 0, 0, Math.PI * 2); ctx.fill();
   }
-  /* cross bracing */
-  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 3;
-  for (const c of corners) {
-    const p = g.C((w - 1) / 2 + c[0], (h - 1) / 2 + c[1]);
+  for (const f of feet) beam(ctx, f[0], f[1] - 2, cx, hubY, 6, WOOD);
+  /* cross-braces between each pair, and a tie across the whole frame */
+  ctx.strokeStyle = shade(WOOD, -0.28); ctx.lineWidth = 3.4;
+  for (const [a, b2] of [[0, 1], [2, 3], [0, 2], [1, 3]]) {
+    for (const u of [0.42, 0.72]) {
+      ctx.beginPath();
+      ctx.moveTo(lerp(feet[a][0], cx, u), lerp(feet[a][1], hubY, u));
+      ctx.lineTo(lerp(feet[b2][0], cx, u), lerp(feet[b2][1], hubY, u));
+      ctx.stroke();
+    }
+  }
+  /* bindings where the braces cross the legs */
+  ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.7;
+  for (const f of feet) {
+    for (const u of [0.42, 0.72]) {
+      const bx = lerp(f[0], cx, u), by = lerp(f[1], hubY, u);
+      ctx.beginPath(); ctx.moveTo(bx - 4, by + 1); ctx.lineTo(bx + 4, by - 1); ctx.stroke();
+    }
+  }
+
+  /* The boarding deck. Kept to one tile and drawn as a box with its planking
+     following the diamond: laying the planks as straight lines across it put
+     their ends outside the deck, which read as spilled sticks. */
+  const plat = g.C(0.3, h - 0.65);
+  isoBox(ctx, plat[0], plat[1], TILE_W * 0.62, TILE_H * 0.62, 8, '#9c7a4f', '#5f4420', '#7b5a2f');
+  ctx.save();
+  ctx.beginPath();
+  diamond(ctx, plat[0], plat[1] - 8, TILE_W * 0.62, TILE_H * 0.62);
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(95,68,32,.55)'; ctx.lineWidth = 1;
+  for (let i = -3; i <= 3; i++) {
     ctx.beginPath();
-    ctx.moveTo(lerp(p[0], cx, 0.45), lerp(p[1], hubY, 0.45));
-    ctx.lineTo(lerp(p[0], cx, 0.75), lerp(p[1], hubY, 0.75));
+    ctx.moveTo(plat[0] - 24 + i * 5, plat[1] - 8 + i * 2.6 - 12);
+    ctx.lineTo(plat[0] + 8 + i * 5, plat[1] - 8 + i * 2.6 + 4);
     ctx.stroke();
   }
-  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 3.5;
-  const l = g.C((w - 1) / 2 - 0.95, (h - 1) / 2 + 0.95), r = g.C((w - 1) / 2 + 0.95, (h - 1) / 2 - 0.95);
-  ctx.beginPath(); ctx.moveTo(lerp(l[0], cx, .5), lerp(l[1], hubY, .5)); ctx.lineTo(lerp(r[0], cx, .5), lerp(r[1], hubY, .5)); ctx.stroke();
-  /* ticket booth at the foot */
-  const bo = g.C(0.2, h - 0.5);
-  isoBox(ctx, bo[0], bo[1], TILE_W * 0.42, TILE_H * 0.42, 14, WOOD_L, WOOD_D, WOOD);
-  thatchRoof(ctx, bo[0], bo[1] - 14, 14, 5, 9, PALETTE.thatch);
+  ctx.restore();
+  /* a step up from the path */
+  ctx.fillStyle = shade('#9c7a4f', -0.16);
+  roundRect(ctx, plat[0] - 12, plat[1] + 1, 24, 4, 1.8); ctx.fill();
+  /* a rail along the back of it */
+  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2.2;
+  for (const u of [0, 0.5, 1]) {
+    const px = lerp(plat[0] - 17, plat[0] + 1, u), py = lerp(plat[1] - 17, plat[1] - 26, u);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + 11); ctx.stroke();
+  }
+  ctx.strokeStyle = WOOD; ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.moveTo(plat[0] - 17, plat[1] - 17); ctx.lineTo(plat[0] + 1, plat[1] - 26); ctx.stroke();
+
+  /* the ticket booth at the foot */
+  const bo = g.C(w - 0.75, h - 0.4);
+  isoBox(ctx, bo[0], bo[1], TILE_W * 0.46, TILE_H * 0.46, 16, WOOD_L, WOOD_D, WOOD);
+  thatchRoof(ctx, bo[0], bo[1] - 16, 16, 6, 11, PALETTE.thatch);
+  ctx.fillStyle = '#c44a3f';
+  roundRect(ctx, bo[0] - 11, bo[1] - 12, 22, 7, 2); ctx.fill();
+  ctx.fillStyle = 'rgba(240,220,174,.85)';
+  for (let i = 0; i < 3; i++) ctx.fillRect(bo[0] - 7 + i * 5, bo[1] - 9.5, 3, 1.6);
+
   return g;
 };
 ANIM.ferris = function (ctx, sx, sy, g, t, b) {
   const hx = g.hub[0] + sx, hy = g.hub[1] + sy, R = g.R;
   const spin = rideT(b, 0.48);
-  ctx.strokeStyle = '#caa96a'; ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.arc(hx, hy, R - 5, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = 'rgba(225,205,155,.75)'; ctx.lineWidth = 1.8;
-  for (let i = 0; i < 8; i++) {
-    const a = spin + (i / 8) * Math.PI * 2;
-    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + Math.cos(a) * R, hy + Math.sin(a) * R); ctx.stroke();
+  const N = 8;
+
+  /* the rim: two hoops with lattice between them, so it reads as built rather
+     than drawn — a single circle looked like a hoop of wire */
+  ctx.strokeStyle = shade('#caa96a', -0.3); ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(hx, hy, R + 3, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = '#caa96a'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(hx, hy, R - 4, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(160,134,86,.85)'; ctx.lineWidth = 1.4;
+  for (let i = 0; i < 24; i++) {
+    const a0 = spin * 0.5 + (i / 24) * Math.PI * 2, a1 = a0 + Math.PI / 24;
+    ctx.beginPath();
+    ctx.moveTo(hx + Math.cos(a0) * (R + 3), hy + Math.sin(a0) * (R + 3));
+    ctx.lineTo(hx + Math.cos(a1) * (R - 4), hy + Math.sin(a1) * (R - 4));
+    ctx.stroke();
   }
-  ctx.fillStyle = WOOD_D;
-  ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2); ctx.fill();
+
+  /* spokes, paired either side of the hub */
+  for (let i = 0; i < N; i++) {
+    const a = spin + (i / N) * Math.PI * 2;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    ctx.strokeStyle = 'rgba(122,100,64,.9)'; ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.moveTo(hx - sa * 4, hy + ca * 4); ctx.lineTo(hx + ca * R, hy + sa * R); ctx.stroke();
+    ctx.strokeStyle = 'rgba(232,214,168,.8)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(hx - sa * 4 - 1, hy + ca * 4); ctx.lineTo(hx + ca * R - 1, hy + sa * R); ctx.stroke();
+  }
+
+  /* the hub: a bone bearing in a timber housing */
+  ctx.fillStyle = shade(WOOD, -0.35);
+  ctx.beginPath(); ctx.arc(hx, hy, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = WOOD;
+  ctx.beginPath(); ctx.arc(hx, hy, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = PALETTE.bone;
+  ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = PALETTE.boneDark;
+  ctx.beginPath(); ctx.arc(hx, hy, 2.2, 0, Math.PI * 2); ctx.fill();
+  /* the pegs that drive it, turning with the wheel */
   ctx.fillStyle = shade(WOOD, 0.25);
-  ctx.beginPath(); ctx.arc(hx - 1.5, hy - 1.5, 3, 0, Math.PI * 2); ctx.fill();
-  for (let i = 0; i < 8; i++) {
-    const a = spin + (i / 8) * Math.PI * 2;
+  for (let i = 0; i < 4; i++) {
+    const a = spin * 1 + i * Math.PI / 2;
+    ctx.beginPath(); ctx.arc(hx + Math.cos(a) * 6.6, hy + Math.sin(a) * 6.6, 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  /* the gondolas: baskets slung from a yoke, hanging level whatever the wheel does */
+  for (let i = 0; i < N; i++) {
+    const a = spin + (i / N) * Math.PI * 2;
     const gx = hx + Math.cos(a) * R, gy = hy + Math.sin(a) * R;
-    ctx.strokeStyle = '#8c7b5c'; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx, gy + 6); ctx.stroke();
+    ctx.strokeStyle = '#8c7b5c'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(gx - 6, gy); ctx.lineTo(gx - 6, gy + 7); ctx.moveTo(gx + 6, gy); ctx.lineTo(gx + 6, gy + 7); ctx.stroke();
+    ctx.strokeStyle = PALETTE.boneDark; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(gx - 7, gy + 7); ctx.lineTo(gx + 7, gy + 7); ctx.stroke();
+
     const col = CLOTH_TONES[i % CLOTH_TONES.length];
-    ctx.fillStyle = shade(col, -0.35);
-    roundRect(ctx, gx - 8, gy + 11, 16, 5, 2); ctx.fill();
+    /* a woven basket: dark underside, banded sides, a hide rim */
+    ctx.fillStyle = shade(col, -0.42);
+    roundRect(ctx, gx - 9, gy + 13, 18, 5, 2.2); ctx.fill();
     ctx.fillStyle = col;
-    roundRect(ctx, gx - 8, gy + 5, 16, 9, 3); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.22)';
-    ctx.fillRect(gx - 8, gy + 5, 16, 2);
+    roundRect(ctx, gx - 9, gy + 7, 18, 10, 3.2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(gx - 9, gy + 11); ctx.lineTo(gx + 9, gy + 11); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.24)';
+    ctx.fillRect(gx - 9, gy + 7, 18, 2.2);
+    ctx.fillStyle = shade(PALETTE.hide, -0.1);
+    roundRect(ctx, gx - 10, gy + 6, 20, 2.6, 1.3); ctx.fill();
+
     if (b.riders && b.riders.length > i) {
-      ctx.fillStyle = SKIN_TONES[i % SKIN_TONES.length];
-      ctx.beginPath(); ctx.arc(gx, gy + 5, 2.6, 0, Math.PI * 2); ctx.fill();
+      const who = b.riders[i];
+      if (who && who.look) {
+        const spr = getPerson(who.look, PERSON_SIT), k = 0.55;
+        ctx.drawImage(spr.c, gx - spr.ox * k, gy + 9 - spr.oy * k, spr.w * k, spr.h * k);
+      } else {
+        ctx.fillStyle = SKIN_TONES[i % SKIN_TONES.length];
+        ctx.beginPath(); ctx.arc(gx, gy + 4.5, 2.6, 0, Math.PI * 2); ctx.fill();
+      }
     }
   }
 };
 
 /* ------------------------------------------------------------ haunted cave */
 ART.cave = function (w, h, rot) {
-  const g = spriteCtx(w, h, 86), ctx = g.ctx;
+  const g = spriteCtx(w, h, 104), ctx = g.ctx;
   pad(g, '#7c705c', '#5d5243');
   const [cx, cy] = g.mid;
-  const front = g.C((w - 1) / 2, h - 0.6);
-  /* the mound, built from faceted planes so it reads as rock */
+  /* The mouth goes in the middle of the mound's front face. It used to be put
+     at the middle of the front row of tiles, which in this projection is a
+     long way to the left of the middle of the mound, so the cave looked like
+     it had a door in its side. */
+  const front = [cx, cy + 24];
+
+  /* The mound, in faceted planes so it reads as rock. More facets than before,
+     and the seams between them are drawn, which is what makes it read as stone
+     rather than a grey hill. */
   const facets = [
-    { p: [[-1.15, 0.15], [-0.7, -0.75], [0.05, -0.95], [0.1, 0.2]], c: '#7f858c' },
-    { p: [[0.1, 0.2], [0.05, -0.95], [0.75, -0.7], [1.15, 0.15]], c: '#666c74' },
-    { p: [[-0.7, -0.75], [-0.2, -1.15], [0.35, -1.1], [0.05, -0.95]], c: '#949aa1' },
-    { p: [[0.05, -0.95], [0.35, -1.1], [0.75, -0.7]], c: '#7a8087' }
+    { p: [[-1.28, 0.2], [-0.95, -0.62], [-0.45, -0.88], [-0.2, 0.25]], c: '#8b9199' },
+    { p: [[-0.2, 0.25], [-0.45, -0.88], [0.08, -1.08], [0.3, 0.22]], c: '#7a8088' },
+    { p: [[0.3, 0.22], [0.08, -1.08], [0.66, -0.86], [1.0, 0.2]], c: '#6a7077' },
+    { p: [[1.0, 0.2], [0.66, -0.86], [1.05, -0.5], [1.3, 0.18]], c: '#5e646b' },
+    { p: [[-0.45, -0.88], [-0.22, -1.3], [0.2, -1.32], [0.08, -1.08]], c: '#a0a6ad' },
+    { p: [[0.08, -1.08], [0.2, -1.32], [0.62, -1.05], [0.66, -0.86]], c: '#878d95' }
   ];
   for (const f of facets) {
     ctx.fillStyle = f.c;
     ctx.beginPath();
     f.p.forEach((q, i) => {
-      const x = cx + q[0] * TILE_W * 1.05, y = cy + 8 + q[1] * 46;
+      const x = cx + q[0] * TILE_W * 0.92, y = cy + 24 + q[1] * 52;
       i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     });
     ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(48,52,58,.35)'; ctx.lineWidth = 1;
+    ctx.stroke();
   }
-  /* moss */
-  ctx.fillStyle = 'rgba(90,140,70,.45)';
-  ctx.beginPath(); ctx.ellipse(cx - 30, cy - 26, 16, 7, -0.3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(cx + 26, cy - 14, 12, 5, 0.25, 0, Math.PI * 2); ctx.fill();
-  /* entrance */
+  /* moss in the shaded seams */
+  ctx.fillStyle = 'rgba(88,134,68,.4)';
+  for (const m of [[-40, -18, 17, 7, -0.3], [34, -8, 13, 5.5, 0.25], [-8, -40, 11, 4.5, 0.1]]) {
+    ctx.beginPath(); ctx.ellipse(cx + m[0], cy + m[1], m[2], m[3], m[4], 0, Math.PI * 2); ctx.fill();
+  }
+
+  /* a row of hand prints daubed on the rock, which is what the tribe would do */
+  ctx.fillStyle = 'rgba(196,74,63,.5)';
+  for (let i = 0; i < 4; i++) {
+    const hx2 = cx - 48 + i * 12, hy2 = cy - 12 - (i % 2) * 9;
+    ctx.beginPath(); ctx.ellipse(hx2, hy2, 2.6, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+    for (let f = 0; f < 4; f++) {
+      const a = -2.3 + f * 0.42;
+      ctx.beginPath();
+      ctx.ellipse(hx2 + Math.cos(a) * 3.4, hy2 + Math.sin(a) * 3.8, 0.8, 1.7, a + Math.PI / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* the entrance, cut back into the mound */
   const ex = front[0], ey = front[1] - 2;
-  ctx.fillStyle = '#4a4238';
-  ctx.beginPath(); ctx.ellipse(ex, ey - 16, 25, 27, 0, Math.PI, 0); ctx.rect(ex - 25, ey - 16, 50, 16); ctx.fill();
-  const gr = ctx.createRadialGradient(ex, ey - 12, 2, ex, ey - 12, 30);
-  gr.addColorStop(0, '#000'); gr.addColorStop(1, '#241f1a');
+  ctx.fillStyle = '#3f382f';
+  ctx.beginPath(); ctx.ellipse(ex, ey - 17, 28, 30, 0, Math.PI, 0); ctx.rect(ex - 28, ey - 17, 56, 17); ctx.fill();
+  const gr = ctx.createRadialGradient(ex, ey - 12, 2, ex, ey - 12, 34);
+  gr.addColorStop(0, '#000'); gr.addColorStop(0.7, '#15120f'); gr.addColorStop(1, '#241f1a');
   ctx.fillStyle = gr;
-  ctx.beginPath(); ctx.ellipse(ex, ey - 14, 20, 22, 0, Math.PI, 0); ctx.rect(ex - 20, ey - 14, 40, 14); ctx.fill();
-  /* stalactite teeth */
+  ctx.beginPath(); ctx.ellipse(ex, ey - 15, 22, 24, 0, Math.PI, 0); ctx.rect(ex - 22, ey - 15, 44, 15); ctx.fill();
+
+  /* a rib arch round the mouth, with vertebrae along it */
+  ctx.strokeStyle = PALETTE.boneDark; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.ellipse(ex, ey - 14, 29, 28, 0, Math.PI * 1.03, Math.PI * 1.97); ctx.stroke();
+  ctx.strokeStyle = PALETTE.bone; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(ex, ey - 15, 29, 28, 0, Math.PI * 1.03, Math.PI * 1.97); ctx.stroke();
+  for (let i = 0; i <= 8; i++) {
+    const a = Math.PI * 1.03 + (i / 8) * (Math.PI * 0.94);
+    ctx.fillStyle = PALETTE.bone;
+    ctx.beginPath();
+    ctx.ellipse(ex + Math.cos(a) * 29, ey - 15 + Math.sin(a) * 28, 3.4, 2.4, a, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.boneDark;
+    ctx.beginPath();
+    ctx.ellipse(ex + Math.cos(a) * 29, ey - 15 + Math.sin(a) * 28, 1.4, 1, a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* stalactite teeth hanging in the mouth, and a few rising from the floor */
   ctx.fillStyle = PALETTE.bone;
   for (let i = -3; i <= 3; i++) {
-    const tx = ex + i * 6.5, hgt = 7 + (i % 2 ? 4 : 0);
-    ctx.beginPath(); ctx.moveTo(tx - 3.2, ey - 30); ctx.lineTo(tx + 3.2, ey - 30); ctx.lineTo(tx, ey - 30 + hgt); ctx.closePath(); ctx.fill();
+    const tx = ex + i * 6.4, hgt = 8 + (i % 2 ? 5 : 0);
+    ctx.beginPath(); ctx.moveTo(tx - 3, ey - 32); ctx.lineTo(tx + 3, ey - 32); ctx.lineTo(tx, ey - 32 + hgt); ctx.closePath(); ctx.fill();
   }
-  /* rib arch */
-  ctx.strokeStyle = PALETTE.boneDark; ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.ellipse(ex, ey - 14, 27, 26, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
-  /* boulders at the feet */
-  for (const bx of [-1.4, 1.4]) {
-    const px = cx + bx * TILE_W * 0.9, py = cy + 10;
+  ctx.fillStyle = PALETTE.boneDark;
+  for (const i of [-2, 1]) {
+    const tx = ex + i * 8;
+    ctx.beginPath(); ctx.moveTo(tx - 2.4, ey - 1); ctx.lineTo(tx + 2.4, ey - 1); ctx.lineTo(tx, ey - 8); ctx.closePath(); ctx.fill();
+  }
+
+  /* hide strips hung across the opening, so you cannot see what is inside */
+  for (let i = -2; i <= 2; i++) {
+    ctx.fillStyle = i % 2 ? 'rgba(122,88,58,.9)' : 'rgba(150,110,72,.9)';
+    ctx.beginPath();
+    ctx.moveTo(ex + i * 8 - 4, ey - 30);
+    ctx.lineTo(ex + i * 8 + 4, ey - 30);
+    ctx.lineTo(ex + i * 8 + 3, ey - 16 - (i % 2 ? 3 : 0));
+    ctx.lineTo(ex + i * 8 - 3, ey - 18 - (i % 2 ? 3 : 0));
+    ctx.closePath(); ctx.fill();
+  }
+
+  /* boulders at the feet and a scatter of loose rock */
+  for (const bx of [-1.35, 1.35]) {
+    const px = cx + bx * TILE_W * 0.92, py = cy + 26;
+    ctx.fillStyle = PALETTE.rockDark;
+    ctx.beginPath(); ctx.ellipse(px, py + 2, 14, 8, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = PALETTE.rock;
     ctx.beginPath(); ctx.ellipse(px, py, 13, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = shade(PALETTE.rock, 0.16);
+    ctx.fillStyle = shade(PALETTE.rock, 0.18);
     ctx.beginPath(); ctx.ellipse(px - 2, py - 3, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
   }
-  /* torches */
-  g.torches = [[ex - 34, ey - 4], [ex + 34, ey - 4]];
+
+  /* torches either side of the mouth, on proper brackets */
+  g.torches = [[ex - 37, ey - 4], [ex + 37, ey - 4]];
   for (const tp of g.torches) {
-    ctx.fillStyle = WOOD_D; ctx.fillRect(tp[0] - 2.5, tp[1] - 26, 5, 26);
     ctx.fillStyle = PALETTE.rockDark;
-    ctx.beginPath(); ctx.ellipse(tp[0], tp[1], 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(tp[0], tp[1], 7, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = shade(WOOD, -0.3); ctx.fillRect(tp[0] - 3, tp[1] - 28, 6, 28);
+    ctx.fillStyle = WOOD; ctx.fillRect(tp[0] - 3, tp[1] - 28, 4, 28);
+    ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(tp[0] - 4, tp[1] - 24); ctx.lineTo(tp[0] + 4, tp[1] - 25); ctx.stroke();
+    ctx.fillStyle = PALETTE.boneDark;
+    ctx.beginPath(); ctx.ellipse(tp[0], tp[1] - 28, 5, 2.6, 0, 0, Math.PI * 2); ctx.fill();
   }
-  g.mouth = [ex, ey - 12];
+
+  g.mouth = [ex, ey - 13];
   return g;
 };
 ANIM.cave = function (ctx, sx, sy, g, t, b) {
-  for (const tp of g.torches) drawFlame(ctx, tp[0] + sx, tp[1] - 26 + sy, t);
+  for (const tp of g.torches) drawFlame(ctx, tp[0] + sx, tp[1] - 28 + sy, t);
   const lit = b.powered && b.open;
-  if (lit) {
-    const glow = 0.25 + Math.sin(t * 3) * 0.12;
-    ctx.save();
-    ctx.globalAlpha = glow;
-    ctx.fillStyle = '#ff7043';
-    ctx.beginPath(); ctx.ellipse(g.mouth[0] + sx, g.mouth[1] + sy, 15, 17, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-    if (b.riders && b.riders.length) {
-      /* a pair of eyes blinks in the dark */
-      const blink = Math.sin(t * 1.7) > 0.7;
-      if (!blink) {
-        ctx.fillStyle = '#ffe066';
-        ctx.beginPath();
-        ctx.arc(g.mouth[0] + sx - 5, g.mouth[1] + sy - 4, 2, 0, Math.PI * 2);
-        ctx.arc(g.mouth[0] + sx + 5, g.mouth[1] + sy - 4, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
+  const mx = g.mouth[0] + sx, my = g.mouth[1] + sy;
+  if (!lit) return;
+
+  /* Firelight from inside, as a gradient that fades out. A flat ellipse of
+     orange at a low alpha painted a disc over the curtain instead of looking
+     like light coming through it. */
+  const glow = 0.30 + Math.sin(t * 3) * 0.10;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const gr = ctx.createRadialGradient(mx, my + 4, 1, mx, my + 4, 22);
+  gr.addColorStop(0, 'rgba(255,136,60,' + glow.toFixed(3) + ')');
+  gr.addColorStop(0.55, 'rgba(226,96,40,' + (glow * 0.4).toFixed(3) + ')');
+  gr.addColorStop(1, 'rgba(180,70,30,0)');
+  ctx.fillStyle = gr;
+  ctx.beginPath(); ctx.ellipse(mx, my + 4, 22, 20, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  if (b.riders && b.riders.length) {
+    /* a pair of eyes blinks in the dark, and shifts about */
+    const blink = Math.sin(t * 1.7) > 0.72;
+    const wob = Math.sin(t * 0.9) * 3;
+    if (!blink) {
+      ctx.fillStyle = '#ffe066';
+      ctx.beginPath();
+      ctx.arc(mx - 5 + wob, my - 4, 2.1, 0, Math.PI * 2);
+      ctx.arc(mx + 5 + wob, my - 4, 2.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#2a1a0a';
+      ctx.beginPath();
+      ctx.arc(mx - 5 + wob, my - 4, 0.9, 0, Math.PI * 2);
+      ctx.arc(mx + 5 + wob, my - 4, 0.9, 0, Math.PI * 2);
+      ctx.fill();
     }
+  }
+
+  /* bats over the mound, only while the ride is running */
+  ctx.strokeStyle = 'rgba(38,32,28,.75)'; ctx.lineWidth = 1.4;
+  for (let i = 0; i < 3; i++) {
+    const a = t * (0.6 + i * 0.13) + i * 2.1;
+    const bxp = mx + Math.cos(a) * (30 + i * 9);
+    const byp = my - 62 - i * 8 + Math.sin(a * 1.7) * 5;
+    const flap = Math.sin(t * 11 + i) * 2.4;
+    ctx.beginPath();
+    ctx.moveTo(bxp - 4, byp + flap); ctx.quadraticCurveTo(bxp - 2, byp - 1.5, bxp, byp);
+    ctx.quadraticCurveTo(bxp + 2, byp - 1.5, bxp + 4, byp + flap);
+    ctx.stroke();
   }
 };
 
@@ -774,90 +1140,188 @@ ANIM.tower = function (ctx, sx, sy, g, t, b) {
 
 /* ------------------------------------------------------------ water chute */
 ART.chute = function (w, h) {
-  const g = spriteCtx(w, h, 96), ctx = g.ctx;
+  const g = spriteCtx(w, h, 120), ctx = g.ctx;
   pad(g, '#86906d', '#646c50');
-  const top = g.C(w - 0.7, 0.4), bot = g.C(0.8, h - 1.1);
-  const H = 66;
-  /* splash pool first, it sits behind the flume */
-  ctx.fillStyle = shade(PALETTE.water, -0.3);
-  ctx.beginPath(); ctx.ellipse(bot[0], bot[1] + 3, 34, 17, 0, 0, Math.PI * 2); ctx.fill();
+  const top = g.C(w - 0.75, 0.45), bot = g.C(0.85, h - 1.15);
+  const H = 74;
+
+  /* the splash pool, behind everything else */
+  ctx.fillStyle = shade(PALETTE.water, -0.42);
+  ctx.beginPath(); ctx.ellipse(bot[0], bot[1] + 4, 38, 19, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = shade(PALETTE.water, -0.12);
+  ctx.beginPath(); ctx.ellipse(bot[0], bot[1], 36, 17, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = PALETTE.water;
-  ctx.beginPath(); ctx.ellipse(bot[0], bot[1], 32, 15, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.ellipse(bot[0] - 4, bot[1] - 2, 18, 8, 0, 0, Math.PI * 2); ctx.stroke();
-  /* rocks around the pool */
-  for (const a of [2.4, 3.6, 5.2]) {
-    const rx2 = bot[0] + Math.cos(a) * 34, ry2 = bot[1] + Math.sin(a) * 16;
+  ctx.beginPath(); ctx.ellipse(bot[0], bot[1] - 1, 33, 15, 0, 0, Math.PI * 2); ctx.fill();
+  /* light on the water, in bands rather than one ring */
+  ctx.strokeStyle = 'rgba(214,240,252,.35)'; ctx.lineWidth = 1.4;
+  for (const r of [0.42, 0.68, 0.88]) {
+    ctx.beginPath();
+    ctx.ellipse(bot[0] - 3, bot[1] - 2, 33 * r, 15 * r, 0, Math.PI * 0.15, Math.PI * 0.85);
+    ctx.stroke();
+  }
+  /* rocks and reeds round the rim */
+  for (const a of [2.2, 3.1, 3.9, 5.1, 5.9]) {
+    const rx2 = bot[0] + Math.cos(a) * 36, ry2 = bot[1] + Math.sin(a) * 17;
+    ctx.fillStyle = PALETTE.rockDark;
+    ctx.beginPath(); ctx.ellipse(rx2, ry2 + 1.5, 9, 5.5, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = PALETTE.rock;
-    ctx.beginPath(); ctx.ellipse(rx2, ry2, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = shade(PALETTE.rock, 0.18);
-    ctx.beginPath(); ctx.ellipse(rx2 - 1, ry2 - 2, 4, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(rx2, ry2, 8.5, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = shade(PALETTE.rock, 0.2);
+    ctx.beginPath(); ctx.ellipse(rx2 - 1.5, ry2 - 2, 4.4, 2.6, 0, 0, Math.PI * 2); ctx.fill();
   }
-  /* trestle supports under the flume */
-  for (let i = 1; i <= 3; i++) {
-    const f = i / 4;
-    const px = lerp(top[0], bot[0], f), py = lerp(top[1], bot[1], f);
-    const hh = lerp(H, 8, f);
-    ctx.strokeStyle = WOOD; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(px - 8, py); ctx.lineTo(px - 5, py - hh); ctx.moveTo(px + 8, py); ctx.lineTo(px + 5, py - hh); ctx.stroke();
-    ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(px - 7, py - hh * 0.45); ctx.lineTo(px + 7, py - hh * 0.45); ctx.stroke();
+  ctx.strokeStyle = '#5d8f4a'; ctx.lineWidth = 1.5;
+  for (let i = 0; i < 9; i++) {
+    const a = 2.5 + i * 0.36;
+    const rx2 = bot[0] + Math.cos(a) * 33, ry2 = bot[1] + Math.sin(a) * 15;
+    ctx.beginPath();
+    ctx.moveTo(rx2, ry2);
+    ctx.quadraticCurveTo(rx2 + 2, ry2 - 7, rx2 + 5, ry2 - 12);
+    ctx.stroke();
   }
-  /* tower with a ladder */
-  isoBox(ctx, top[0], top[1], TILE_W * 0.62, TILE_H * 0.62, H, WOOD_L, WOOD_D, WOOD);
-  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2;
-  for (let i = 0; i < 7; i++) {
+
+  /* the tower: a stone footing, a timber shaft, a thatched launch house */
+  ctx.fillStyle = 'rgba(0,0,0,.20)';
+  ctx.beginPath(); ctx.ellipse(top[0], top[1] + 4, 28, 12, 0, 0, Math.PI * 2); ctx.fill();
+  isoBox(ctx, top[0], top[1], TILE_W * 0.78, TILE_H * 0.78, 9, PALETTE.rock,
+    shade(PALETTE.rockDark, -0.14), PALETTE.rockDark);
+  isoBox(ctx, top[0], top[1] - 9, TILE_W * 0.60, TILE_H * 0.60, H - 18, WOOD_L, WOOD_D, WOOD);
+  /* horizontal bands, so the shaft reads as stacked timber */
+  ctx.strokeStyle = 'rgba(70,44,20,.45)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 6; i++) {
+    const yy = top[1] - 9 - (H - 18) * (i / 6);
+    ctx.beginPath(); ctx.moveTo(top[0] - 19, yy); ctx.lineTo(top[0] + 19, yy); ctx.stroke();
+  }
+  /* a ladder up the near face */
+  ctx.strokeStyle = WOOD; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(top[0] + 11, top[1] - 4); ctx.lineTo(top[0] + 11, top[1] - H + 2);
+  ctx.moveTo(top[0] + 21, top[1] - 8); ctx.lineTo(top[0] + 21, top[1] - H - 2);
+  ctx.stroke();
+  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 1.8;
+  for (let i = 0; i < 8; i++) {
     const yy = top[1] - 8 - i * 8;
-    ctx.beginPath(); ctx.moveTo(top[0] + 12, yy); ctx.lineTo(top[0] + 22, yy - 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(top[0] + 11, yy); ctx.lineTo(top[0] + 21, yy - 3); ctx.stroke();
   }
-  ctx.strokeStyle = WOOD; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.moveTo(top[0] + 12, top[1]); ctx.lineTo(top[0] + 12, top[1] - H);
-  ctx.moveTo(top[0] + 22, top[1] - 2); ctx.lineTo(top[0] + 22, top[1] - H - 2); ctx.stroke();
-  /* the flume itself: walls then water */
-  const ax = top[0], ay = top[1] - H, bx = bot[0], by = bot[1] - 4;
-  ctx.fillStyle = shade(WOOD, -0.25);
+  /* the launch house */
+  const hy = top[1] - H + 4;
+  isoBox(ctx, top[0], hy, TILE_W * 0.66, TILE_H * 0.66, 14, shade(WOOD_L, 0.1), WOOD_D, WOOD);
+  thatchRoof(ctx, top[0], hy - 14, 21, 8, 13, PALETTE.thatch);
+  skull(ctx, top[0], hy - 24, 6);
+
+  /* trestle bents under the flume, braced */
+  for (let i = 1; i <= 4; i++) {
+    const f = i / 5;
+    const px = lerp(top[0], bot[0], f), py = lerp(top[1], bot[1], f);
+    const hh = lerp(H - 8, 10, f);
+    ctx.strokeStyle = shade(WOOD, -0.2); ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(px - 10, py); ctx.lineTo(px - 5, py - hh);
+    ctx.moveTo(px + 10, py); ctx.lineTo(px + 5, py - hh);
+    ctx.stroke();
+    ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px - 8, py - hh * 0.35); ctx.lineTo(px + 8, py - hh * 0.35);
+    ctx.moveTo(px - 8, py - hh * 0.35); ctx.lineTo(px + 7, py - hh * 0.8);
+    ctx.moveTo(px + 8, py - hh * 0.35); ctx.lineTo(px - 7, py - hh * 0.8);
+    ctx.stroke();
+  }
+
+  /* The flume: a hollowed log, so an outer trough, the water inside it, and a
+     lip along each side. Drawn as one long quad rather than a line, because a
+     line has no inside. */
+  const ax = top[0], ay = top[1] - H + 16, bx = bot[0], by = bot[1] - 5;
+  ctx.fillStyle = shade(WOOD, -0.34);
   ctx.beginPath();
-  ctx.moveTo(ax - 13, ay + 2); ctx.lineTo(ax + 11, ay + 8); ctx.lineTo(bx + 15, by + 6); ctx.lineTo(bx - 11, by - 2);
+  ctx.moveTo(ax - 15, ay + 2); ctx.lineTo(ax + 13, ay + 9);
+  ctx.lineTo(bx + 18, by + 8); ctx.lineTo(bx - 13, by - 1);
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle = 'rgba(86,176,220,.92)';
+  /* water */
+  ctx.fillStyle = 'rgba(86,176,220,.95)';
   ctx.beginPath();
-  ctx.moveTo(ax - 9, ay + 3); ctx.lineTo(ax + 7, ay + 7); ctx.lineTo(bx + 11, by + 3); ctx.lineTo(bx - 7, by - 2);
+  ctx.moveTo(ax - 10, ay + 4); ctx.lineTo(ax + 8, ay + 8);
+  ctx.lineTo(bx + 12, by + 4); ctx.lineTo(bx - 8, by - 1);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(ax - 2, ay + 5); ctx.lineTo(bx + 1, by + 1); ctx.stroke();
-  ctx.strokeStyle = WOOD_L; ctx.lineWidth = 2.6;
-  ctx.beginPath(); ctx.moveTo(ax - 13, ay + 2); ctx.lineTo(bx - 11, by - 2); ctx.moveTo(ax + 11, ay + 8); ctx.lineTo(bx + 15, by + 6); ctx.stroke();
-  g.rideA = [ax - 1, ay + 2]; g.rideB = [bx + 2, by - 2]; g.pool = [bot[0], bot[1]];
+  /* streaks running down it */
+  ctx.strokeStyle = 'rgba(232,248,255,.4)'; ctx.lineWidth = 1.2;
+  for (const u of [-0.4, 0, 0.45]) {
+    ctx.beginPath();
+    ctx.moveTo(ax - 1 + u * 8, ay + 6 + u * 2);
+    ctx.lineTo(bx + 2 + u * 9, by + 1.5 + u * 2.5);
+    ctx.stroke();
+  }
+  /* the lips, lit along the top */
+  ctx.strokeStyle = WOOD_L; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(ax - 15, ay + 2); ctx.lineTo(bx - 13, by - 1);
+  ctx.moveTo(ax + 13, ay + 9); ctx.lineTo(bx + 18, by + 8);
+  ctx.stroke();
+  ctx.strokeStyle = shade(WOOD_L, 0.22); ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(ax - 15, ay + 1); ctx.lineTo(bx - 13, by - 2);
+  ctx.stroke();
+
+  g.rideA = [ax - 1, ay + 3]; g.rideB = [bx + 2, by - 2]; g.pool = [bot[0], bot[1] - 1];
   return g;
 };
 ANIM.chute = function (ctx, sx, sy, g, t, b) {
+  /* the water always runs; only the boat waits for the ride to open */
+  const px0 = g.pool[0] + sx, py0 = g.pool[1] + sy;
+  ctx.fillStyle = 'rgba(232,248,255,.35)';
+  for (let i = 0; i < 4; i++) {
+    const u = ((t * 0.5 + i * 0.25) % 1);
+    const x = lerp(g.rideA[0], g.rideB[0], u) + sx, y = lerp(g.rideA[1], g.rideB[1], u) + sy;
+    ctx.fillRect(x - 5, y - 1 + Math.sin(t * 9 + i) * 1.2, 9, 1.6);
+  }
+
   if (!(b.powered && b.open)) return;
   const p = rideT(b, 0.45) % 1;
   const x = lerp(g.rideA[0], g.rideB[0], p) + sx, y = lerp(g.rideA[1], g.rideB[1], p) + sy;
-  /* hollowed log boat */
-  ctx.fillStyle = '#7a4a2a';
-  roundRect(ctx, x - 11, y - 7, 22, 9, 4); ctx.fill();
+
+  /* a hollowed log boat with a carved prow */
   ctx.fillStyle = '#5d3720';
-  roundRect(ctx, x - 9, y - 7, 18, 3.5, 2); ctx.fill();
+  roundRect(ctx, x - 13, y - 6, 26, 10, 4.5); ctx.fill();
+  ctx.fillStyle = '#7a4a2a';
+  roundRect(ctx, x - 13, y - 8, 26, 9, 4); ctx.fill();
+  ctx.fillStyle = '#4a2c18';
+  roundRect(ctx, x - 10, y - 7.5, 20, 4, 2); ctx.fill();
+  ctx.fillStyle = '#8a5a33';
+  ctx.beginPath();
+  ctx.moveTo(x + 12, y - 7); ctx.lineTo(x + 19, y - 11); ctx.lineTo(x + 14, y - 2);
+  ctx.closePath(); ctx.fill();
   for (let i = 0; i < 2; i++) {
-    ctx.fillStyle = CLOTH_TONES[i + 1];
-    roundRect(ctx, x - 5 + i * 8, y - 12, 6, 6, 2); ctx.fill();
-    ctx.fillStyle = SKIN_TONES[i + 1];
-    ctx.beginPath(); ctx.arc(x - 2 + i * 8, y - 13, 2.6, 0, Math.PI * 2); ctx.fill();
+    const who = b.riders && b.riders[i];
+    if (who && who.look) {
+      const spr = getPerson(who.look, PERSON_SIT), k = 0.52;
+      ctx.drawImage(spr.c, x - 5 + i * 9 - spr.ox * k, y - 6 - spr.oy * k, spr.w * k, spr.h * k);
+    } else {
+      ctx.fillStyle = CLOTH_TONES[i + 1];
+      roundRect(ctx, x - 7 + i * 9, y - 13, 6.5, 7, 2.4); ctx.fill();
+      ctx.fillStyle = SKIN_TONES[i + 1];
+      ctx.beginPath(); ctx.arc(x - 3.8 + i * 9, y - 14.5, 2.8, 0, Math.PI * 2); ctx.fill();
+    }
   }
-  /* spray behind the boat */
-  ctx.fillStyle = 'rgba(207,233,247,.75)';
-  for (let i = 0; i < 4; i++) ctx.fillRect(x - 12 - i * 4, y - 4 + Math.sin(t * 20 + i) * 2, 3, 2);
-  if (p > 0.82) {
-    const f = (p - 0.82) / 0.18;
-    ctx.save(); ctx.globalAlpha = 1 - f;
+
+  /* spray thrown up behind it */
+  ctx.fillStyle = 'rgba(214,240,252,.75)';
+  for (let i = 0; i < 5; i++)
+    ctx.fillRect(x - 14 - i * 4, y - 3 + Math.sin(t * 20 + i) * 2.4, 3, 2);
+
+  /* the landing */
+  if (p > 0.80) {
+    const f = (p - 0.80) / 0.20;
+    ctx.save();
+    ctx.globalAlpha = 1 - f;
     ctx.fillStyle = '#e4f4fd';
-    for (let i = 0; i < 9; i++) {
-      const a = Math.PI + (i / 8) * Math.PI;
+    for (let i = 0; i < 12; i++) {
+      const a = Math.PI + (i / 11) * Math.PI;
       ctx.beginPath();
-      ctx.arc(g.pool[0] + sx + Math.cos(a) * f * 34, g.pool[1] + sy + Math.sin(a) * f * 18 - 6, 4 - f * 2.6, 0, Math.PI * 2);
+      ctx.arc(px0 + Math.cos(a) * f * 38, py0 + Math.sin(a) * f * 20 - 8 - Math.sin(f * Math.PI) * 10,
+        4.5 - f * 3, 0, Math.PI * 2);
       ctx.fill();
     }
+    /* and a ring spreading out on the pool */
+    ctx.strokeStyle = 'rgba(232,248,255,.6)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(px0, py0, 8 + f * 26, 4 + f * 12, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 };
@@ -865,9 +1329,9 @@ ANIM.chute = function (ctx, sx, sy, g, t, b) {
 /* --------------------------------------------------------- roller coaster */
 function coasterTrack(g, w, h) {
   const ctrl = [
-    [0.7, h - 0.6, 0], [2.6, h - 0.45, 2], [w - 0.8, h - 1.0, 10],
-    [w - 0.35, h / 2 - 0.2, 30], [w - 1.1, 0.45, 54], [w / 2, 0.15, 62],
-    [1.2, 0.5, 40], [0.3, h / 2, 14]
+    [0.7, h - 0.6, 0], [2.6, h - 0.45, 3], [w - 0.8, h - 1.0, 12],
+    [w - 0.35, h / 2 - 0.2, 34], [w - 1.1, 0.45, 58], [w / 2, 0.15, 66],
+    [1.2, 0.5, 42], [0.3, h / 2, 15]
   ];
   return spline(ctrl, 9).map(p => {
     const c = g.C(p[0], p[1]);
@@ -875,73 +1339,144 @@ function coasterTrack(g, w, h) {
   });
 }
 ART.coaster = function (w, h) {
-  const g = spriteCtx(w, h, 110), ctx = g.ctx;
+  const g = spriteCtx(w, h, 126), ctx = g.ctx;
   pad(g, SAND, SAND_E);
   const pts = coasterTrack(g, w, h);
   g.track = pts;
   const n = pts.length;
-  /* draw segment by segment, back to front, so the track weaves correctly */
+
+  /* Back to front, so the track weaves over and under itself correctly. */
   const segs = [];
-  for (let i = 0; i < n; i++) segs.push({ a: pts[i], b: pts[(i + 1) % n], d: pts[i].d });
+  for (let i = 0; i < n; i++) segs.push({ a: pts[i], b: pts[(i + 1) % n], i, d: pts[i].d });
   segs.sort((p, q) => p.d - q.d);
-  for (const s of segs) {
-    /* support post */
-    if (s.a.z > 7 && Math.random() < 1) {
-      const step = Math.round((s.a.d * 7) % 3);
-      if (step === 0) {
-        ctx.strokeStyle = shade(WOOD, -0.1); ctx.lineWidth = 3.2;
-        ctx.beginPath(); ctx.moveTo(s.a.x, s.a.y + 2); ctx.lineTo(s.a.x, s.a.gy); ctx.stroke();
-        ctx.strokeStyle = WOOD_D; ctx.lineWidth = 1.6;
+
+  for (const sg of segs) {
+    const a = sg.a, b2 = sg.b;
+    /* A bent under the track rather than a single stick: two splayed legs with
+       a cap and a cross-brace, every third segment where it is high enough. */
+    if (a.z > 6 && Math.round((a.d * 7) % 3) === 0) {
+      const spread = 3 + a.z * 0.06;
+      ctx.strokeStyle = shade(WOOD, -0.26); ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(a.x - 2, a.y + 2); ctx.lineTo(a.x - spread - 2, a.gy);
+      ctx.moveTo(a.x + 2, a.y + 2); ctx.lineTo(a.x + spread + 2, a.gy);
+      ctx.stroke();
+      ctx.strokeStyle = WOOD_D; ctx.lineWidth = 1.5;
+      for (const u of [0.42, 0.75]) {
         ctx.beginPath();
-        ctx.moveTo(s.a.x - 5, s.a.gy - s.a.z * 0.55); ctx.lineTo(s.a.x + 5, s.a.gy - s.a.z * 0.2);
-        ctx.moveTo(s.a.x + 5, s.a.gy - s.a.z * 0.55); ctx.lineTo(s.a.x - 5, s.a.gy - s.a.z * 0.2);
+        ctx.moveTo(lerp(a.x - 2, a.x - spread - 2, u), lerp(a.y + 2, a.gy, u));
+        ctx.lineTo(lerp(a.x + 2, a.x + spread + 2, u), lerp(a.y + 2, a.gy, u));
         ctx.stroke();
       }
+      /* a stone pad under each foot */
+      ctx.fillStyle = 'rgba(0,0,0,.16)';
+      ctx.beginPath(); ctx.ellipse(a.x, a.gy + 1, spread + 5, 3.4, 0, 0, Math.PI * 2); ctx.fill();
     }
-    /* sleepers + two rails */
-    ctx.strokeStyle = WOOD_D; ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.moveTo(s.a.x, s.a.y); ctx.lineTo(s.b.x, s.b.y); ctx.stroke();
-    ctx.strokeStyle = shade(WOOD_L, 0.1); ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.moveTo(s.a.x, s.a.y - 2.4); ctx.lineTo(s.b.x, s.b.y - 2.4); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(s.a.x, s.a.y + 2.4); ctx.lineTo(s.b.x, s.b.y + 2.4); ctx.stroke();
+
+    /* sleepers, then two rails on top of them */
+    ctx.strokeStyle = shade(WOOD_D, -0.12); ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b2.x, b2.y); ctx.stroke();
+    ctx.strokeStyle = 'rgba(58,36,16,.5)'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y - 3.4); ctx.lineTo(a.x, a.y + 3.4); ctx.stroke();
+    ctx.strokeStyle = shade(WOOD_L, 0.14); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y - 2.6); ctx.lineTo(b2.x, b2.y - 2.6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(a.x, a.y + 2.6); ctx.lineTo(b2.x, b2.y + 2.6); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,240,208,.35)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y - 3.3); ctx.lineTo(b2.x, b2.y - 3.3); ctx.stroke();
+
+    /* ratchet teeth up the climb, so the lift hill reads as one */
+    if (b2.z > a.z + 1.1) {
+      ctx.strokeStyle = PALETTE.boneDark; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(a.x - 1, a.y + 1.4); ctx.lineTo(a.x + 1, a.y - 1.4); ctx.stroke();
+    }
   }
-  /* station with a thatched canopy over the boarding point */
-  const st = g.C(1.5, h - 0.55);
-  isoBox(ctx, st[0], st[1] + 4, TILE_W * 1.0, TILE_H * 1.0, 7, '#9c7a4f', '#63451f', '#7d5c32');
+
+  /* the station: a decked platform under a thatched canopy, with a queue rail */
+  const st = g.C(1.15, h - 0.85);
+  isoBox(ctx, st[0], st[1] + 4, TILE_W * 0.88, TILE_H * 0.88, 8, '#9c7a4f', '#5f4420', '#7b5a2f');
+  ctx.save();
+  ctx.beginPath(); diamond(ctx, st[0], st[1] - 4, TILE_W * 0.88, TILE_H * 0.88); ctx.clip();
+  ctx.strokeStyle = 'rgba(95,68,32,.5)'; ctx.lineWidth = 1;
+  for (let i = -5; i <= 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(st[0] - 28 + i * 5, st[1] - 4 + i * 2.5 - 15);
+    ctx.lineTo(st[0] + 2 + i * 5, st[1] - 4 + i * 2.5 + 0);
+    ctx.stroke();
+  }
+  ctx.restore();
+  /* the queue rail along the front */
+  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2;
+  for (let i = 0; i <= 3; i++) {
+    const px = st[0] - 20 + i * 10, py = st[1] + 4 + i * 5;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - 10); ctx.stroke();
+  }
+  ctx.strokeStyle = WOOD; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.moveTo(st[0] - 20, st[1] - 6); ctx.lineTo(st[0] + 10, st[1] + 9); ctx.stroke();
+  /* posts and canopy over the boarding point */
   for (const s of [-1, 1]) {
-    ctx.strokeStyle = WOOD; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(st[0] + s * 22, st[1] + 2); ctx.lineTo(st[0] + s * 22, st[1] - 20); ctx.stroke();
+    ctx.strokeStyle = shade(WOOD, -0.2); ctx.lineWidth = 3.2;
+    ctx.beginPath(); ctx.moveTo(st[0] + s * 19, st[1] + 1); ctx.lineTo(st[0] + s * 19, st[1] - 22); ctx.stroke();
   }
-  thatchRoof(ctx, st[0], st[1] - 20, 28, 10, 15, PALETTE.thatch);
-  /* a painted sign board */
+  thatchRoof(ctx, st[0], st[1] - 22, 24, 9, 13, PALETTE.thatch);
+  /* a painted board on the canopy, not floating above it */
+  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.moveTo(st[0] - 11, st[1] - 30); ctx.lineTo(st[0] - 11, st[1] - 23); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(st[0] + 11, st[1] - 30); ctx.lineTo(st[0] + 11, st[1] - 23); ctx.stroke();
+  ctx.fillStyle = shade('#c44a3f', -0.3);
+  roundRect(ctx, st[0] - 16, st[1] - 41, 32, 12, 3.2); ctx.fill();
   ctx.fillStyle = '#c44a3f';
-  roundRect(ctx, st[0] - 17, st[1] - 40, 34, 11, 3); ctx.fill();
-  ctx.fillStyle = '#f0dcae';
-  ctx.font = 'bold 8px system-ui, sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('RIDE', st[0], st[1] - 34);
+  roundRect(ctx, st[0] - 16, st[1] - 42.5, 32, 11, 3); ctx.fill();
+  /* a daubed run of track rather than a word, since the tribe has no writing */
+  ctx.strokeStyle = 'rgba(240,220,174,.85)'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(st[0] - 11, st[1] - 34);
+  ctx.quadraticCurveTo(st[0] - 4, st[1] - 43, st[0] + 2, st[1] - 36);
+  ctx.quadraticCurveTo(st[0] + 7, st[1] - 30, st[0] + 11, st[1] - 39);
+  ctx.stroke();
+
   return g;
 };
 ANIM.coaster = function (ctx, sx, sy, g, t, b) {
   if (!(b.powered && b.open)) return;
   const pts = g.track, n = pts.length;
   const head = rideT(b, 0.095) % 1;
-  for (let c = 2; c >= 0; c--) {
-    const u = (head - c * 0.02 + 1) % 1;
+  /* four cars, drawn back to front so the train overlaps itself correctly */
+  for (let c = 3; c >= 0; c--) {
+    const u = (head - c * 0.019 + 1) % 1;
     const f = u * n, i = Math.floor(f), fr = f - i;
     const a = pts[i % n], p2 = pts[(i + 1) % n];
     const x = lerp(a.x, p2.x, fr) + sx, y = lerp(a.y, p2.y, fr) + sy;
     const ang = Math.atan2(p2.y - a.y, p2.x - a.x);
     ctx.save();
     ctx.translate(x, y); ctx.rotate(ang * 0.35);
-    ctx.fillStyle = c === 0 ? '#c9453a' : '#e0a33c';
-    roundRect(ctx, -9, -10, 18, 10, 3); ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,.28)';
-    ctx.fillRect(-9, -3, 18, 3);
-    ctx.fillStyle = SKIN_TONES[(c + 1) % SKIN_TONES.length];
-    ctx.beginPath(); ctx.arc(-3.5, -12, 2.6, 0, Math.PI * 2); ctx.arc(3.5, -12, 2.6, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(-6, -14); ctx.lineTo(-4, -17); ctx.moveTo(5, -14); ctx.lineTo(7, -17); ctx.stroke();
+    /* a hollowed log car with a bone bar across the riders */
+    const col = c === 0 ? '#c9453a' : '#e0a33c';
+    ctx.fillStyle = shade(col, -0.42);
+    roundRect(ctx, -10, -4, 20, 6, 2.4); ctx.fill();
+    ctx.fillStyle = col;
+    roundRect(ctx, -10, -11, 20, 10, 3.4); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.26)';
+    ctx.fillRect(-10, -11, 20, 2.2);
+    ctx.fillStyle = 'rgba(0,0,0,.26)';
+    ctx.fillRect(-10, -4.5, 20, 2.4);
+    /* wheels */
+    ctx.fillStyle = '#4a3320';
+    ctx.beginPath(); ctx.arc(-6, 2, 2.1, 0, Math.PI * 2); ctx.arc(6, 2, 2.1, 0, Math.PI * 2); ctx.fill();
+    /* riders, arms up */
+    for (let r = 0; r < 2; r++) {
+      const px = -4 + r * 8;
+      ctx.fillStyle = SKIN_TONES[(c + r) % SKIN_TONES.length];
+      ctx.beginPath(); ctx.arc(px, -14, 2.8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = HAIR_TONES[(c + r) % HAIR_TONES.length];
+      ctx.beginPath(); ctx.arc(px, -15, 2.8, Math.PI * 1.05, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = SKIN_TONES[(c + r) % SKIN_TONES.length]; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(px - 2.4, -12.5); ctx.lineTo(px - 4.5, -18);
+      ctx.moveTo(px + 2.4, -12.5); ctx.lineTo(px + 4.5, -18);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = PALETTE.boneDark; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(-8, -11.5); ctx.lineTo(8, -11.5); ctx.stroke();
     ctx.restore();
   }
 };
