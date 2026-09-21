@@ -14,12 +14,32 @@
   <canvas id="game"></canvas>
 
   <header id="hud">
-    <div class="stat" title="Money"><span class="ico">🪙</span><b id="hud-money">$0</b></div>
-    <div class="stat" title="Average visitor happiness"><span class="ico">😀</span><b id="hud-happy">50%</b></div>
-    <div class="stat" title="Visitors, and staff on the payroll"><span class="ico">🧍</span><b id="hud-visitors">0</b><span class="ico staff-ico">🛠</span><b id="hud-staff">0</b></div>
-    <div class="stat hide-sm" title="Park rating"><span class="ico">⭐</span><b id="hud-rating">0</b></div>
+    <div class="brand hide-sm"><span class="mark">🦴</span><span class="words"><b>Prehistoric</b><i>Fun Park</i></span></div>
+    <div class="stat" title="Money in hand">
+      <span class="ico">🪙</span>
+      <span class="col"><b id="hud-money">$0</b><em id="hud-money-sub">Money</em></span>
+    </div>
+    <div class="stat tappable" title="How the tribe feels">
+      <span class="ico">😀</span>
+      <span class="col"><b id="hud-happy">50%</b><em>Park Rating</em></span>
+    </div>
+    <div class="stat" title="Visitors in the park">
+      <span class="ico">🧍</span>
+      <span class="col"><b id="hud-visitors">0</b><em>Guests</em></span>
+    </div>
+    <div class="stat hide-sm" title="Staff on the payroll">
+      <span class="ico">🛠</span>
+      <span class="col"><b id="hud-staff">0</b><em>Staff</em></span>
+    </div>
+    <div class="stat hide-sm" title="How well known the park is">
+      <span class="ico">⭐</span>
+      <span class="col"><b id="hud-rating">0</b><em>Park Level</em></span>
+    </div>
     <div class="grow"></div>
-    <div class="stat moon" title="Each moon is one month"><canvas id="moon" width="30" height="30"></canvas><b id="hud-month">Moon 1</b></div>
+    <div class="stat moon" title="Each moon is one month">
+      <canvas id="moon" width="30" height="30"></canvas>
+      <span class="col"><b id="hud-month">Moon 1</b><em id="hud-clock">daylight</em></span>
+    </div>
     <div class="speeds" id="speeds">
       <button data-speed="0" title="Pause">❚❚</button>
       <button data-speed="1" class="on" title="Normal">▶</button>
@@ -45,6 +65,8 @@
     <button id="btn-cancel-build">✕ Done</button>
   </div>
 
+  <!-- One set of buttons. CSS makes it a rail down the left on a wide screen
+       and the old dock across the bottom on a phone, so nothing binds twice. -->
   <nav id="dock">
     <button id="btn-build"><span>🔨</span>Build</button>
     <button id="btn-staff"><span>🧑</span>Staff</button>
@@ -52,6 +74,15 @@
     <button id="btn-goals"><span>🎯</span>Goals</button>
     <button id="btn-menu"><span>☰</span>Menu</button>
   </nav>
+
+  <div id="minimap" class="hide-sm" title="The whole valley — tap to look somewhere">
+    <canvas id="mini" width="180" height="180"></canvas>
+  </div>
+
+  <aside id="goalsdock" class="hide-sm">
+    <header><span class="t">🎯 Goals</span><button id="goals-fold" title="Fold away">▾</button></header>
+    <div id="goalsdock-body"></div>
+  </aside>
 
   <section id="sheet" class="sheet hidden">
     <div class="sheet-head">

@@ -43,7 +43,7 @@ body {
 #hud {
   position: absolute; top: 0; left: 0; right: 0;
   display: flex; align-items: center; gap: 8px;
-  padding: calc(6px + env(safe-area-inset-top, 0px)) 10px 6px;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 10px 6px 14px;
   background: linear-gradient(180deg, rgba(12,10,8,.92), rgba(12,10,8,.55) 70%, transparent);
   pointer-events: none;
   z-index: 5;
@@ -58,12 +58,25 @@ body {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-#hud .stat b { font-weight: 650; letter-spacing: .01em; }
-#hud .ico { font-size: 15px; line-height: 1; }
-/* the staff tally shares the visitors chip, set off by a hairline */
-#hud .staff-ico { margin-left: 3px; padding-left: 8px; border-left: 1px solid var(--line); opacity: .85; }
+#hud .stat b { font-weight: 650; letter-spacing: .01em; font-size: 15px; }
+/* Each chip carries its own label, so the row reads without hovering for a
+   tooltip — which on a phone there is no way to do at all. */
+#hud .stat .col { display: flex; flex-direction: column; line-height: 1.05; }
+#hud .stat em { font-style: normal; font-size: 9.5px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--ink-mute); }
+#hud .stat .delta { font-size: 9.5px; font-weight: 700; }
+#hud .stat .delta.up { color: var(--good); }
+#hud .stat .delta.down { color: var(--bad); }
+#hud .ico { font-size: 16px; line-height: 1; }
 #hud .grow { flex: 1; }
-#hud .moon { padding-left: 4px; gap: 4px; }
+#hud .moon { padding-left: 4px; gap: 6px; }
+#hud .brand { display: flex; align-items: center; gap: 8px; padding: 3px 14px 3px 4px; margin-right: 4px;
+  border-right: 1px solid var(--line); flex: 0 0 auto; }
+#hud .brand .mark { font-size: 20px; }
+#hud .brand .words { display: flex; flex-direction: column; line-height: 1.02; }
+#hud .brand b { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+#hud .brand i { font-style: normal; font-size: 9.5px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--ink-mute); }
 #moon { display: block; }
 
 .speeds { display: flex; gap: 3px; pointer-events: auto; background: rgba(27,23,18,.82);
@@ -118,6 +131,58 @@ body {
 #dock button span { font-size: 18px; line-height: 1.1; }
 #dock button:active { transform: translateY(1px); }
 #dock button.on { background: var(--accent); border-color: var(--accent); color: #241a08; }
+
+/* ------------------------------------------------------ rail, minimap, goals */
+/* On anything wider than a phone the dock stands down the left as a rail, the
+   way the mockup has it, and the map corner and the goals panel appear. The
+   markup is the same either way — one set of buttons, bound once. */
+@media (min-width: 761px) {
+  #dock {
+    left: 0; right: auto; top: 0; bottom: 0;
+    flex-direction: column; justify-content: flex-start; gap: 7px;
+    width: 168px;
+    padding: calc(64px + env(safe-area-inset-top, 0px)) 12px 12px;
+    background: linear-gradient(90deg, rgba(12,10,8,.9), rgba(12,10,8,.5) 70%, transparent);
+  }
+  #dock button {
+    flex: 0 0 auto; max-width: none; width: 100%;
+    flex-direction: row; justify-content: flex-start; gap: 11px;
+    padding: 11px 14px; font-size: 14px; border-radius: 12px;
+  }
+  #dock button span { font-size: 19px; width: 22px; text-align: center; }
+}
+
+#minimap {
+  position: absolute; left: 12px; bottom: calc(12px + var(--safe-b));
+  width: 168px; height: 168px;
+  border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  background: rgba(12,10,8,.9); box-shadow: var(--shadow);
+  pointer-events: auto; cursor: pointer; z-index: 6;
+}
+#minimap canvas { display: block; width: 100%; height: 100%; }
+
+#goalsdock {
+  position: absolute; right: 12px; bottom: calc(12px + var(--safe-b));
+  width: 290px; max-width: 42vw;
+  background: rgba(27,23,18,.92); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); backdrop-filter: blur(6px);
+  pointer-events: auto; z-index: 6; overflow: hidden;
+}
+#goalsdock header { display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; border-bottom: 1px solid var(--line); }
+#goalsdock .t { font-size: 12.5px; font-weight: 700; letter-spacing: .02em; }
+#goalsdock button { background: none; border: 0; color: var(--ink-mute); cursor: pointer;
+  font-size: 14px; padding: 0 4px; }
+#goalsdock.folded #goalsdock-body { display: none; }
+#goalsdock.folded #goals-fold { transform: rotate(180deg); }
+#goalsdock-body { padding: 6px 10px 9px; }
+#goalsdock .g { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+#goalsdock .g .box { width: 14px; height: 14px; flex: 0 0 auto; border-radius: 4px;
+  border: 1.5px solid var(--line); display: grid; place-items: center; font-size: 10px; }
+#goalsdock .g.done .box { background: var(--good); border-color: var(--good); color: #0d1f1a; }
+#goalsdock .g .nm { flex: 1; color: var(--ink-2); }
+#goalsdock .g .n { font-variant-numeric: tabular-nums; color: var(--ink-mute); font-size: 11px; }
+#goalsdock .g.done .n { color: var(--good); }
 
 /* ------------------------------------------------- place / cancel buttons */
 .confirm { position: absolute; inset: 0; pointer-events: none; z-index: 7; }
@@ -358,7 +423,10 @@ table.data th { color: var(--ink-mute); font-weight: 600; }
 
 @media (max-width: 620px) {
   #hud { gap: 3px; padding-left: 5px; padding-right: 5px; }
-  #hud .hide-sm { display: none; }
+  /* .hide-sm was scoped to the header, so the map corner and the goals panel
+     ignored it and sat on top of the dock. */
+  .hide-sm { display: none !important; }
+  #hud .stat em { font-size: 8.5px; }
   #hud .stat { padding: 4px 7px 4px 5px; font-size: 12px; gap: 3px; }
   #hud .ico { font-size: 13px; }
   #hud .staff-ico { margin-left: 0; padding-left: 4px; }

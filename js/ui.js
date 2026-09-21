@@ -28,7 +28,10 @@ const ui = {
       tabs: $('sheet-tabs'), cards: $('sheet-cards'), modal: $('modal'), modalBody: $('modal-body'),
       buildbar: $('buildbar'), buildbarName: $('buildbar-name'), dock: $('dock'),
       confirm: $('confirm'), yes: $('confirm-yes'), no: $('confirm-no'),
-      rot: $('confirm-rot'), tag: $('confirm-tag')
+      rot: $('confirm-rot'), tag: $('confirm-tag'),
+      moneySub: $('hud-money-sub'), clock: $('hud-clock'),
+      mini: $('mini'), miniWrap: $('minimap'),
+      goalsDock: $('goalsdock'), goalsBody: $('goalsdock-body'), goalsFold: $('goals-fold')
     };
 
     this.el.yes.addEventListener('click', () => this.confirmPlace());
@@ -48,10 +51,26 @@ const ui = {
     $('btn-stats').addEventListener('click', () => this.statsModal());
     $('btn-goals').addEventListener('click', () => this.goalsModal());
     $('btn-menu').addEventListener('click', () => this.menuModal());
-    const happyChip = this.el.happy.parentElement;
+    /* the happiness chip opens the mood breakdown; the header lets pointer
+       events through to the map, so it has to ask for them back */
+    const happyChip = this.el.happy.closest('.stat');
     if (happyChip) {
       happyChip.classList.add('tappable');
       happyChip.addEventListener('click', () => this.moodModal());
+    }
+
+    if (this.el.miniWrap) {
+      this.el.miniWrap.addEventListener('click', e => {
+        const r = this.el.mini.getBoundingClientRect();
+        const m = this.miniMap;
+        if (!m) return;
+        const tx = m.x0 + ((e.clientX - r.left) / r.width) * (m.x1 - m.x0);
+        const ty = m.y0 + ((e.clientY - r.top) / r.height) * (m.y1 - m.y0);
+        renderer.centerOn(tx, ty);
+      });
+    }
+    if (this.el.goalsFold) {
+      this.el.goalsFold.addEventListener('click', () => this.el.goalsDock.classList.toggle('folded'));
     }
     $('btn-rotate').addEventListener('click', () => this.rotate());
     $('btn-cancel-build').addEventListener('click', () => {
@@ -453,19 +472,114 @@ const ui = {
        buttons, so the balance is abbreviated there */
     this.el.money.textContent = renderer.W <= 620 ? moneyShort(sim.money) : money(sim.money);
     this.el.money.style.color = sim.money < 0 ? CHART.loss : '';
-    this.el.money.parentElement.title = sim.lossMoons
+    const moneyChip = this.el.money.closest('.stat');
+    moneyChip.title = sim.lossMoons
       ? sim.lossMoons + ' of ' + LOSS_MOONS + ' losing moons \u00b7 out at ' + money(DEBT_LIMIT)
       : (sim.money < 0 ? 'In debt \u00b7 out at ' + money(DEBT_LIMIT) : 'Money');
-    this.el.money.parentElement.classList.toggle('warn', sim.money < 0 || sim.lossMoons > 0);
+    moneyChip.classList.toggle('warn', sim.money < 0 || sim.lossMoons > 0);
+    /* what the park did last moon, under the balance, the way the mockup has it */
+    const last = sim.stats[sim.stats.length - 1];
+    const op = last ? (last.operating === undefined ? last.profit : last.operating) : null;
+    if (op === null) {
+      this.el.moneySub.textContent = 'Money';
+      this.el.moneySub.className = '';
+    } else {
+      this.el.moneySub.textContent = (op >= 0 ? '+' : '\u2212') + money(Math.abs(op)).replace('$', '$')
+        + ' last moon';
+      this.el.moneySub.className = 'delta ' + (op >= 0 ? 'up' : 'down');
+    }
+    if (this.el.clock) this.el.clock.textContent = 'day ' + (Math.floor((sim.time % MONTH_SECONDS)
+      / MONTH_SECONDS * DAYS_PER_MONTH) + 1) + ' of ' + DAYS_PER_MONTH;
     this.el.happy.textContent = Math.round(sim.avgHappiness()) + '%';
     this.el.visitors.textContent = sim.visitors.length;
     this.el.staff.textContent = sim.staff.length;
     this.el.rating.textContent = Math.round(park.rating(sim.avgHappiness()));
     this.el.month.textContent = 'Moon ' + (sim.month + 1);
     this.drawMoon();
+    /* the map corner and the goals panel change slowly — four times a second
+       is plenty, and they are not worth a redraw every frame */
+    const now = performance.now();
+    if (now - (this.lastSlow || 0) > 250) {
+      this.lastSlow = now;
+      this.drawMinimap();
+      this.renderGoalsDock();
+    }
     this.renderToasts();
     if (this.pending) this.positionConfirm();
     if (sim.selected && performance.now() - this.lastInspect > 250) this.renderInspector();
+  },
+
+  /* The whole valley in the corner, straight down rather than in projection —
+     a map you glance at wants north up, not a diamond. */
+  drawMinimap() {
+    const cv = this.el.mini;
+    if (!cv || this.el.miniWrap.offsetParent === null) return;
+    const ctx = cv.getContext('2d');
+    const pad = 6;
+    const x0 = -pad, y0 = -pad, x1 = GRID_W + pad, y1 = ROAD_Y + 2;
+    this.miniMap = { x0, y0, x1, y1 };
+    const w = cv.width, h = cv.height;
+    const sx = w / (x1 - x0), sy = h / (y1 - y0);
+    const px = t => (t - x0) * sx, py = t => (t - y0) * sy;
+
+    ctx.fillStyle = '#3c5a2e';
+    ctx.fillRect(0, 0, w, h);
+    /* terrain, at every other tile — this is a thumbnail, not the map */
+    for (let y = y0; y < y1; y += 2) {
+      for (let x = x0; x < x1; x += 2) {
+        const g = park.terrainAt(x, y);
+        if (g === GROUND.GRASS) continue;
+        ctx.fillStyle = g === GROUND.WATER ? '#2f6f9b' : g === GROUND.SAND ? '#c8b183'
+          : g === GROUND.ROAD ? '#3a3a3c' : '#9a8d6e';
+        ctx.fillRect(px(x), py(y), sx * 2 + 1, sy * 2 + 1);
+      }
+    }
+    /* the land you own, and the paths on it */
+    ctx.fillStyle = 'rgba(232,165,60,.16)';
+    for (let py2 = 0; py2 < PLOTS_Y; py2++) for (let px2 = 0; px2 < PLOTS_X; px2++) {
+      if (!park.ownsPlot(px2, py2)) continue;
+      ctx.fillRect(px(px2 * PLOT), py(py2 * PLOT), sx * PLOT, sy * PLOT);
+    }
+    ctx.fillStyle = '#b3a487';
+    for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) {
+      if (!park.isPath(x, y)) continue;
+      ctx.fillRect(px(x), py(y), Math.max(1, sx), Math.max(1, sy));
+    }
+    /* what is built on it */
+    for (const b of park.buildings.values()) {
+      const c = b.item.cat;
+      ctx.fillStyle = c === 'ride' ? '#e8a53c' : c === 'stall' ? '#3aa98f'
+        : c === 'service' ? '#5d8fd6' : c === 'engine' ? '#c9662f' : '#8fae63';
+      ctx.fillRect(px(b.x), py(b.y), Math.max(2, sx * b.w), Math.max(2, sy * b.h));
+    }
+    /* where the camera is looking */
+    const c0 = renderer.screenToTile(0, 0), c1 = renderer.screenToTile(renderer.W, 0);
+    const c2 = renderer.screenToTile(renderer.W, renderer.H), c3 = renderer.screenToTile(0, renderer.H);
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px(c0.fx), py(c0.fy));
+    ctx.lineTo(px(c1.fx), py(c1.fy));
+    ctx.lineTo(px(c2.fx), py(c2.fy));
+    ctx.lineTo(px(c3.fx), py(c3.fy));
+    ctx.closePath();
+    ctx.stroke();
+  },
+
+  /* The objectives, always on screen rather than behind a button. */
+  renderGoalsDock() {
+    const box = this.el.goalsBody;
+    if (!box || this.el.goalsDock.offsetParent === null) return;
+    const st = sim.objectiveState();
+    let h = '';
+    for (const o of OBJECTIVES) {
+      const v = Math.round(st[o.id]), done = v >= o.target;
+      h += '<div class="g' + (done ? ' done' : '') + '"><span class="box">' + (done ? '\u2713' : '') + '</span>'
+        + '<span class="nm">' + o.label + '</span>'
+        + '<span class="n">' + (done ? 'done' : v + ' / ' + o.target) + '</span></div>';
+    }
+    if (box.dataset.k === h) return;      /* the DOM only changes when the numbers do */
+    box.dataset.k = h;
+    box.innerHTML = h;
   },
 
   drawMoon() {
