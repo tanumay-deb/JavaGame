@@ -187,7 +187,21 @@ const ui = {
     const tab = BUILD_TABS.find(t => t.id === this.tab);
     const box = this.el.cards;
     box.innerHTML = '';
-    for (const key of tab.items) {
+    /* The rides read in bands, gentlest first. Everything else is one list. */
+    const order = this.tab === 'ride'
+      ? RIDE_GROUPS.flatMap(g => [{ head: g }].concat(
+          tab.items.filter(k => ITEMS[k].group === g.id).map(k => ({ key: k }))))
+      : tab.items.map(k => ({ key: k }));
+    for (const entry of order) {
+      if (entry.head) {
+        const h = document.createElement('div');
+        h.className = 'band';
+        h.style.setProperty('--tone', entry.head.tone);
+        h.innerHTML = '<b>' + entry.head.label + '</b><span>' + entry.head.note + '</span>';
+        box.appendChild(h);
+        continue;
+      }
+      const key = entry.key;
       const item = ITEMS[key];
       const card = document.createElement('button');
       card.className = 'card';
@@ -219,11 +233,39 @@ const ui = {
         chips.appendChild(c);
       };
       if (item.cat === 'ride') {
-        chip('⚡ thrill ' + item.thrill, 'rt');
-        chip(this.frightLabel(item.fright), 'fr');
-        chip('👥 ' + item.cap);
-        chip('🎟 ' + money(item.fee));
-        if (item.power) chip('⚡ power', 'pw');
+        /* The catalogue block: size, seats, what it takes and what it gives.
+           A ride is two numbers now — how exciting and how frightening — and
+           the second decides whether half the park will go near it, so it is
+           spelled out rather than left as a bar. */
+        const dare = Math.round(clamp((100 - (item.fright || 0)) / 90, 0, 1) * 100);
+        const g = document.createElement('div');
+        g.className = 'statgrid';
+        /* A card is about two hundred pixels wide, which is not enough for
+           icon, number and a word in two columns — spelling them out here
+           truncated every label to "2 s...". The word lives in the tooltip
+           and the icon carries it instead; the one figure that genuinely
+           needs saying in words gets the full width underneath. */
+        const cell = (icon, val, tip, cls) => {
+          const d = document.createElement('div');
+          d.className = 'sc' + (cls ? ' ' + cls : '');
+          d.title = tip;
+          d.innerHTML = '<span class="i">' + icon + '</span><span class="v">' + val + '</span>';
+          g.appendChild(d);
+        };
+        cell('\u25A6', item.w + '\u00d7' + item.h, 'Takes ' + item.w + ' by ' + item.h + ' tiles');
+        cell('\u{1F465}', item.cap, 'Seats ' + item.cap + ' at a time');
+        cell('\u26A1', item.thrill, 'Excitement ' + item.thrill + ' out of 10');
+        cell('\u{1F630}', item.fright || 0, 'Nausea ' + (item.fright || 0) + ' out of 100',
+          (item.fright || 0) > 55 ? 'hot' : '');
+        cell('\u{1F39F}', money(item.fee), 'Suggested price for a ride');
+        cell('\u2B50', 'M' + item.unlock, item.unlock ? 'Invented at moon ' + item.unlock : 'Available from the start');
+        const wide = document.createElement('div');
+        wide.className = 'sc wide' + ((item.fright || 0) > 55 ? ' hot' : '');
+        wide.textContent = (item.fright ? dare + '% dare it' : 'everyone dares it')
+          + (item.power ? ' \u00b7 \u26A1 power' : '');
+        wide.title = item.power ? 'Needs a Dino Treadmill nearby, with a rider on it' : '';
+        g.appendChild(wide);
+        card.appendChild(g);
       } else if (item.cat === 'engine') {
         chip('⚡ ' + item.radius + ' tiles', 'pw');
         chip('🦕 rider', 'st');

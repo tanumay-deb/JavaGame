@@ -507,3 +507,29 @@ button.tag:active { transform: translateY(1px); }
 /* the money chip while the park is in debt */
 #hud .stat.warn { border-color: #6b2f28; background: rgba(107,47,40,.35); }
 #hud .stat.warn b { color: #f0b9a6; }
+
+/* ------------------------------------------------- the rides catalogue */
+/* Bands across the tray, gentlest first, the way the design sheet reads. */
+.cards .band {
+  grid-column: 1 / -1;
+  display: flex; align-items: baseline; gap: 9px;
+  margin: 4px 2px 0; padding: 5px 10px;
+  border-left: 3px solid var(--tone);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 22%, transparent), transparent 70%);
+  border-radius: 4px;
+}
+.cards .band b { font-size: 12.5px; letter-spacing: .03em; }
+.cards .band span { font-size: 11px; color: var(--ink-mute); }
+
+/* every number the catalogue sheet shows for a ride, in two columns */
+.card .statgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; padding: 5px 9px 8px; }
+.card .sc { display: flex; align-items: baseline; gap: 5px; font-size: 11.5px; min-width: 0;
+  white-space: nowrap; }
+.card .sc .i { font-size: 11px; opacity: .8; flex: 0 0 auto; width: 13px; }
+.card .sc .v { font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+.card .sc.wide { grid-column: 1 / -1; display: block; margin-top: 3px; padding-top: 4px;
+  border-top: 1px solid var(--line); color: var(--ink-mute); font-size: 10.5px;
+  overflow: hidden; text-overflow: ellipsis; }
+.card .sc.hot .v, .card .sc.wide.hot { color: #eab6a6; }
+/* the longer ride names were being cut off in the title row */
+.card .row1 .nm { white-space: normal; line-height: 1.15; }

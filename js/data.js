@@ -19,7 +19,7 @@ const PLOT_STEP = 160;        // each further plot costs this much more
 
 const GROUND = { GRASS: 0, GRAVEL: 1, STONE: 2, WATER: 3, SAND: 4, ROAD: 5 };
 
-const VERSION = '2.4';        // shown in the Menu, bumped when a player would notice the change
+const VERSION = '2.5';        // shown in the Menu, bumped when a player would notice the change
 const MONTH_SECONDS = 48;     // real seconds per in-game month at 1x speed
 const FIGHT_AT = 18;          // happiness below which tempers can flare
 const SIGN_RANGE = 7;         // how far a signpost guides people
@@ -118,29 +118,29 @@ const ITEMS = {
             desc: 'Smarter and more comfortable than gravel.' },
 
   /* ---- rides ---- */
-  seesaw:     { name: 'Seesaw', cat: 'ride', w: 2, h: 1, cost: 260, rating: 2, thrill: 2, fright: 0, cap: 2, dur: 6, fee: 2, upkeep: 5,
+  seesaw:     { name: 'Seesaw', cat: 'ride', group: 'gentle', w: 2, h: 1, cost: 260, rating: 2, thrill: 2, fright: 0, cap: 2, dur: 6, fee: 2, upkeep: 5,
                 power: false, unlock: 0, art: 'seesaw', ent: [0, 0], ext: [1, 0] },
-  trampoline: { name: 'Trampoline', cat: 'ride', w: 2, h: 2, cost: 460, rating: 3, thrill: 4, fright: 6, cap: 4, dur: 8, fee: 3, upkeep: 8,
+  trampoline: { name: 'Trampoline', cat: 'ride', group: 'gentle', w: 2, h: 2, cost: 460, rating: 3, thrill: 4, fright: 6, cap: 4, dur: 8, fee: 3, upkeep: 8,
                 power: false, unlock: 0, art: 'trampoline', ent: [0, 1], ext: [1, 1] },
-  swing:      { name: 'Swing', cat: 'ride', w: 2, h: 2, cost: 620, rating: 4, thrill: 4, fright: 14, cap: 4, dur: 9, fee: 4, upkeep: 10,
+  swing:      { name: 'Swing', cat: 'ride', group: 'gentle', w: 2, h: 2, cost: 620, rating: 4, thrill: 4, fright: 14, cap: 4, dur: 9, fee: 4, upkeep: 10,
                 power: false, unlock: 0, art: 'swing', ent: [0, 1], ext: [1, 1] },
-  slide:      { name: 'Stone Slide', cat: 'ride', w: 3, h: 2, cost: 880, rating: 5, thrill: 5, fright: 22, cap: 6, dur: 9, fee: 5, upkeep: 14,
+  slide:      { name: 'Stone Slide', cat: 'ride', group: 'classic', w: 3, h: 2, cost: 880, rating: 5, thrill: 5, fright: 22, cap: 6, dur: 9, fee: 5, upkeep: 14,
                 power: false, unlock: 1, art: 'slide', ent: [0, 1], ext: [2, 1] },
-  range:      { name: 'Throwing Range', cat: 'ride', w: 3, h: 2, cost: 740, rating: 4, thrill: 3, fright: 0, cap: 4, dur: 8, fee: 4, upkeep: 11,
+  range:      { name: 'Throwing Range', cat: 'ride', group: 'gentle', w: 3, h: 2, cost: 740, rating: 4, thrill: 3, fright: 0, cap: 4, dur: 8, fee: 4, upkeep: 11,
                 power: false, unlock: 1, art: 'range', ent: [0, 1], ext: [2, 1] },
-  carousel:   { name: 'Carousel', cat: 'ride', w: 3, h: 3, cost: 1300, rating: 6, thrill: 4, fright: 0, cap: 8, dur: 11, fee: 6, upkeep: 20,
+  carousel:   { name: 'Carousel', cat: 'ride', group: 'gentle', w: 3, h: 3, cost: 1300, rating: 6, thrill: 4, fright: 0, cap: 8, dur: 11, fee: 6, upkeep: 20,
                 power: true, unlock: 2, art: 'carousel', ent: [0, 2], ext: [2, 2] },
-  catapult:   { name: 'Catapult', cat: 'ride', w: 3, h: 2, cost: 1550, rating: 6, thrill: 9, fright: 58, cap: 4, dur: 9, fee: 6, upkeep: 22,
+  catapult:   { name: 'Catapult', cat: 'ride', group: 'thrill', w: 3, h: 2, cost: 1550, rating: 6, thrill: 9, fright: 58, cap: 4, dur: 9, fee: 6, upkeep: 22,
                 power: true, unlock: 3, art: 'catapult', ent: [0, 1], ext: [2, 1] },
-  ferris:     { name: 'Ferris Wheel', cat: 'ride', w: 3, h: 3, cost: 2000, rating: 7, thrill: 5, fright: 30, cap: 12, dur: 14, fee: 8, upkeep: 30,
+  ferris:     { name: 'Ferris Wheel', cat: 'ride', group: 'classic', w: 3, h: 3, cost: 2000, rating: 7, thrill: 5, fright: 30, cap: 12, dur: 14, fee: 8, upkeep: 30,
                 power: true, unlock: 4, art: 'ferris', ent: [0, 2], ext: [2, 2] },
-  cave:       { name: 'Haunted Cave', cat: 'ride', w: 4, h: 3, cost: 2300, rating: 7, thrill: 6, fright: 48, cap: 8, dur: 13, fee: 8, upkeep: 28,
+  cave:       { name: 'Haunted Cave', cat: 'ride', group: 'thrill', w: 4, h: 3, cost: 2300, rating: 7, thrill: 6, fright: 48, cap: 8, dur: 13, fee: 8, upkeep: 28,
                 power: true, unlock: 5, art: 'cave', ent: [0, 2], ext: [3, 2] },
-  tower:      { name: 'Drop Tower', cat: 'ride', w: 3, h: 3, cost: 2600, rating: 8, thrill: 9, fright: 66, cap: 8, dur: 12, fee: 9, upkeep: 34,
+  tower:      { name: 'Drop Tower', cat: 'ride', group: 'thrill', w: 3, h: 3, cost: 2600, rating: 8, thrill: 9, fright: 66, cap: 8, dur: 12, fee: 9, upkeep: 34,
                 power: true, unlock: 7, art: 'tower', ent: [0, 2], ext: [2, 2] },
-  chute:      { name: 'Water Chute', cat: 'ride', w: 4, h: 3, cost: 3000, rating: 9, thrill: 8, fright: 42, cap: 8, dur: 14, fee: 10, upkeep: 38,
+  chute:      { name: 'Water Chute', cat: 'ride', group: 'classic', w: 4, h: 3, cost: 3000, rating: 9, thrill: 8, fright: 42, cap: 8, dur: 14, fee: 10, upkeep: 38,
                 power: true, unlock: 9, art: 'chute', ent: [0, 2], ext: [3, 2] },
-  coaster:    { name: 'Roller Coaster', cat: 'ride', w: 5, h: 4, cost: 4600, rating: 10, thrill: 10, fright: 70, cap: 16, dur: 16, fee: 13, upkeep: 55,
+  coaster:    { name: 'Roller Coaster', cat: 'ride', group: 'thrill', w: 5, h: 4, cost: 4600, rating: 10, thrill: 10, fright: 70, cap: 16, dur: 16, fee: 13, upkeep: 55,
                 power: true, unlock: 12, art: 'coaster', ent: [0, 3], ext: [4, 3] },
 
   /* ---- stalls & services ---- */
@@ -218,6 +218,15 @@ const GROUND_COMFORT = (() => {
   }
   return out;
 })();
+
+/* The rides catalogue reads in bands, gentlest first, the way the design
+   sheet lays it out — so the shape of what you can build is visible at a
+   glance rather than being a flat list sorted by price. */
+const RIDE_GROUPS = [
+  { id: 'gentle',  label: 'Gentle rides',  note: 'anyone will go on these', tone: '#5d8fd6' },
+  { id: 'classic', label: 'Classic rides', note: 'a bit of a thrill',       tone: '#3aa98f' },
+  { id: 'thrill',  label: 'Thrill rides',  note: 'for the brave',           tone: '#c9453a' }
+];
 
 const BUILD_TABS = [
   { id: 'path',  label: 'Paths',  items: ['gravel', 'stone'] },
