@@ -453,10 +453,10 @@ const ui = {
        buttons, so the balance is abbreviated there */
     this.el.money.textContent = renderer.W <= 620 ? moneyShort(sim.money) : money(sim.money);
     this.el.money.style.color = sim.money < 0 ? CHART.loss : '';
-    this.el.money.parentElement.title = sim.debtMoons
-      ? 'In debt for ' + sim.debtMoons + ' of ' + DEBT_MOONS + ' moons'
-      : 'Money';
-    this.el.money.parentElement.classList.toggle('warn', sim.money < 0);
+    this.el.money.parentElement.title = sim.lossMoons
+      ? sim.lossMoons + ' of ' + LOSS_MOONS + ' losing moons \u00b7 out at ' + money(DEBT_LIMIT)
+      : (sim.money < 0 ? 'In debt \u00b7 out at ' + money(DEBT_LIMIT) : 'Money');
+    this.el.money.parentElement.classList.toggle('warn', sim.money < 0 || sim.lossMoons > 0);
     this.el.happy.textContent = Math.round(sim.avgHappiness()) + '%';
     this.el.visitors.textContent = sim.visitors.length;
     this.el.staff.textContent = sim.staff.length;
@@ -939,8 +939,10 @@ const ui = {
      than a scolding. */
   lostModal() {
     let h = '<h2>\u{1FAA6} The tribe has walked out</h2>';
-    h += '<div class="role">Three new moons in a row in debt. Your park stood for <b>'
-      + sim.month + ' moon' + (sim.month === 1 ? '' : 's') + '</b>.</div>';
+    h += '<div class="role">' + (sim.lostWhy === 'debt'
+      ? 'The park went ' + money(DEBT_LIMIT) + ' into debt.'
+      : LOSS_MOONS + ' moons in a row where the park took less than it cost to run.')
+      + ' It stood for <b>' + sim.month + ' moon' + (sim.month === 1 ? '' : 's') + '</b>.</div>';
 
     /* the last few moons, so the shape of the failure is visible */
     const hist = sim.stats.slice(-6);
@@ -1143,11 +1145,16 @@ const ui = {
       sim.visitors.length + ' of ' + sim.maxVisitors(), 'c-vis');
     h += '<div class="role">The park holds more people as you buy more land.</div>';
     h += this.chartBlock('Average happiness', last.happiness + '%', 'c-hap');
-    h += '<h3>The last months</h3><table class="data"><thead><tr><th>Moon</th><th>Income</th><th>Outlay</th><th>Profit</th><th>Visitors</th><th>Happy</th></tr></thead><tbody>';
+    h += '<div class="role">A moon is a losing one when the park takes less than it costs to run '
+      + '\u2014 the <b>running</b> column. What you spend on building is not counted against you. '
+      + LOSS_MOONS + ' losing moons in a row, or ' + money(DEBT_LIMIT) + ' of debt, and the tribe walks out.</div>';
+    h += '<h3>The last months</h3><table class="data"><thead><tr><th>Moon</th><th>Income</th><th>Outlay</th><th>Running</th><th>Profit</th><th>Visitors</th></tr></thead><tbody>';
     for (const r of s.slice(-8)) {
+      const op = r.operating === undefined ? r.profit : r.operating;
       h += '<tr><td>' + r.month + '</td><td>' + money(r.income) + '</td><td>' + money(r.outlay) + '</td>'
+        + '<td style="color:' + (op < 0 ? CHART.loss : CHART.profit) + '">' + money(op) + '</td>'
         + '<td style="color:' + (r.profit < 0 ? CHART.loss : CHART.profit) + '">' + money(r.profit) + '</td>'
-        + '<td>' + r.visitors + '</td><td>' + r.happiness + '%</td></tr>';
+        + '<td>' + r.visitors + '</td></tr>';
     }
     h += '</tbody></table>';
     h += this.attractionTable();

@@ -9,7 +9,7 @@ const SLOTS = 3;
 /* The shape of a saved park. Raise this whenever serialize() changes in a way
    an older save would not survive, and add the step that brings the old one
    forward. */
-const SAVE_FORMAT = 2;
+const SAVE_FORMAT = 3;
 const SAVE_MIGRATIONS = {
   /* 1 -> 2: parks saved before the park kept a record of its whole life. The
      totals are not recoverable, so they start from what the park has now
@@ -20,6 +20,15 @@ const SAVE_MIGRATIONS = {
     d.peakHappy = d.peakHappy || 0;
     d.peakRating = d.peakRating || 0;
     d.wonAt = d.wonAt || d.month || 0;
+  },
+  /* 2 -> 3: the park used to end after three moons it could not pay for.
+     It ends on three losing moons or on a debt of ten thousand now, and the
+     counter counts a different thing, so an old park starts the new count
+     from zero rather than carrying over a number that meant something else. */
+  2: (d) => {
+    d.lossMoons = 0;
+    d.lostWhy = d.lost ? 'losses' : '';
+    delete d.debtMoons;
   }
 };
 
@@ -44,7 +53,8 @@ const sim = {
   won: false,
   wonAt: 0,          /* the moon the objectives were met on */
   lost: false,
-  debtMoons: 0,      /* new moons in a row that ended owing money */
+  lostWhy: '',       /* which of the two endings it was */
+  lossMoons: 0,      /* moons in a row the park did not cover its running cost */
   fights: 0,
   fightCool: 0,      /* seconds before tempers can flare again */
   /* what the park did over its whole life, for the record at the end */
@@ -63,7 +73,7 @@ const sim = {
     this.stats.length = 0; this.toasts.length = 0;
     this.unlocked = new Set();
     this.selected = null; this.monthIncome = 0; this.monthOutlay = 0; this.totalEarned = 0;
-    this.won = false; this.wonAt = 0; this.lost = false; this.debtMoons = 0;
+    this.won = false; this.wonAt = 0; this.lost = false; this.lostWhy = ''; this.lossMoons = 0;
     this.fights = 0; this.fightCool = 0;
     this.guests = 0; this.peakCrowd = 0; this.peakHappy = 0; this.peakRating = 0;
     traffic.reset();
@@ -378,14 +388,12 @@ const sim = {
 
        The first version of this took every worker the park could not afford,
        all in the same moon, and gave their wages back — which pushed the
-       balance back above zero, so the debt counter it was supposed to feed
-       reset to zero every time. A park could shed all five of its staff and
-       never once be recorded as having been in debt. One walks out per bad
-       moon now, and the counter is driven by whether the bill could be met
-       rather than by what the balance says afterwards. */
+       balance back above zero, so the counter it was supposed to feed reset
+       to zero every time. One walks out per bad moon now. This is a
+       consequence of not making payroll, not the thing that ends the game;
+       the two endings are below. */
     let quitter = null;
     if (!couldPay) {
-      this.debtMoons++;
       if (this.staff.length) {
         /* the dearest one, so the wage bill comes down fastest */
         quitter = this.staff.reduce((a, b2) => (b2.def.salary > a.def.salary ? b2 : a));
@@ -402,8 +410,6 @@ const sim = {
         this.monthOutlay -= quitter.def.salary;
         park.recomputePower();
       }
-    } else {
-      this.debtMoons = 0;
     }
 
     /* what each attraction took and served this moon, so the Stats page can
@@ -421,9 +427,13 @@ const sim = {
 
     const income = Math.round(this.monthIncome);
     const outlay = Math.round(this.monthOutlay);   // build costs + wages + upkeep
+    /* What the park took against what it costs to run. Building is an
+       investment, not a loss, so it is left out — see LOSS_MOONS. */
+    const operating = income - due;
+    if (operating < 0) this.lossMoons++; else this.lossMoons = 0;
     this.stats.push({
       month: this.month,
-      income, outlay,
+      income, outlay, operating,
       profit: income - outlay,
       visitors: this.visitors.length,
       happiness: Math.round(this.avgHappiness()),
@@ -435,17 +445,26 @@ const sim = {
     this.refreshUnlocks(false);
     this.toast('🌙 New moon — wages ' + money(salaries) + ', upkeep ' + money(upkeep));
 
-    /* Three moons the park could not pay for and the tribe has had enough.
-       One is a bad month; three in a row is a park that does not work. */
     if (!couldPay) {
       audio.play('error');
       if (quitter) this.toast('💸 You could not pay the ' + quitter.def.name + '. They have walked out.');
-      if (this.debtMoons >= DEBT_MOONS) { this.giveUp(); return; }
-      const left = DEBT_MOONS - this.debtMoons;
-      this.toast('❗ Could not pay for ' + this.debtMoons + ' moon' + (this.debtMoons === 1 ? '' : 's')
-        + ' — ' + left + ' more and the tribe walks out. Sell what you can, or raise your prices.');
-    } else {
-      /* and a word before it happens, rather than only afterwards */
+    }
+
+    /* Either of these ends it on its own. */
+    if (this.money < DEBT_LIMIT) { this.giveUp('debt'); return; }
+    if (this.lossMoons >= LOSS_MOONS) { this.giveUp('losses'); return; }
+
+    if (operating < 0) {
+      const left = LOSS_MOONS - this.lossMoons;
+      audio.play('error');
+      this.toast('❗ A losing moon: took ' + money(income) + ', cost ' + money(due) + ' to run. '
+        + left + ' more like it and the tribe walks out.');
+    }
+    /* and a word about the debt before it reaches the limit */
+    if (this.money < DEBT_LIMIT * 0.6)
+      this.toast('⚠️ ' + money(this.money) + ' in the hole. At ' + money(DEBT_LIMIT)
+        + ' the tribe walks out.');
+    else if (operating >= 0) {
       const nextDue = this.staff.reduce((a, st) => a + st.def.salary, 0)
         + [...park.buildings.values()].reduce((a, bb) => a + (bb.item.upkeep || 0), 0);
       if (nextDue > this.money)
@@ -469,13 +488,16 @@ const sim = {
 
   /* The tribe has had enough. The park is left standing so the player can see
      what went wrong; the clock stops until they load or start again. */
-  giveUp() {
+  giveUp(why) {
     if (this.lost) return;
     this.lost = true;
+    this.lostWhy = why || 'losses';
     this.speed = 0;
     this.paused = true;
     audio.play('error');
-    this.toast('🪦 The tribe has walked out. Your park is finished.');
+    this.toast(this.lostWhy === 'debt'
+      ? '🪦 ' + money(this.money) + ' in debt. The tribe has walked out.'
+      : '🪦 ' + LOSS_MOONS + ' losing moons in a row. The tribe has walked out.');
     if (typeof ui !== 'undefined' && ui.lostModal) setTimeout(() => ui.lostModal(), 700);
   },
 
@@ -644,7 +666,7 @@ const sim = {
       v: SAVE_FORMAT,
       money: this.money, time: this.time, month: this.month, fee: this.entranceFee,
       totalEarned: this.totalEarned, stats: this.stats, won: this.won, wonAt: this.wonAt,
-      lost: this.lost, debtMoons: this.debtMoons,
+      lost: this.lost, lostWhy: this.lostWhy, lossMoons: this.lossMoons,
       guests: this.guests, peakCrowd: this.peakCrowd, peakHappy: this.peakHappy, peakRating: this.peakRating,
       ground: Array.from(park.ground),
       plots: Array.from(park.plots),
@@ -777,7 +799,7 @@ const sim = {
     this.money = d.money; this.time = d.time || 0; this.month = d.month || 0;
     this.entranceFee = d.fee || 0; this.totalEarned = d.totalEarned || 0;
     this.stats = d.stats || []; this.won = !!d.won; this.wonAt = d.wonAt || 0;
-    this.lost = !!d.lost; this.debtMoons = d.debtMoons || 0;
+    this.lost = !!d.lost; this.lostWhy = d.lostWhy || ''; this.lossMoons = d.lossMoons || 0;
     this.guests = d.guests || 0; this.peakCrowd = d.peakCrowd || 0;
     this.peakHappy = d.peakHappy || 0; this.peakRating = d.peakRating || 0;
     if (d.plots) {

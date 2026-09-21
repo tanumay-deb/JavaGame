@@ -19,7 +19,7 @@ const PLOT_STEP = 160;        // each further plot costs this much more
 
 const GROUND = { GRASS: 0, GRAVEL: 1, STONE: 2, WATER: 3, SAND: 4, ROAD: 5 };
 
-const VERSION = '2.1';        // shown in the Menu, bumped when a player would notice the change
+const VERSION = '2.2';        // shown in the Menu, bumped when a player would notice the change
 const MONTH_SECONDS = 48;     // real seconds per in-game month at 1x speed
 const FIGHT_AT = 18;          // happiness below which tempers can flare
 const SIGN_RANGE = 7;         // how far a signpost guides people
@@ -41,7 +41,13 @@ const FRIGHT_MARGIN = 14;     // how close to your limit a ride can be and still
 const THRILL_JOY = 9;         // joy from one ride, per point of thrill
 const BORED_AT = 26;          // a ride this far below your nerve is barely worth queueing for
 
-const DEBT_MOONS = 3;         // new moons in a row owing money before the tribe walks out
+/* How a park ends. Either of these on its own finishes it.
+   A losing moon is what the park took against what it costs to run — wages
+   and upkeep. What the player chose to *build* that moon is left out of it,
+   or buying a coaster would count as a bad moon and three moons of building
+   would end the game for investing. */
+const LOSS_MOONS = 3;         // losing moons in a row before the tribe walks out
+const DEBT_LIMIT = -10000;    // and the debt at which they walk out there and then
 
 /* Whether tempers can flare at all. See the note on sim.maybeFight and
    FIGHTS.md — this is a switch over a crash, not a design choice. */
