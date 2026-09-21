@@ -121,8 +121,32 @@ const renderer = {
         : mixColor(base, PALETTE.grassDeep, Math.min(1, (0.52 - roll) * 1.7));
       /* Mown in squares, the way a groundsman runs a roller up and back: the
          chequer is what you read first, the noise underneath keeps it from
-         looking like graph paper. */
-      col = mixColor(base, (x + y) % 2 === 0 ? PALETTE.grassPale : PALETTE.grassRich, 0.55);
+         looking like graph paper.
+
+         Only on land you own. The chequer used to run to the horizon, which
+         made the whole valley read as one enormous lawn — and lost the one
+         thing the boundary should say, which is where your park stops. Past
+         the fence it is rough country: moss in the hollows, thin scrub over
+         the stony rises, bare earth worn through here and there. */
+      if (park.owns(x, y)) {
+        col = mixColor(base, (x + y) % 2 === 0 ? PALETTE.grassPale : PALETTE.grassRich, 0.55);
+      } else {
+        /* Two scales of variation, or the valley reads as one flat green. The
+           coarse one gives whole stretches their own character — a boggy
+           bottom, a dry stony shoulder — and the fine one breaks up the edges
+           between them so they do not look painted on. */
+        col = mixColor(base, PALETTE.grassWild, 0.45);
+        /* fbm bunches hard around the middle — the same stretch the meadow
+           above uses, or the thresholds below only ever catch the tails and
+           none of this shows at all */
+        const raw2 = fbm(x * 0.045 + 61, y * 0.045 + 23) * 0.7 + fbm(x * 0.17 + 5, y * 0.17 + 44) * 0.3;
+        const patch = clamp((raw2 - 0.5) * 3.2 + 0.5, 0, 1);
+        if (patch > 0.56) col = mixColor(col, PALETTE.scrub, Math.min(0.8, (patch - 0.56) * 2));
+        else if (patch < 0.44) col = mixColor(col, PALETTE.moss, Math.min(0.75, (0.44 - patch) * 1.9));
+        /* bare ground where the turf has worn through */
+        const bare = clamp((fbm(x * 0.29 + 88, y * 0.29 + 7) - 0.5) * 3 + 0.5, 0, 1);
+        if (bare > 0.74) col = mixColor(col, PALETTE.earth, Math.min(0.6, (bare - 0.74) * 2.2));
+      }
     } else if (g === GROUND.SAND) col = mixColor(PALETTE.sand, '#c2ad78', n);
     else if (g === GROUND.WATER) col = mixColor(PALETTE.water, '#286c9b', n);
     else col = g === GROUND.STONE ? PALETTE.stone : PALETTE.gravel;
@@ -139,15 +163,17 @@ const renderer = {
 
     if (g === GROUND.GRASS) {
       const m = hash2(y * 3 + 1, x * 5 + 2);
-      /* tufts: more of them where the ground is damp, all leaning downwind */
-      const tufts = roll < 0.44 ? 3 : roll < 0.62 ? 2 : 1;
+      /* tufts: more of them where the ground is damp, all leaning downwind,
+         and thicker still past the fence where nobody cuts it */
+      const wild = !park.owns(x, y);
+      const tufts = (roll < 0.44 ? 3 : roll < 0.62 ? 2 : 1) + (wild ? 2 : 0);
       ctx.lineWidth = 1.4;
       for (let i = 0; i < tufts; i++) {
         const h1 = hash2(x * 13 + i * 7, y * 19 + i * 3);
         const h2 = hash2(x * 23 + i * 5, y * 11 + i * 9);
         if (h1 < 0.3) continue;
         const gx = cx + (h1 - 0.5) * 40, gy = cy + (h2 - 0.5) * 18;
-        const lean = 1.1 + h2 * 1.4;
+        const lean = (1.1 + h2 * 1.4) * (wild ? 1.5 : 1);
         ctx.strokeStyle = shade(col, 0.26);
         ctx.beginPath();
         ctx.moveTo(gx, gy); ctx.lineTo(gx - 2.5 + lean, gy - 5);
@@ -385,6 +411,7 @@ const renderer = {
         }
       }
     this.bakePropShadows(ctx);
+    this.bakeStaticProps(ctx);
     /* a soft shaft of sunlight from the north-west, so big flat areas of grass
        are not one dead colour */
     ctx.save();
@@ -403,6 +430,37 @@ const renderer = {
     park.dirty.length = 0;
     park.fullRebuild = false;
     this.groundVersion = park.version;
+  },
+
+  /* Everything out in the wild country that does not move goes into the ground
+     sheet with the shadows. Once the valley was properly wooded the frame was
+     making about fourteen hundred drawImage calls, and at that point the cost
+     is the browser rasterising them, not any of our own code: three
+     milliseconds of JavaScript against a hundred and fifty of paint. Baked,
+     they cost one.
+
+     They end up behind everything drawn afterwards, which is right: all of
+     this stands outside the fence, and the people and the rides are inside
+     it.
+
+     The trees go in too, and give up their sway for it. Leaving only them
+     live still cost a hundred milliseconds a frame — the wind in a wood this
+     thick, three tiles beyond a fence, is not worth a third of the frame
+     rate. Palms, ferns and bushes the player plants inside the park are
+     buildings rather than scenery, and still move. */
+  bakeStaticProps(ctx) {
+    for (const p of scenery.props) {
+      /* The volcano smokes, so it stays live. So does the palisade: it rings
+         the park, and baked it would sit behind the visitors, who would then
+         walk in front of the near run of it instead of behind it. */
+      if (p.anim || p.art === 'fenceX' || p.art === 'fenceY') { p.baked = false; continue; }
+      const spr = p.spr || (p.spr = getSprite(p.art, 1, 1, 0));
+      const s = p.s || 1;
+      const x = p.wx - spr.ox * s, y = p.wy - spr.oy * s;
+      if (s === 1) ctx.drawImage(spr.c, x, y);
+      else ctx.drawImage(spr.c, x, y, spr.c.width * s, spr.c.height * s);
+      p.baked = true;
+    }
   },
 
   edgeAlpha() { return 1; },
@@ -956,9 +1014,16 @@ const renderer = {
     }
     ctx.restore();
 
-    let pi = 0;
+    /* Only the slice of scenery whose depth can reach the screen. A prop is
+       drawn upward from its foot, so the band has to start well above the top
+       of the view to catch tall trees rooted off-screen. */
+    const tallest = 260 / view.zoom;
+    const dMin = 2 * (view.y - this.H / 2 / view.zoom - tallest) / TILE_H;
+    const dMax = 2 * (view.y + this.H / 2 / view.zoom + TILE_H) / TILE_H;
+    let pi = scenery.firstAtDepth(dMin);
+    const pEnd = scenery.firstAtDepth(dMax);
     for (const e of list) {
-      while (pi < props.length && props[pi].d <= e.d) this.drawProp(ctx, props[pi++], t, bounds);
+      while (pi < pEnd && props[pi].d <= e.d) this.drawProp(ctx, props[pi++], t, bounds);
       if (e.gate) {
         const spr = getSprite('parkgate', 5, 1, 0);
         const gx = isoX(park.gate.x - 2, GRID_H - 1) - spr.ox, gy = isoY(park.gate.x - 2, GRID_H - 1) - spr.oy;
@@ -968,7 +1033,7 @@ const renderer = {
       else if (e.b) this.drawBuilding(ctx, e.b, t);
       else this.drawPerson(ctx, e.v || e.s, t);
     }
-    while (pi < props.length) this.drawProp(ctx, props[pi++], t, bounds);
+    while (pi < pEnd) this.drawProp(ctx, props[pi++], t, bounds);
   },
 
   /* project a sprite flat onto the ground, leaning away from the sun */
@@ -998,6 +1063,7 @@ const renderer = {
   },
 
   drawProp(ctx, p, t, b) {
+    if (p.baked) return;                 /* already in the ground sheet */
     if (p.wx < b.l || p.wx > b.r || p.wy < b.t || p.wy > b.b) return;
     if (p.alphaGen !== this.fadeGen) { p.alpha = this.edgeAlpha(p.wx, p.wy); p.alphaGen = this.fadeGen; }
     if (p.alpha < 0.02) return;

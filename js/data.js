@@ -19,7 +19,7 @@ const PLOT_STEP = 160;        // each further plot costs this much more
 
 const GROUND = { GRASS: 0, GRAVEL: 1, STONE: 2, WATER: 3, SAND: 4, ROAD: 5 };
 
-const VERSION = '2.2';        // shown in the Menu, bumped when a player would notice the change
+const VERSION = '2.3';        // shown in the Menu, bumped when a player would notice the change
 const MONTH_SECONDS = 48;     // real seconds per in-game month at 1x speed
 const FIGHT_AT = 18;          // happiness below which tempers can flare
 const SIGN_RANGE = 7;         // how far a signpost guides people
@@ -76,6 +76,10 @@ const PALETTE = {
   grassDeep:  '#3d7a3c',        // damp, shaded hollows
   grassPale:  '#7cbb5c',        // the light square of the mown chequerboard
   grassRich:  '#478a3f',        // the dark square
+  grassWild:  '#6f9442',        // rough meadow past the fence, never mown
+  moss:       '#4a7536',        // damp hollows and the north side of things
+  scrub:      '#9aa063',        // thin, stony ground where little grows
+  earth:      '#8a7350',        // bare ground worn through the turf
   grassDark:  '#477c33',
   gravel:     '#b39a6c',
   gravelEdge: '#8f7a52',

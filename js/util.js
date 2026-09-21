@@ -18,10 +18,20 @@ const moneyShort = n => {
 };
 
 /* deterministic per-tile noise so grass texture does not crawl */
+/* A hash of two integers, 0 to 1. Everything procedural in the game stands on
+   this: the shape of the lake, where the forest is thick, which tile gets a
+   boulder, how a sprite is speckled.
+
+   It used to shift with >>, which sign-extends, so the xor cleared the top bit
+   and the result never rose above 0.5 — mean 0.25, and nothing anywhere could
+   test above a half. Whole branches were unreachable: boulders asked for
+   h > 0.985 and never got it, and the bleached meadow over the rises, which
+   the grass code stretches the noise to produce, clamped to zero every time
+   and never appeared. Shifting unsigned gives the range it always claimed. */
 function hash2(x, y) {
   let h = x * 374761393 + y * 668265263;
-  h = (h ^ (h >> 13)) * 1274126177;
-  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+  h = (h ^ (h >>> 13)) * 1274126177;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
 /* smooth value noise built on hash2 — used for the landscape beyond the park */

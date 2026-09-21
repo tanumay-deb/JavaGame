@@ -19,15 +19,33 @@ function wildTerrain(x, y) {
   const d2 = Math.hypot((x - (GRID_W + 5)) * 0.9, (y - (GRID_H + 1)) * 0.8) + w2;
   if (d2 < 5.5) return GROUND.WATER;
   if (d2 < 7.5) return GROUND.SAND;
+  /* A river running out of the lake and away south, so the two pieces of
+     water in the valley belong to each other instead of being two puddles. */
+  const bend = Math.sin(y * 0.13) * 5.5 + (fbm(y * 0.09 + 31, 4) - 0.5) * 7;
+  const bank = Math.abs(x - (-6 + (y - 8) * 0.30 + bend));
+  if (y > 6 && bank < 1.7) return GROUND.WATER;
+  if (y > 6 && bank < 2.9) return GROUND.SAND;
+
   /* dry sandy patches */
   if (fbm(x * 0.09 + 11, y * 0.09 + 7) > 0.66) return GROUND.SAND;
   return GROUND.GRASS;
 }
 
+/* How damp a tile is, 0 parched to 1 sodden. The ground painter shades moss
+   and scrub off this same field, so the things that grow on a tile agree with
+   the colour of it. */
+function dampness(x, y) {
+  const raw = fbm(x * 0.045 + 61, y * 0.045 + 23) * 0.7 + fbm(x * 0.17 + 5, y * 0.17 + 44) * 0.3;
+  return clamp(1 - ((raw - 0.5) * 3.2 + 0.5), 0, 1);
+}
+
 /* how thick the forest stands on a tile nobody owns (0..1) */
 function forestDensity(x, y) {
   const n = fbm(x * 0.11 + 3, y * 0.11 + 5);
-  let d = clamp(n * 1.7 - 0.42, 0, 1);
+  /* Stretched like the rest of the noise, then pushed up. The valley should
+     read as woodland with clearings in it, not a lawn with the odd tree: the
+     old figure left the land beyond the fence nearly bare. */
+  let d = clamp((n - 0.5) * 2.4 + 0.66, 0, 1);
   /* thin it out along the road and around the gateway so arrivals are visible */
   const roadGap = Math.abs(y - (ROAD_Y + 0.5));
   if (roadGap < 3) d *= clamp((roadGap - 1) / 2, 0, 1);
@@ -43,7 +61,10 @@ const scenery = {
      wild country, and a palisade runs along the edge of the land you do own. */
   build() {
     this.props.length = 0;
-    const kinds = ['conifer', 'conifer', 'broadleaf', 'fernclump', 'bigrock', 'deadwood'];
+    /* What stands in a wood depends on how wet the ground under it is. */
+    const wet = ['conifer', 'broadleaf', 'fernclump', 'fernclump', 'mushroom', 'logfall', 'broadleaf'];
+    const mid = ['conifer', 'conifer', 'broadleaf', 'fernclump', 'logfall', 'deadwood'];
+    const dry = ['conifer', 'tallgrass', 'bigrock', 'tallgrass', 'cycad', 'deadwood'];
     for (let y = -WILD; y < GRID_H + WILD; y++) {
       for (let x = -WILD; x < GRID_W + WILD; x++) {
         if (park.owns(x, y)) continue;
@@ -55,19 +76,64 @@ const scenery = {
           continue;
         }
         if (g === GROUND.SAND) {
-          if (h > 0.9) this.props.push({ x: x + 0.5, y: y + 0.5, art: h > 0.96 ? 'bigrock' : 'reeds', s: 0.85 });
+          /* the water's edge: reeds, the odd cycad, a boulder */
+          /* the shore: palms leaning over the sand, reeds, driftwood, rocks */
+          if (h > 0.80) {
+            const k = h > 0.975 ? 'bigrock' : h > 0.93 ? 'palm' : h > 0.89 ? 'cycad'
+              : h > 0.85 ? 'reeds' : 'tallgrass';
+            this.props.push({
+              x: x + 0.15 + hash2(x * 3, y * 5) * 0.7,
+              y: y + 0.15 + hash2(y * 3, x * 5) * 0.7,
+              art: k, s: 0.75 + h * 0.6
+            });
+          }
           continue;
         }
+        const damp = dampness(x, y);
         const dens = forestDensity(x, y);
-        if (h < dens * 0.9) {
-          const k = kinds[Math.floor(hash2(y * 13 + 1, x * 29 + 5) * kinds.length)];
-          this.props.push({
-            x: x + 0.25 + hash2(x, y) * 0.5,
-            y: y + 0.25 + hash2(y, x) * 0.5,
-            art: k, s: 0.8 + hash2(x + 3, y + 9) * 0.5
-          });
-        } else if (h > 0.985) {
-          this.props.push({ x: x + 0.5, y: y + 0.5, art: 'bigrock', s: 0.8 });
+        const jitter = (k, sc) => this.props.push({
+          x: x + 0.25 + hash2(x, y) * 0.5,
+          y: y + 0.25 + hash2(y, x) * 0.5,
+          art: k, s: sc
+        });
+        if (h < dens) {
+          /* More than one to a tile where the wood is thick, so the canopy
+             closes up and the trees overlap instead of standing in a grid,
+             and a wide spread of sizes so it does not read as an orchard. */
+          const set = damp > 0.58 ? wet : (damp < 0.4 ? dry : mid);
+          const many = dens > 0.78 ? 3 : (dens > 0.56 ? 2 : 1);
+          for (let i = 0; i < many; i++) {
+            const a = hash2(x * 17 + i * 101, y * 23 + i * 57);
+            const b2 = hash2(y * 37 + i * 13, x * 11 + i * 71);
+            this.props.push({
+              x: x + 0.12 + a * 0.76,
+              y: y + 0.12 + b2 * 0.76,
+              art: set[Math.floor(hash2(y * 13 + i * 7 + 1, x * 29 + i * 3 + 5) * set.length)],
+              s: 0.62 + hash2(x + 3 + i * 9, y + 9 + i * 5) * 0.95
+            });
+          }
+        } else {
+          /* open ground between the stands of trees, which used to be bare */
+          const o = hash2(x * 7 + 19, y * 41 + 13);
+          if (damp > 0.7 && o > 0.96) jitter('mushroom', 0.7 + o * 0.4);
+          else if (damp < 0.3 && o > 0.994) jitter('monolith', 0.9 + o * 0.3);
+          else if (o > 0.93) jitter('tallgrass', 0.75 + o * 0.5);
+          else if (o > 0.88) jitter('blossom', 0.7 + o * 0.45);
+          else if (o > 0.865) jitter('logfall', 0.8);
+          else if (o > 0.84) jitter('fernclump', 0.8 + o * 0.3);
+          else if (h > 0.972) {
+            /* boulders lie about in groups, not one to a field */
+            const n2 = 2 + Math.floor(hash2(x * 5 + 3, y * 9 + 1) * 3);
+            for (let i = 0; i < n2; i++) {
+              const a = hash2(x * 31 + i * 17, y * 13 + i * 29);
+              const b2 = hash2(y * 19 + i * 23, x * 7 + i * 41);
+              this.props.push({
+                x: x + 0.1 + a * 0.8, y: y + 0.1 + b2 * 0.8,
+                art: i === 0 ? 'bigrock' : 'rock',
+                s: (i === 0 ? 1.0 : 0.7) + a * 0.6
+              });
+            }
+          }
         }
       }
     }
@@ -85,6 +151,19 @@ const scenery = {
     }
     this.props.sort((a, b) => a.d - b.d);
     this.built = true;
+  },
+
+  /* The props are sorted by depth, so the band of them the camera can see is a
+     contiguous slice. Walking all of them every frame cost more than drawing
+     them once the valley was properly wooded. */
+  firstAtDepth(d) {
+    const a = this.props;
+    let lo = 0, hi = a.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (a[mid].d < d) lo = mid + 1; else hi = mid;
+    }
+    return lo;
   },
 
   /* palisade along every edge where owned land meets wild land */
@@ -105,6 +184,229 @@ const scenery = {
 };
 
 /* ------------------------------------------------------------- artwork */
+
+/* Giant fungi. The valley is damp under the trees and things grow large in it. */
+ART.mushroom = function () {
+  const g = spriteCtx(1, 1, 54), ctx = g.ctx;
+  const [cx, cy] = g.mid;
+  blob(ctx, cx + 1, cy + 1, 13, 6, .2);
+  const caps = [[-7, 0, 9, 13, '#b5453a'], [6, -2, 7, 10, '#c9573f'], [-1, -3, 11, 17, '#a63c33']];
+  for (const [dx, dy, rh, rw, col] of caps) {
+    const bx = cx + dx, by = cy + dy;
+    const h = rw * 1.5;
+    /* stalk */
+    ctx.fillStyle = '#e4d9bd';
+    ctx.beginPath();
+    ctx.moveTo(bx - rw * 0.22, by);
+    ctx.quadraticCurveTo(bx - rw * 0.15, by - h * 0.6, bx - rw * 0.18, by - h);
+    ctx.lineTo(bx + rw * 0.18, by - h);
+    ctx.quadraticCurveTo(bx + rw * 0.15, by - h * 0.6, bx + rw * 0.22, by);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(120,104,72,.35)';
+    ctx.fillRect(bx + rw * 0.05, by - h, rw * 0.17, h);
+    /* the gills under the cap */
+    ctx.fillStyle = '#cbbb96';
+    ctx.beginPath(); ctx.ellipse(bx, by - h + 2, rw, rh * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+    /* cap */
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.ellipse(bx, by - h, rw, rh, 0, Math.PI, 0);
+    ctx.quadraticCurveTo(bx, by - h + rh * 0.55, bx - rw, by - h);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.16)';
+    ctx.beginPath(); ctx.ellipse(bx - rw * 0.3, by - h - rh * 0.34, rw * 0.4, rh * 0.28, -0.3, 0, Math.PI * 2); ctx.fill();
+    /* spots */
+    ctx.fillStyle = 'rgba(244,236,214,.85)';
+    for (let i = 0; i < 4; i++) {
+      const a = -2.7 + i * 0.62;
+      ctx.beginPath();
+      ctx.ellipse(bx + Math.cos(a) * rw * 0.55, by - h + Math.sin(a) * rh * 0.5, 1.5, 1.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  return g;
+};
+
+/* A cycad: a squat scaly trunk under a crown of stiff fronds. */
+ART.cycad = function () {
+  const g = spriteCtx(1, 1, 62), ctx = g.ctx;
+  const [cx, cy] = g.mid;
+  blob(ctx, cx + 1, cy + 1, 14, 6, .2);
+  const H = 15;
+  ctx.fillStyle = '#6b5334';
+  ctx.beginPath();
+  ctx.moveTo(cx - 6, cy); ctx.lineTo(cx - 4.5, cy - H); ctx.lineTo(cx + 4.5, cy - H); ctx.lineTo(cx + 6, cy);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(40,28,14,.32)';
+  ctx.beginPath();
+  ctx.moveTo(cx + 1.5, cy); ctx.lineTo(cx + 1, cy - H); ctx.lineTo(cx + 4.5, cy - H); ctx.lineTo(cx + 6, cy);
+  ctx.closePath(); ctx.fill();
+  /* the diamond scars where old fronds came away */
+  ctx.strokeStyle = 'rgba(30,20,10,.35)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    const yy = cy - 2.5 - i * 3.4;
+    ctx.beginPath(); ctx.moveTo(cx - 5, yy); ctx.lineTo(cx + 5, yy - 0.6); ctx.stroke();
+  }
+  /* The crown. Sweeping the angle over half a circle sent every frond
+     upwards and the thing looked like a feather duster; they go all the way
+     round now, flattened for the projection, and droop at the tip. Back ones
+     first so the front ones overlap them. */
+  const crownY = cy - H - 1;
+  const fronds = [];
+  for (let i = 0; i < 13; i++) {
+    const a = (i / 13) * Math.PI * 2 + 0.35;
+    const len = 18 + ((i * 7) % 6);
+    fronds.push({ a, len, ex: cx + Math.cos(a) * len, ey: crownY + Math.sin(a) * len * 0.42 + 3 });
+  }
+  fronds.sort((p, q) => p.ey - q.ey);
+  /* Each frond is a filled blade, not a stroked line. Every sprite gets a rim
+     light drawn behind it and offset, which on a line only a few pixels wide
+     is most of what you see — the first version of these came out white. */
+  for (let i = 0; i < fronds.length; i++) {
+    const f = fronds[i];
+    const shadeF = f.ey < crownY ? -0.2 : 0.05;        /* the far side sits in its own shade */
+    const mx = lerp(cx, f.ex, 0.55), my = lerp(crownY, f.ey, 0.45) - 7;
+    ctx.fillStyle = shade(i % 2 ? '#3e7a3a' : '#4b8c42', shadeF);
+    ctx.beginPath();
+    ctx.moveTo(cx, crownY - 1);
+    ctx.quadraticCurveTo(mx, my - 3.4, f.ex, f.ey);
+    ctx.quadraticCurveTo(mx, my + 3.4, cx, crownY + 2);
+    ctx.closePath();
+    ctx.fill();
+    /* the midrib, and notches so it reads as a pinnate leaf */
+    ctx.strokeStyle = 'rgba(24,46,20,.4)'; ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(cx, crownY);
+    ctx.quadraticCurveTo(mx, my, f.ex, f.ey);
+    ctx.stroke();
+    for (let k = 1; k <= 3; k++) {
+      const u = k / 4;
+      const px = lerp(cx, f.ex, u), py = lerp(crownY, f.ey, u) - 5.5 * (1 - Math.abs(u - 0.5) * 1.6);
+      ctx.beginPath(); ctx.moveTo(px, py - 2.6); ctx.lineTo(px, py + 2.6); ctx.stroke();
+    }
+  }
+  ctx.fillStyle = '#7a6a3e';
+  ctx.beginPath(); ctx.ellipse(cx, cy - H - 1, 4.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+  return g;
+};
+
+/* A fallen trunk going back to the soil: moss along the top, brackets on the side. */
+ART.logfall = function () {
+  const g = spriteCtx(1, 1, 34), ctx = g.ctx;
+  const [cx, cy] = g.mid;
+  blob(ctx, cx, cy + 2, 22, 7, .22);
+  ctx.fillStyle = '#5c432a';
+  roundRect(ctx, cx - 22, cy - 9, 44, 11, 5); ctx.fill();
+  ctx.fillStyle = '#6d5133';
+  roundRect(ctx, cx - 22, cy - 11, 44, 8, 4); ctx.fill();
+  /* moss along the upper side */
+  ctx.fillStyle = '#4e7a3a';
+  for (let i = 0; i < 9; i++) {
+    const px = cx - 19 + i * 5;
+    ctx.beginPath(); ctx.ellipse(px, cy - 11 + ((i * 3) % 2), 3.4, 2, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  /* the cut end, with rings */
+  ctx.fillStyle = '#8a6a44';
+  ctx.beginPath(); ctx.ellipse(cx - 22, cy - 5.5, 3.2, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(70,48,26,.5)'; ctx.lineWidth = 0.8;
+  for (const r of [0.35, 0.68]) {
+    ctx.beginPath(); ctx.ellipse(cx - 22, cy - 5.5, 3.2 * r, 5.5 * r, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  /* bracket fungi */
+  ctx.fillStyle = '#d8c48a';
+  for (const [dx, dy] of [[-6, -3], [7, -1], [14, -4]]) {
+    ctx.beginPath(); ctx.ellipse(cx + dx, cy + dy, 4, 1.9, -0.2, Math.PI, 0); ctx.fill();
+  }
+  return g;
+};
+
+/* A clump of grass nobody has ever cut, gone to seed. */
+ART.tallgrass = function () {
+  const g = spriteCtx(1, 1, 46), ctx = g.ctx;
+  const [cx, cy] = g.mid;
+  blob(ctx, cx, cy + 1, 12, 5, .16);
+  /* filled blades rather than strokes, so the rim light edges them instead of
+     swallowing them */
+  for (let i = 0; i < 14; i++) {
+    const t = i / 13;
+    const lean = (t - 0.5) * 16;
+    const h = 20 + ((i * 11) % 9);
+    const bx = cx + lean * 0.25, ex = cx + lean * 1.4, ey = cy - h;
+    const w = 2.2;
+    ctx.fillStyle = i % 3 === 0 ? '#7f9a44' : (i % 3 === 1 ? '#6d8a38' : '#93a650');
+    ctx.beginPath();
+    ctx.moveTo(bx - w, cy);
+    ctx.quadraticCurveTo(cx + lean * 0.7 - w * 0.5, cy - h * 0.6, ex, ey);
+    ctx.quadraticCurveTo(cx + lean * 0.7 + w * 0.6, cy - h * 0.6, bx + w, cy);
+    ctx.closePath();
+    ctx.fill();
+    /* a seed head on the taller ones */
+    if (i % 4 === 1) {
+      ctx.fillStyle = '#bfa968';
+      ctx.beginPath(); ctx.ellipse(ex, ey - 2, 2, 4.4, lean * 0.02, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  return g;
+};
+
+/* Stones somebody stood on end a very long time ago. */
+ART.monolith = function () {
+  const g = spriteCtx(1, 1, 72), ctx = g.ctx;
+  const [cx, cy] = g.mid;
+  blob(ctx, cx + 2, cy + 2, 20, 8, .24);
+  const stones = [[-12, 30, 9, 0.06], [6, 42, 11, -0.04], [17, 22, 7, 0.14]];
+  for (const [dx, h, w, tilt] of stones) {
+    ctx.save();
+    ctx.translate(cx + dx, cy);
+    ctx.rotate(tilt);
+    ctx.fillStyle = shade(PALETTE.rockDark, -0.1);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.5, 0); ctx.lineTo(-w * 0.42, -h); ctx.lineTo(w * 0.4, -h * 0.94); ctx.lineTo(w * 0.5, 0);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = PALETTE.rock;
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.5, 0); ctx.lineTo(-w * 0.42, -h); ctx.lineTo(w * 0.05, -h * 0.97); ctx.lineTo(w * 0.02, 0);
+    ctx.closePath(); ctx.fill();
+    /* weathering, and lichen low down where the damp sits */
+    ctx.strokeStyle = 'rgba(60,64,68,.3)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      const yy = -h * (i / 4);
+      ctx.beginPath(); ctx.moveTo(-w * 0.45, yy); ctx.lineTo(w * 0.3, yy + 1.5); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(150,170,110,.35)';
+    ctx.beginPath(); ctx.ellipse(-w * 0.1, -h * 0.18, w * 0.3, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  return g;
+};
+
+/* A shrub in flower. */
+ART.blossom = function () {
+  const g = spriteCtx(1, 1, 40), ctx = g.ctx;
+  const [cx, cy] = g.mid;
+  blob(ctx, cx + 1, cy + 1, 13, 5, .18);
+  ctx.fillStyle = '#3f6b33';
+  for (const [dx, dy, r] of [[-7, -7, 9], [6, -6, 8], [0, -13, 9], [-2, -4, 10]]) {
+    ctx.beginPath(); ctx.ellipse(cx + dx, cy + dy, r, r * 0.82, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = '#4d8040';
+  for (const [dx, dy, r] of [[-8, -9, 6], [5, -8, 5.5], [-1, -15, 6]]) {
+    ctx.beginPath(); ctx.ellipse(cx + dx, cy + dy, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  /* the flowers, in two tones so it does not read as one flat blob */
+  for (let i = 0; i < 16; i++) {
+    const a = i * 2.39;                       /* a rough phyllotaxis, so they spread evenly */
+    const rr = 3 + (i / 16) * 10;
+    const px = cx + Math.cos(a) * rr, py = cy - 8 + Math.sin(a) * rr * 0.75;
+    ctx.fillStyle = i % 3 === 0 ? '#e9d7e8' : (i % 3 === 1 ? '#d8a8cf' : '#f0e4c0');
+    ctx.beginPath(); ctx.arc(px, py, 1.9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(190,140,70,.7)';
+    ctx.beginPath(); ctx.arc(px, py, 0.7, 0, Math.PI * 2); ctx.fill();
+  }
+  return g;
+};
+
+
 ART.conifer = function () {
   const g = spriteCtx(1, 1, 76), ctx = g.ctx;
   const [cx, cy] = g.mid;
