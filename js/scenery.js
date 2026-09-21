@@ -48,7 +48,7 @@ function forestDensity(x, y) {
   let d = clamp((n - 0.5) * 2.4 + 0.66, 0, 1);
   /* thin it out along the road and around the gateway so arrivals are visible */
   const roadGap = Math.abs(y - (ROAD_Y + 0.5));
-  if (roadGap < 3) d *= clamp((roadGap - 1) / 2, 0, 1);
+  if (roadGap < 4.5) d *= clamp((roadGap - 2.2) / 2.3, 0, 1);
   if (Math.abs(x - park.gate.x) < 5 && y > GRID_H - 1 && y < ROAD_Y + 3) d *= 0.25;
   return d;
 }
@@ -137,6 +137,21 @@ const scenery = {
         }
       }
     }
+    /* The road outside: lamps down both verges, and cars left on the near one
+       either side of the gateway, the way the design sheet has it. All of it
+       is static, so it bakes into the ground sheet and costs nothing to draw. */
+    const gx = park.gate.x;
+    for (let x = gx - 26; x <= gx + 26; x += 5) {
+      if (Math.abs(x - gx) < 3) continue;                 /* keep the gateway clear */
+      this.props.push({ x: x + 0.5, y: ROAD_Y - 0.6, art: 'lamppost', s: 1 });
+      this.props.push({ x: x + 2.5, y: ROAD_Y + 2.6, art: 'lamppost', s: 1 });
+    }
+    for (let i = 0; i < 16; i++) {
+      const x = gx - 13 + i * 1.75;
+      if (Math.abs(x - gx) < 3.2) continue;               /* nobody parks across the gate */
+      this.props.push({ x: x, y: ROAD_Y - 1.1, art: 'parked' + (i % 4), s: 0.9 + (i % 3) * 0.06 });
+    }
+
     /* a volcano brooding over the valley, with foothills */
     this.props.push({ x: -5.5, y: -9.5, art: 'volcano', s: 1.15, anim: true });
     for (const [hx, hy, hs] of [[-7.5, -5.5, 1.6], [0.5, -8.5, 1.4], [-9.5, -1.5, 1.3], [4.5, -9.5, 1.2]])
@@ -184,6 +199,83 @@ const scenery = {
 };
 
 /* ------------------------------------------------------------- artwork */
+
+/* A lamp on the road outside, with the pool of light it throws baked in.
+   Scenery is not a building, so the lighting pass never sees it. */
+ART.lamppost = function () {
+  const g = spriteCtx(1, 1, 76), ctx = g.ctx;
+  const [cx, cy] = g.mid;
+  const H = 46;
+  /* the light on the ground first, so everything else sits in it */
+  const pool = ctx.createRadialGradient(cx, cy, 1, cx, cy, 34);
+  pool.addColorStop(0, 'rgba(255,214,140,.30)');
+  pool.addColorStop(0.55, 'rgba(255,198,110,.12)');
+  pool.addColorStop(1, 'rgba(255,190,100,0)');
+  ctx.fillStyle = pool;
+  ctx.beginPath(); ctx.ellipse(cx, cy, 34, 17, 0, 0, Math.PI * 2); ctx.fill();
+  blob(ctx, cx + 1, cy + 1, 5, 2.4, .25);
+  /* the post */
+  ctx.fillStyle = '#2f3338'; ctx.fillRect(cx - 2.2, cy - H, 4.4, H);
+  ctx.fillStyle = '#41464d'; ctx.fillRect(cx - 2.2, cy - H, 1.8, H);
+  ctx.fillStyle = '#23262a';
+  ctx.beginPath(); ctx.ellipse(cx, cy, 5.5, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+  /* the arm and the head */
+  ctx.strokeStyle = '#2f3338'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - H);
+  ctx.quadraticCurveTo(cx + 7, cy - H - 5, cx + 12, cy - H - 3);
+  ctx.stroke();
+  ctx.fillStyle = '#23262a';
+  roundRect(ctx, cx + 8, cy - H - 4, 10, 4.5, 2); ctx.fill();
+  ctx.fillStyle = '#ffe9b0';
+  roundRect(ctx, cx + 9, cy - H - 1.5, 8, 2.6, 1.3); ctx.fill();
+  /* the glow around the head */
+  const hg = ctx.createRadialGradient(cx + 13, cy - H - 1, 0, cx + 13, cy - H - 1, 13);
+  hg.addColorStop(0, 'rgba(255,224,150,.5)');
+  hg.addColorStop(1, 'rgba(255,214,130,0)');
+  ctx.fillStyle = hg;
+  ctx.beginPath(); ctx.arc(cx + 13, cy - H - 1, 13, 0, Math.PI * 2); ctx.fill();
+  return g;
+};
+
+/* Cars left on the verge outside the gate. Four bodies so a row of them is
+   not the same car repeated; scenery art is cached by name, so the colour
+   cannot vary per instance the way a moving vehicle's does. */
+const PARKED_TONES = ['#c9453a', '#3f6fb5', '#e0a33c', '#4f9d6a'];
+PARKED_TONES.forEach((col, i) => {
+  ART['parked' + i] = function () {
+    const g = spriteCtx(1, 1, 34), ctx = g.ctx;
+    const [cx, cy] = g.mid;
+    const L = 34, H = 11;
+    blob(ctx, cx, cy + 1, L * 0.46, 5, .26);
+    /* wheels */
+    ctx.fillStyle = '#1d1f22';
+    for (const wx of [-L * 0.3, L * 0.3]) {
+      ctx.beginPath(); ctx.ellipse(cx + wx, cy - 2, 4, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    /* body, then the cabin sitting on it */
+    ctx.fillStyle = shade(col, -0.3);
+    roundRect(ctx, cx - L / 2, cy - H, L, H, 4); ctx.fill();
+    ctx.fillStyle = col;
+    roundRect(ctx, cx - L / 2, cy - H - 2, L, H, 4); ctx.fill();
+    ctx.fillStyle = shade(col, 0.2);
+    roundRect(ctx, cx - L / 2 + 1, cy - H - 2, L - 2, 3, 1.5); ctx.fill();
+    ctx.fillStyle = shade(col, -0.12);
+    roundRect(ctx, cx - L * 0.28, cy - H - 9, L * 0.56, 8, 3); ctx.fill();
+    /* glass */
+    ctx.fillStyle = 'rgba(180,214,236,.85)';
+    roundRect(ctx, cx - L * 0.24, cy - H - 7.5, L * 0.22, 5, 1.5); ctx.fill();
+    roundRect(ctx, cx + L * 0.02, cy - H - 7.5, L * 0.22, 5, 1.5); ctx.fill();
+    /* lamps */
+    ctx.fillStyle = '#ffe9b0';
+    ctx.beginPath(); ctx.ellipse(cx + L / 2 - 1.5, cy - H + 2, 1.6, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#c14a3c';
+    ctx.beginPath(); ctx.ellipse(cx - L / 2 + 1.5, cy - H + 2, 1.4, 1.7, 0, 0, Math.PI * 2); ctx.fill();
+    return g;
+  };
+});
+
+
 
 /* Giant fungi. The valley is damp under the trees and things grow large in it. */
 ART.mushroom = function () {
