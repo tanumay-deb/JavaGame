@@ -366,39 +366,44 @@ const sim = {
     for (const s of this.staff) salaries += s.def.salary;
     let upkeep = 0;
     for (const b of park.buildings.values()) upkeep += b.item.upkeep || 0;
-    this.spend(salaries + upkeep);
+    const due = salaries + upkeep;
+    /* Whether the park could pay has to be decided BEFORE the money is taken.
+       Deciding it afterwards was the bug behind three of them at once. */
+    const couldPay = this.money >= due;
+    this.spend(due);
 
-    /* Wages you cannot pay. Nothing used to happen here at all: the money went
-       negative and the park carried on exactly as before, which meant there
-       was no way to lose and so no reason to watch the books. Staff who have
-       not been paid walk off, worst-paid last, until the wage bill is one the
-       park could meet — so the park shrinks back to something it can afford
-       rather than sinking for ever. */
-    if (this.money < 0 && this.staff.length) {
-      const order = this.staff.slice().sort((a, b2) => b2.def.salary - a.def.salary);
-      const quit = [];
-      let unpaid = 0;
-      for (const st of order) {
-        if (this.money + unpaid >= 0) break;
-        unpaid += st.def.salary;
-        quit.push(st);
-      }
-      for (const st of quit) {
-        const i = this.staff.indexOf(st);
-        if (i < 0) continue;
+    /* Wages you cannot pay. Nothing used to happen here at all: the balance
+       went negative and the park carried on exactly as before, so there was no
+       way to lose and no reason to watch the books.
+
+       The first version of this took every worker the park could not afford,
+       all in the same moon, and gave their wages back — which pushed the
+       balance back above zero, so the debt counter it was supposed to feed
+       reset to zero every time. A park could shed all five of its staff and
+       never once be recorded as having been in debt. One walks out per bad
+       moon now, and the counter is driven by whether the bill could be met
+       rather than by what the balance says afterwards. */
+    let quitter = null;
+    if (!couldPay) {
+      this.debtMoons++;
+      if (this.staff.length) {
+        /* the dearest one, so the wage bill comes down fastest */
+        quitter = this.staff.reduce((a, b2) => (b2.def.salary > a.def.salary ? b2 : a));
+        const i = this.staff.indexOf(quitter);
         this.staff.splice(i, 1);
-        if (st.assigned) { const bb = park.buildings.get(st.assigned); if (bb) bb.worker = null; }
-        if (this.selected === st) this.selected = null;
-      }
-      if (quit.length) {
+        if (quitter.assigned) {
+          const bb = park.buildings.get(quitter.assigned);
+          if (bb) bb.worker = null;
+        }
+        if (this.selected === quitter) this.selected = null;
         /* their wages go back: the park is not charged for work it did not
            get, and the month's books have to agree with that */
-        this.money += unpaid;
-        this.monthOutlay -= unpaid;
+        this.money += quitter.def.salary;
+        this.monthOutlay -= quitter.def.salary;
         park.recomputePower();
-        this.toast('💸 ' + quit.length + ' unpaid ' + (quit.length === 1 ? 'worker has' : 'workers have')
-          + ' walked out: ' + quit.map(q => q.def.name).join(', '));
       }
+    } else {
+      this.debtMoons = 0;
     }
 
     /* what each attraction took and served this moon, so the Stats page can
@@ -430,17 +435,22 @@ const sim = {
     this.refreshUnlocks(false);
     this.toast('🌙 New moon — wages ' + money(salaries) + ', upkeep ' + money(upkeep));
 
-    /* Three moons in the red and the tribe has had enough. One moon is a bad
-       month; three in a row is a park that does not work. */
-    if (this.money < 0) {
-      this.debtMoons++;
+    /* Three moons the park could not pay for and the tribe has had enough.
+       One is a bad month; three in a row is a park that does not work. */
+    if (!couldPay) {
+      audio.play('error');
+      if (quitter) this.toast('💸 You could not pay the ' + quitter.def.name + '. They have walked out.');
       if (this.debtMoons >= DEBT_MOONS) { this.giveUp(); return; }
       const left = DEBT_MOONS - this.debtMoons;
-      this.toast('❗ In debt for ' + this.debtMoons + ' moon' + (this.debtMoons === 1 ? '' : 's')
+      this.toast('❗ Could not pay for ' + this.debtMoons + ' moon' + (this.debtMoons === 1 ? '' : 's')
         + ' — ' + left + ' more and the tribe walks out. Sell what you can, or raise your prices.');
-      audio.play('error');
     } else {
-      this.debtMoons = 0;
+      /* and a word before it happens, rather than only afterwards */
+      const nextDue = this.staff.reduce((a, st) => a + st.def.salary, 0)
+        + [...park.buildings.values()].reduce((a, bb) => a + (bb.item.upkeep || 0), 0);
+      if (nextDue > this.money)
+        this.toast('⚠️ Next moon costs ' + money(nextDue) + ' and you have ' + money(this.money)
+          + '. Raise a price or sell something.');
     }
     this.autoSave();
   },
