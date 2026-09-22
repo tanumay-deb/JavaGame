@@ -811,9 +811,18 @@ const sim = {
     }
     if (d.ground) for (let i = 0; i < park.ground.length && i < d.ground.length; i++) park.ground[i] = d.ground[i];
     park.buildings.clear(); park.occ.fill(-1); park.nextId = 1;
+    /* A save records where a building stands, not how big it is — the size
+       comes back from ITEMS. So when a ride's footprint grows, an old park can
+       ask for two rides in the same tiles, and park.place would happily stamp
+       one over the other and leave the occupancy map lying. Check the room is
+       there first, and say plainly what would not fit rather than restoring a
+       park that is quietly broken. Paths under the new footprint are paved
+       over, which is what building there would have done anyway. */
+    let dropped = 0;
     for (const s of d.buildings || []) {
+      if (!this.roomToRestore(s.key, s.x, s.y, s.rot)) { dropped++; continue; }
       const b = park.place(s.key, s.x, s.y, s.rot);
-      if (!b) continue;
+      if (!b) { dropped++; continue; }
       b.fee = s.fee; b.open = s.open; b.condition = s.condition;
       b.brokeDown = s.broke; b.earned = s.earned || 0; b.visits = s.visits || 0;
       b.cycle = s.cycle || 0;
@@ -830,6 +839,24 @@ const sim = {
     park.fullRebuild = true;
     scenery.build();
     this.toast('📂 Park loaded');
+    if (dropped) this.toast(dropped + (dropped === 1 ? ' ride no longer fits' : ' rides no longer fit') + ' and was left out');
+    return true;
+  },
+
+  /* Whether a saved building can go back where it was. Deliberately not
+     park.canPlace: that refuses to build over a path, and a park being
+     restored has its own paths running up to the ride's doors. Owning the
+     land, the park's own edges and another building are the real obstacles. */
+  roomToRestore(key, x, y, rot) {
+    const item = ITEMS[key];
+    if (!item || item.cat === 'path') return false;
+    const [w, h] = park.rotDims(item, rot);
+    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
+      const tx = x + dx, ty = y + dy;
+      if (!park.inBounds(tx, ty) || !park.owns(tx, ty)) return false;
+      if (park.buildingAt(tx, ty)) return false;
+      if (park.groundAt(tx, ty) === GROUND.WATER) return false;
+    }
     return true;
   }
 };
