@@ -19,7 +19,7 @@ const PLOT_STEP = 160;        // each further plot costs this much more
 
 const GROUND = { GRASS: 0, GRAVEL: 1, STONE: 2, WATER: 3, SAND: 4, ROAD: 5 };
 
-const VERSION = '2.6';        // shown in the Menu, bumped when a player would notice the change
+const VERSION = '2.7';        // shown in the Menu, bumped when a player would notice the change
 const MONTH_SECONDS = 48;     // real seconds per in-game month at 1x speed
 const FIGHT_AT = 18;          // happiness below which tempers can flare
 const SIGN_RANGE = 7;         // how far a signpost guides people
@@ -70,38 +70,38 @@ const DAYS_PER_MONTH = 28;
 
 /* ---------------------------------------------------------------- palettes */
 const PALETTE = {
-  grass:      ['#5fa148', '#64a74c', '#5c9d45', '#62a44a'],
-  grassAlt:   ['#72ad52', '#569444', '#69a64e', '#7cb257'],
-  grassDry:   '#a8ad5f',        // sun-bleached meadow on the high ground
-  grassDeep:  '#3d7a3c',        // damp, shaded hollows
-  grassPale:  '#7cbb5c',        // the light square of the mown chequerboard
-  grassRich:  '#478a3f',        // the dark square
-  grassWild:  '#6f9442',        // rough meadow past the fence, never mown
-  moss:       '#4a7536',        // damp hollows and the north side of things
-  scrub:      '#9aa063',        // thin, stony ground where little grows
-  earth:      '#8a7350',        // bare ground worn through the turf
-  grassDark:  '#477c33',
-  gravel:     '#b39a6c',
-  gravelEdge: '#8f7a52',
-  stone:      '#b9bcc4',
-  stoneEdge:  '#8d9099',
-  sand:       '#d9c48a',
-  water:      '#2f7fb5',
-  waterLite:  '#57a8d8',
-  wood:       '#8a5a33',
-  woodDark:   '#6b431f',
-  thatch:     '#c9a24a',
-  thatchDark: '#a8822f',
-  hide:       '#c98f5e',
-  bone:       '#e8e2cf',
-  boneDark:   '#c6bfa6',
-  rock:       '#9aa0a6',
-  rockDark:   '#767c82'
+  grass:      ['#5a9348', '#609a4b', '#578f45', '#5d974a'],
+  grassAlt:   ['#6ca151', '#508644', '#64994d', '#75aa52'],
+  grassDry:   '#aaaf63',        // sun-bleached meadow on the high ground
+  grassDeep:  '#386b3c',        // damp, shaded hollows
+  grassPale:  '#77b654',        // the light square of the mown chequerboard
+  grassRich:  '#427b3f',        // the dark square
+  grassWild:  '#638742',        // rough meadow past the fence, never mown
+  moss:       '#3f6637',        // damp hollows and the north side of things
+  scrub:      '#9ba166',        // thin, stony ground where little grows
+  earth:      '#857152',        // bare ground worn through the turf
+  grassDark:  '#3e6c35',
+  gravel:     '#b69d6e',
+  gravelEdge: '#8b7855',
+  stone:      '#c5c4c3',
+  stoneEdge:  '#919399',
+  sand:       '#e1ca8c',
+  water:      '#337bad',
+  waterLite:  '#61aad3',
+  wood:       '#805638',
+  woodDark:   '#5b3d25',
+  thatch:     '#c9a450',
+  thatchDark: '#a18036',
+  hide:       '#cb9362',
+  bone:       '#f5e9ca',
+  boneDark:   '#d0c6a6',
+  rock:       '#a1a5a6',
+  rockDark:   '#757b82'
 };
 
-const SKIN_TONES  = ['#f0c08a', '#d99b66', '#b97a4a', '#8d5a34', '#6b4226'];
-const CLOTH_TONES = ['#c94f4f', '#4f7fc9', '#c9a24a', '#5aa85a', '#9b59b6', '#e07b39', '#3ea9a0'];
-const HAIR_TONES  = ['#2b1d12', '#4a2f1a', '#6b4423', '#111111', '#7a5c3a'];
+const SKIN_TONES  = ['#f6c78e', '#dca06a', '#b77b4e', '#835739', '#5c3c2b'];
+const CLOTH_TONES = ['#c45452', '#5580c2', '#c9a450', '#5a9d56', '#9a5cb1', '#db7f42', '#3c9a8a'];
+const HAIR_TONES  = ['#1b1618', '#392820', '#5c3e29', '#050b17', '#70573d'];
 
 /* ------------------------------------------------------------- build items */
 /* cat: ride | stall | service | decor | engine | path | staffpost
@@ -179,12 +179,12 @@ const ITEMS = {
 
 /* ------------------------------------------------------------------ staff */
 const STAFF = {
-  guard:     { name: 'Guard',      salary: 65, color: '#6d7f9b', desc: 'Stops fights breaking out nearby.' },
-  repairman: { name: 'Repairman',  salary: 85, color: '#b5793a', desc: 'Walks to broken rides and fixes them.' },
-  cook:      { name: 'Cook',       salary: 75, color: '#d9a441', desc: 'Runs a Cave Cafe.' },
-  salesman:  { name: 'Salesman',   salary: 60, color: '#4f9d6a', desc: 'Runs a snack bar, juice hut or balloon stand.' },
-  shaman:    { name: 'Shaman',     salary: 95, color: '#8e6fc0', desc: 'Heals visitors at an aid post.' },
-  rider:     { name: 'Dino Rider', salary: 55, color: '#c2604a', desc: 'Turns a dino treadmill so rides get power.' }
+  guard:     { name: 'Guard',      salary: 65, color: '#6e7f99', desc: 'Stops fights breaking out nearby.' },
+  repairman: { name: 'Repairman',  salary: 85, color: '#b07940', desc: 'Walks to broken rides and fixes them.' },
+  cook:      { name: 'Cook',       salary: 75, color: '#d8a649', desc: 'Runs a Cave Cafe.' },
+  salesman:  { name: 'Salesman',   salary: 60, color: '#4a905d', desc: 'Runs a snack bar, juice hut or balloon stand.' },
+  shaman:    { name: 'Shaman',     salary: 95, color: '#9273bc', desc: 'Heals visitors at an aid post.' },
+  rider:     { name: 'Dino Rider', salary: 55, color: '#be634e', desc: 'Turns a dino treadmill so rides get power.' }
 };
 
 const STAFF_ICON = { guard: '🛡', repairman: '🔧', cook: '🍲', salesman: '🧺', shaman: '🌿', rider: '🦕' };
@@ -223,9 +223,9 @@ const GROUND_COMFORT = (() => {
    sheet lays it out — so the shape of what you can build is visible at a
    glance rather than being a flat list sorted by price. */
 const RIDE_GROUPS = [
-  { id: 'gentle',  label: 'Gentle rides',  note: 'anyone will go on these', tone: '#5d8fd6' },
-  { id: 'classic', label: 'Classic rides', note: 'a bit of a thrill',       tone: '#3aa98f' },
-  { id: 'thrill',  label: 'Thrill rides',  note: 'for the brave',           tone: '#c9453a' }
+  { id: 'gentle',  label: 'Gentle rides',  note: 'anyone will go on these', tone: '#6692d0' },
+  { id: 'classic', label: 'Classic rides', note: 'a bit of a thrill',       tone: '#38997c' },
+  { id: 'thrill',  label: 'Thrill rides',  note: 'for the brave',           tone: '#c0493f' }
 ];
 
 const BUILD_TABS = [

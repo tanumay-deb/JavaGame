@@ -36,7 +36,7 @@ function spriteCtx(w, h, extra) {
 /* A run of fence between two points inside a sprite. */
 function fenceRun(ctx, x1, y1, x2, y2, h) {
   h = h || 15;
-  ctx.strokeStyle = '#7d6647'; ctx.lineWidth = 2.2;
+  ctx.strokeStyle = '#76624a'; ctx.lineWidth = 2.2;
   for (const d of [h - 4, h - 10]) {
     ctx.beginPath(); ctx.moveTo(x1, y1 - d); ctx.lineTo(x2, y2 - d); ctx.stroke();
   }
@@ -156,7 +156,7 @@ function canopy(ctx, x, y, rw, rh, peak, c1, c2) {
 function skull(ctx, x, y, s) {
   ctx.fillStyle = PALETTE.bone;
   ctx.beginPath(); ctx.ellipse(x, y, s, s * 0.8, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#5b5340';
+  ctx.fillStyle = '#514d42';
   ctx.beginPath(); ctx.ellipse(x - s * 0.35, y - s * 0.1, s * 0.22, s * 0.26, 0, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.ellipse(x + s * 0.35, y - s * 0.1, s * 0.22, s * 0.26, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = PALETTE.boneDark;
@@ -201,17 +201,68 @@ function spriteSilhouette(spr, colour) {
   return c;
 }
 
+/* A flat fill is the other tell. Hide, thatch, timber and stone all scatter
+   light unevenly, and a shape filled with one exact value reads as vector art
+   however well it is drawn. A little noise over every baked surface gives it a
+   grain to catch the light on. Built once and tiled, so it costs one blit. */
+let _grain = null;
+function grainSheet() {
+  if (_grain) return _grain;
+  const N = 96;
+  const c = makeCanvas(N, N);
+  const x = c.getContext('2d');
+  const img = x.createImageData(N, N);
+  const d = img.data;
+  for (let i = 0; i < N * N; i++) {
+    /* Smooth noise, not salt and pepper. Per-pixel static reads as a dirty
+       screen; a soft mottle a couple of pixels across reads as a surface. */
+    const px = i % N, py = (i / N) | 0;
+    const v = noise2(px * 0.42 + 3, py * 0.42 + 7) * 0.7 + noise2(px * 0.9 + 31, py * 0.9 + 13) * 0.3;
+    const lit = v > 0.5;
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = lit ? 255 : 0;
+    d[i * 4 + 3] = Math.round(Math.min(1, Math.abs(v - 0.5) * 2.6) * (lit ? 13 : 11));
+  }
+  x.putImageData(img, 0, 0);
+  _grain = c;
+  return c;
+}
+
+/* Diffuse light comes from the whole sky, so every solid is lighter across its
+   upper faces and sinks into shadow where it meets the ground. Without that
+   ramp a shape can be drawn perfectly well and still read as a decal, because
+   nothing about it says which way is up. One pass over the baked sprite gives
+   it to every object at once, and costs nothing per frame afterwards. */
+function addAmbient(spr) {
+  const c = spr.c;
+  const ctx = spr.ctx || c.getContext('2d');
+  const b = spriteBounds(spr);
+  if (!b.h) return;
+  const gr = ctx.createLinearGradient(0, b.y, 0, b.y + b.h);
+  gr.addColorStop(0, 'rgba(222,236,255,0.11)');
+  gr.addColorStop(0.5, 'rgba(0,0,0,0)');
+  gr.addColorStop(1, 'rgba(26,32,45,0.30)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = gr;
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = ctx.createPattern(grainSheet(), 'repeat');
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.restore();
+  spr._sil = {};
+}
+
 /* The sun sits behind the camera to the north-west, so every sprite gets a
    sliver of warm light on its upper-left edge and throws its shadow forward. */
 function addRimLight(spr, scale, colour) {
   const s = scale || 1;
-  const rim = spriteSilhouette(spr, colour || 'rgba(255,241,206,0.9)');
+  const rim = spriteSilhouette(spr, colour || 'rgba(255,238,205,0.34)');
   const ctx = spr.ctx || spr.c.getContext('2d');
   ctx.save();
   ctx.globalCompositeOperation = 'destination-over';
-  ctx.drawImage(rim, -1.4 * s, -1.6 * s);
+  ctx.drawImage(rim, -1.0 * s, -1.1 * s);
   ctx.restore();
   spr._sil = {};                 /* silhouettes must be re-cut to include the rim */
+  spr.bounds = null;             /* and the box grew by the width of it */
 }
 
 /* A one-off picture of a building for menus and panels: the static sprite with
@@ -245,6 +296,7 @@ function getSprite(art, w, h, rot, item) {
   s = fn(w, h, rot || 0);
   if (item && item.cat === 'ride') rideFence(s, item, rot || 0, 'front');
   ART._spec = null;
+  addAmbient(s);
   addRimLight(s);
   _spriteCache.set(key, s);
   return s;
@@ -252,8 +304,8 @@ function getSprite(art, w, h, rot, item) {
 
 ART.fallback = function (w, h) {
   const g = spriteCtx(w, h, 26);
-  pad(g, '#8a7a5c', '#6d6046');
-  isoBox(g.ctx, g.mid[0], g.mid[1], TILE_W * 0.7, TILE_H * 0.7, 22, '#c0705a', '#7d4536', '#9a5644');
+  pad(g, '#87795e', '#655b48');
+  isoBox(g.ctx, g.mid[0], g.mid[1], TILE_W * 0.7, TILE_H * 0.7, 22, '#bf735d', '#714139', '#925547');
   return g;
 };
 
@@ -274,27 +326,27 @@ const _personCache = new Map();
 function staffTool(ctx, role, x, y, col) {
   ctx.lineCap = 'round';
   const shaft = (len, lean) => {
-    ctx.strokeStyle = '#7d5a35'; ctx.lineWidth = 1.7;
+    ctx.strokeStyle = '#735539'; ctx.lineWidth = 1.7;
     ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.lineTo(x - lean, y - len); ctx.stroke();
   };
   if (role === 'guard') {                       /* spear */
     shaft(16, 1.5);
-    ctx.fillStyle = '#cfd4d8';
+    ctx.fillStyle = '#dddcd4';
     ctx.beginPath();
     ctx.moveTo(x - 1.5, y - 16); ctx.lineTo(x - 4, y - 21); ctx.lineTo(x + 1, y - 20.5);
     ctx.closePath(); ctx.fill();
   } else if (role === 'repairman') {            /* hammer */
     shaft(11, 1);
-    ctx.fillStyle = '#9aa0a6';
+    ctx.fillStyle = '#a1a5a6';
     roundRect(ctx, x - 4.6, y - 14.5, 7.2, 3.6, 1.2); ctx.fill();
   } else if (role === 'cook') {                 /* ladle */
     shaft(12, 1.2);
-    ctx.fillStyle = '#c9c2b2';
+    ctx.fillStyle = '#d4c9b1';
     ctx.beginPath(); ctx.ellipse(x - 1.4, y - 13, 3, 2.4, 0.3, 0, Math.PI * 2); ctx.fill();
   } else if (role === 'salesman') {             /* basket of wares */
-    ctx.fillStyle = '#a97b45';
+    ctx.fillStyle = '#a57b49';
     roundRect(ctx, x - 5, y - 4, 9, 6, 1.6); ctx.fill();
-    ctx.strokeStyle = '#7d5a35'; ctx.lineWidth = 1.2;
+    ctx.strokeStyle = '#735539'; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(x - 0.5, y - 4, 4.2, Math.PI, 0); ctx.stroke();
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.arc(x - 2.4, y - 3.4, 1.5, 0, Math.PI * 2);
@@ -303,10 +355,10 @@ function staffTool(ctx, role, x, y, col) {
     shaft(18, 1.6);
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.ellipse(x - 2.6, y - 18.5, 2.8, 3.4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#6f9e5a'; ctx.lineWidth = 1.2;
+    ctx.strokeStyle = '#699257'; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(x - 2.6, y - 21); ctx.lineTo(x - 5.4, y - 23.5); ctx.stroke();
   } else {                                      /* rider: a coil of rein */
-    ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#836747'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(x - 1.5, y - 1, 3.4, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.arc(x - 1.5, y - 3.4, 2.4, 0, Math.PI * 2); ctx.stroke();
   }
@@ -333,7 +385,7 @@ function paintPerson(ctx, look, frame) {
     const len = Math.max(2.5, 6 * k + L.ph * 1.7);
     ctx.fillStyle = L.c;
     roundRect(ctx, L.x, hipY, 2.8, len, 1.3); ctx.fill();
-    ctx.fillStyle = '#6b4a2c';                                  /* hide sandal */
+    ctx.fillStyle = '#5e4430';                                  /* hide sandal */
     roundRect(ctx, L.x - 0.7, hipY + len - 1.7, 4.2, 2.5, 1.1); ctx.fill();
   }
 
@@ -386,7 +438,7 @@ function paintPerson(ctx, look, frame) {
       roundRect(ctx, L.x, -9.5 * k, 3.3, 5.2 * k, 1.5); ctx.fill();          /* thigh */
       ctx.fillStyle = shade(L.c, -0.12);
       roundRect(ctx, L.x - 0.2, -5.2 * k, 3.1, 5.4 * k, 1.4); ctx.fill();    /* shin */
-      ctx.fillStyle = '#6b4a2c';
+      ctx.fillStyle = '#5e4430';
       roundRect(ctx, L.x - 0.9, -0.4, 4.4, 2.6, 1.2); ctx.fill();            /* foot */
     }
   }
@@ -441,7 +493,7 @@ function paintPerson(ctx, look, frame) {
   }
 
   /* face */
-  ctx.fillStyle = '#2a2018';
+  ctx.fillStyle = '#1b191d';
   ctx.beginPath();
   ctx.arc(-1.7 * k, hy + 0.1, 0.78, 0, Math.PI * 2);
   ctx.arc(1.7 * k, hy + 0.1, 0.78, 0, Math.PI * 2);

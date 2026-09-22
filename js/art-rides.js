@@ -1,8 +1,8 @@
 /* Isometric artwork for the rides: static structure (ART) + moving parts (ANIM).
    Everything is drawn with canvas primitives — no bitmaps, no borrowed assets. */
 
-const SAND = '#cbb184', SAND_E = '#a58f66';
-const WOOD = '#8a5a33', WOOD_D = '#63401f', WOOD_L = '#a8763f';
+const SAND = '#d2b786', SAND_E = '#a69168';
+const WOOD = '#805638', WOOD_D = '#533925', WOOD_L = '#a37544';
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -70,7 +70,7 @@ ART.seesaw = function (w, h) {
     ctx.beginPath(); ctx.moveTo(cx + s * 9 - 1.2, cy - 3); ctx.lineTo(cx + s * 1.5 - 1.2, cy - 15); ctx.stroke();
   }
   /* the pivot: a bone roller bound into the fork */
-  ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 2.2;
+  ctx.strokeStyle = '#b39d6b'; ctx.lineWidth = 2.2;
   for (let i = -1; i <= 1; i++) {
     ctx.beginPath();
     ctx.moveTo(cx - 6, cy - 12 + i * 2.6); ctx.lineTo(cx + 6, cy - 13 + i * 2.6);
@@ -110,16 +110,16 @@ ANIM.seesaw = function (ctx, sx, sy, g, t, b) {
     ctx.beginPath(); ctx.ellipse(s * 20, -13.4, 2.4, 1.8, 0, 0, Math.PI * 2); ctx.fill();
   }
   /* a carved beast's head on the front end, because somebody had the time */
-  ctx.fillStyle = '#5b9449';
+  ctx.fillStyle = '#558748';
   ctx.beginPath();
   ctx.moveTo(-35, -5); ctx.lineTo(-44, -5.5); ctx.lineTo(-46, -2.5);
   ctx.lineTo(-43, -0.5); ctx.lineTo(-35, 0.5);
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#6fae5a';
+  ctx.fillStyle = '#6aa555';
   ctx.beginPath();
   ctx.moveTo(-35, -5); ctx.lineTo(-44, -5.5); ctx.lineTo(-44.5, -3.8); ctx.lineTo(-35, -3.4);
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#1e1e1e';
+  ctx.fillStyle = '#111622';
   ctx.beginPath(); ctx.arc(-40.5, -3.6, 0.85, 0, Math.PI * 2); ctx.fill();
 
   if (busy) {
@@ -150,7 +150,7 @@ ART.trampoline = function (w, h) {
     ctx.fillStyle = shade(WOOD, -0.25); ctx.fillRect(px - 3, py - H, 6, H);
     ctx.fillStyle = WOOD; ctx.fillRect(px - 3, py - H, 4, H);
     ctx.fillStyle = shade(WOOD, 0.2); ctx.fillRect(px - 3, py - H, 1.4, H);
-    ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#b39d6b'; ctx.lineWidth = 1.5;
     for (const yy of [py - H + 4, py - H + 7]) {
       ctx.beginPath(); ctx.moveTo(px - 3.4, yy); ctx.lineTo(px + 3.4, yy - 0.8); ctx.stroke();
     }
@@ -257,7 +257,7 @@ ART.swing = function (w, h) {
     const m2 = [lerp(foot2[0], cx + s * 5, 0.42), lerp(foot2[1], cy - H, 0.42)];
     ctx.strokeStyle = shade(WOOD, -0.25); ctx.lineWidth = 3.4;
     ctx.beginPath(); ctx.moveTo(m1[0], m1[1]); ctx.lineTo(m2[0], m2[1]); ctx.stroke();
-    ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.7;
+    ctx.strokeStyle = '#b39d6b'; ctx.lineWidth = 1.7;
     for (const m of [m1, m2]) {
       ctx.beginPath(); ctx.moveTo(m[0] - 4, m[1] - 1); ctx.lineTo(m[0] + 4, m[1] + 1); ctx.stroke();
     }
@@ -265,7 +265,7 @@ ART.swing = function (w, h) {
 
   /* the ridge beam the seats hang from */
   beam(ctx, cx - 28, cy - H, cx + 28, cy - H, 8, WOOD_L);
-  ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 2;
+  ctx.strokeStyle = '#b39d6b'; ctx.lineWidth = 2;
   for (const s of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
       ctx.beginPath();
@@ -304,7 +304,7 @@ ANIM.swing = function (ctx, sx, sy, g, t, b) {
     const len = 30;
     const ex = ax + Math.sin(a) * len, ey = ay + Math.cos(a) * len;
     /* twisted hide rope, two strands */
-    ctx.strokeStyle = '#7d6a4e'; ctx.lineWidth = 2;
+    ctx.strokeStyle = '#776750'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(ax - 5, ay); ctx.lineTo(ex - 5, ey); ctx.moveTo(ax + 5, ay); ctx.lineTo(ex + 5, ey); ctx.stroke();
     ctx.strokeStyle = 'rgba(200,178,134,.55)'; ctx.lineWidth = 0.8;
     ctx.beginPath(); ctx.moveTo(ax - 5.6, ay); ctx.lineTo(ex - 5.6, ey); ctx.moveTo(ax + 4.4, ay); ctx.lineTo(ex + 4.4, ey); ctx.stroke();
@@ -351,7 +351,7 @@ ART.slide = function (w, h, rot) {
     ctx.lineTo(pts[3][0], pts[3][1] + hh);
     ctx.lineTo(pts[0][0], pts[0][1] + hh);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = mixColor(PALETTE.rock, '#eef1f4', 0.45); /* the top */
+    ctx.fillStyle = mixColor(PALETTE.rock, '#fcf7ea', 0.45); /* the top */
     ctx.beginPath();
     for (let i = 0; i < 4; i++) ctx[i ? 'lineTo' : 'moveTo'](pts[i][0], pts[i][1]);
     ctx.closePath(); ctx.fill();
@@ -390,8 +390,8 @@ ART.slide = function (w, h, rot) {
   ctx.moveTo(ax - 10, ay); ctx.lineTo(ax + 11, ay + 6); ctx.lineTo(bx + 13, by + 2); ctx.lineTo(bx - 10, by - 6);
   ctx.closePath(); ctx.fill();
   const gr = ctx.createLinearGradient(ax, ay, bx, by);
-  gr.addColorStop(0, mixColor(PALETTE.rock, '#f2f4f6', 0.4));
-  gr.addColorStop(0.5, mixColor(PALETTE.rock, '#e0e4e8', 0.2));
+  gr.addColorStop(0, mixColor(PALETTE.rock, '#fff9eb', 0.4));
+  gr.addColorStop(0.5, mixColor(PALETTE.rock, '#eeebe1', 0.2));
   gr.addColorStop(1, PALETTE.rock);
   ctx.fillStyle = gr;
   ctx.beginPath();
@@ -429,7 +429,7 @@ ANIM.slide = function (ctx, sx, sy, g, t, b) {
     if (p < 0 || p > 1) continue;
     const x = lerp(g.slideA[0], g.slideB[0], p) + sx;
     const y = lerp(g.slideA[1], g.slideB[1], p) + sy;
-    drawMiniPerson(ctx, x, y, '#e0c04a', b.riders[i]);
+    drawMiniPerson(ctx, x, y, '#e0c152', b.riders[i]);
     if (p > 0.88) {
       ctx.fillStyle = 'rgba(214,198,160,.6)';
       for (let k = 0; k < 4; k++)
@@ -481,7 +481,7 @@ ART.range = function (w, h) {
     }
     /* the painted rings that make it a target rather than a bale */
     const ry = y - 6.5;
-    for (const [r, col] of [[8.5, '#e8ddc2'], [6, '#c4453a'], [3.4, '#e8ddc2'], [1.6, '#c4453a']]) {
+    for (const [r, col] of [[8.5, '#f4e4be'], [6, '#bb483e'], [3.4, '#f4e4be'], [1.6, '#bb483e']]) {
       ctx.fillStyle = col;
       ctx.beginPath(); ctx.ellipse(x, ry, r, r * 0.62, 0, 0, Math.PI * 2); ctx.fill();
     }
@@ -497,12 +497,12 @@ ART.range = function (w, h) {
     ctx.moveTo(bk[0] - 4, bk[1] + s * 13); ctx.lineTo(bk[0] - 4, bk[1] + s * 13 - 26);
     ctx.stroke();
   }
-  ctx.fillStyle = '#c4453a';
+  ctx.fillStyle = '#bb483e';
   ctx.beginPath();
   ctx.moveTo(bk[0] - 12, bk[1] - 34); ctx.lineTo(bk[0] + 8, bk[1] - 30);
   ctx.lineTo(bk[0] + 8, bk[1] - 24); ctx.lineTo(bk[0] - 12, bk[1] - 28);
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#e8ddc2';
+  ctx.fillStyle = '#f4e4be';
   ctx.beginPath();
   ctx.moveTo(bk[0] - 12, bk[1] - 28); ctx.lineTo(bk[0] + 8, bk[1] - 24);
   ctx.lineTo(bk[0] + 8, bk[1] - 21); ctx.lineTo(bk[0] - 12, bk[1] - 25);
@@ -513,7 +513,7 @@ ART.range = function (w, h) {
   ctx.fillStyle = WOOD_L;
   roundRect(ctx, bk[0] - 13, bk[1] - 13, 22, 6, 2); ctx.fill();
   /* a basket of throwing rocks on the counter */
-  ctx.fillStyle = '#9b7b45';
+  ctx.fillStyle = '#967a49';
   roundRect(ctx, bk[0] - 9, bk[1] - 19, 14, 7, 3); ctx.fill();
   ctx.fillStyle = PALETTE.rockDark;
   for (let i = 0; i < 4; i++) {
@@ -549,7 +549,7 @@ ART.carousel = function (w, h) {
   /* plinth */
   ctx.fillStyle = shade(WOOD_D, -0.15);
   ctx.beginPath(); ctx.ellipse(cx, cy + 4, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#a8865a';
+  ctx.fillStyle = '#a8875d';
   ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
   /* radial planks */
   ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.lineWidth = 1.2;
@@ -557,10 +557,10 @@ ART.carousel = function (w, h) {
     const a = (i / 16) * Math.PI * 2;
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry); ctx.stroke();
   }
-  ctx.fillStyle = '#c2a173';
+  ctx.fillStyle = '#c7a575';
   ctx.beginPath(); ctx.ellipse(cx, cy, rx * 0.34, ry * 0.34, 0, 0, Math.PI * 2); ctx.fill();
   /* painted rim */
-  ctx.strokeStyle = '#c44a3f'; ctx.lineWidth = 3;
+  ctx.strokeStyle = '#bc4d43'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.ellipse(cx, cy, rx - 2, ry - 1.5, 0, 0, Math.PI * 2); ctx.stroke();
   /* centre pole */
   ctx.fillStyle = WOOD_D; ctx.fillRect(cx - 4.5, cy - 62, 9, 62);
@@ -579,23 +579,23 @@ ANIM.carousel = function (ctx, sx, sy, g, t, b) {
   mounts.sort((p, q) => p.y - q.y);
   for (const m of mounts) {
     const bob = Math.sin(spin * 3 + m.i) * 5;
-    ctx.strokeStyle = '#d8c98a'; ctx.lineWidth = 2.2;
+    ctx.strokeStyle = '#e0ce8c'; ctx.lineWidth = 2.2;
     ctx.beginPath(); ctx.moveTo(m.x, m.y - 56); ctx.lineTo(m.x, m.y - 4 + bob); ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 0.9;
     ctx.beginPath(); ctx.moveTo(m.x - 0.8, m.y - 56); ctx.lineTo(m.x - 0.8, m.y - 4 + bob); ctx.stroke();
     blob(ctx, m.x, m.y + 2, 8, 3.5, 0.14);
     drawDinoMount(ctx, m.x, m.y + bob, CLOTH_TONES[m.i % 7]);
   }
-  canopy(ctx, cx, cy - 62, TILE_W * 0.92, TILE_H * 0.92, 20, '#c44a3f', '#f0dcae');
-  ctx.strokeStyle = '#e8d24a'; ctx.lineWidth = 2;
+  canopy(ctx, cx, cy - 62, TILE_W * 0.92, TILE_H * 0.92, 20, '#bc4d43', '#fae2ad');
+  ctx.strokeStyle = '#e7d153'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(cx, cy - 82); ctx.lineTo(cx, cy - 62); ctx.stroke();
-  ctx.fillStyle = '#e8d24a';
+  ctx.fillStyle = '#e7d153';
   ctx.beginPath(); ctx.arc(cx, cy - 84, 4, 0, Math.PI * 2); ctx.fill();
   /* bunting round the rim */
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2 + spin * 0.2;
     const bx = cx + Math.cos(a) * TILE_W * 0.9, by = cy - 60 + Math.sin(a) * TILE_H * 0.9;
-    ctx.fillStyle = i % 2 ? '#f0dcae' : '#c44a3f';
+    ctx.fillStyle = i % 2 ? '#fae2ad' : '#bc4d43';
     ctx.beginPath(); ctx.moveTo(bx - 3, by); ctx.lineTo(bx + 3, by); ctx.lineTo(bx, by + 6); ctx.closePath(); ctx.fill();
   }
 };
@@ -645,9 +645,9 @@ ART.catapult = function (w, h) {
   /* the twisted rope skein that actually throws the arm */
   ctx.save();
   ctx.translate(base[0], base[1] - 36);
-  ctx.fillStyle = '#a89468';
+  ctx.fillStyle = '#aa966a';
   ctx.beginPath(); ctx.ellipse(0, 0, 9, 7, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#7d6a45'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#766648'; ctx.lineWidth = 1.5;
   for (let i = -2; i <= 2; i++) {
     ctx.beginPath();
     ctx.moveTo(-8, i * 2.6); ctx.quadraticCurveTo(0, i * 2.6 - 2.5, 8, i * 2.6);
@@ -672,7 +672,7 @@ ANIM.catapult = function (ctx, sx, sy, g, t, b) {
   beam(ctx, -18, 0, 30, 0, 6, WOOD_L);
   ctx.fillStyle = PALETTE.hide;
   ctx.beginPath(); ctx.ellipse(32, 0, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#7d6a4a'; ctx.lineWidth = 1.4;
+  ctx.strokeStyle = '#76674c'; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.moveTo(26, -4); ctx.lineTo(32, -6); ctx.moveTo(26, 4); ctx.lineTo(32, 6); ctx.stroke();
   ctx.fillStyle = PALETTE.rockDark;
   ctx.beginPath(); ctx.arc(-20, 0, 8, 0, Math.PI * 2); ctx.fill();
@@ -681,7 +681,7 @@ ANIM.catapult = function (ctx, sx, sy, g, t, b) {
   ctx.restore();
   if (run && ph > 0.3 && ph < 0.8) {
     const f = (ph - 0.3) / 0.5;
-    drawMiniPerson(ctx, px + 22 + f * 62, py - 16 - Math.sin(f * Math.PI) * 44, '#d6604a', b.riders && b.riders[0]);
+    drawMiniPerson(ctx, px + 22 + f * 62, py - 16 - Math.sin(f * Math.PI) * 44, '#d2654f', b.riders && b.riders[0]);
   }
 };
 
@@ -719,7 +719,7 @@ ART.ferris = function (w, h) {
     }
   }
   /* bindings where the braces cross the legs */
-  ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.7;
+  ctx.strokeStyle = '#b39d6b'; ctx.lineWidth = 1.7;
   for (const f of feet) {
     for (const u of [0.42, 0.72]) {
       const bx = lerp(f[0], cx, u), by = lerp(f[1], hubY, u);
@@ -731,7 +731,7 @@ ART.ferris = function (w, h) {
      following the diamond: laying the planks as straight lines across it put
      their ends outside the deck, which read as spilled sticks. */
   const plat = g.C(0.3, h - 0.65);
-  isoBox(ctx, plat[0], plat[1], TILE_W * 0.62, TILE_H * 0.62, 8, '#9c7a4f', '#5f4420', '#7b5a2f');
+  isoBox(ctx, plat[0], plat[1], TILE_W * 0.62, TILE_H * 0.62, 8, '#997952', '#503d26', '#705534');
   ctx.save();
   ctx.beginPath();
   diamond(ctx, plat[0], plat[1] - 8, TILE_W * 0.62, TILE_H * 0.62);
@@ -745,7 +745,7 @@ ART.ferris = function (w, h) {
   }
   ctx.restore();
   /* a step up from the path */
-  ctx.fillStyle = shade('#9c7a4f', -0.16);
+  ctx.fillStyle = shade('#997952', -0.16);
   roundRect(ctx, plat[0] - 12, plat[1] + 1, 24, 4, 1.8); ctx.fill();
   /* a rail along the back of it */
   ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2.2;
@@ -760,7 +760,7 @@ ART.ferris = function (w, h) {
   const bo = g.C(w - 0.75, h - 0.4);
   isoBox(ctx, bo[0], bo[1], TILE_W * 0.46, TILE_H * 0.46, 16, WOOD_L, WOOD_D, WOOD);
   thatchRoof(ctx, bo[0], bo[1] - 16, 16, 6, 11, PALETTE.thatch);
-  ctx.fillStyle = '#c44a3f';
+  ctx.fillStyle = '#bc4d43';
   roundRect(ctx, bo[0] - 11, bo[1] - 12, 22, 7, 2); ctx.fill();
   ctx.fillStyle = 'rgba(240,220,174,.85)';
   for (let i = 0; i < 3; i++) ctx.fillRect(bo[0] - 7 + i * 5, bo[1] - 9.5, 3, 1.6);
@@ -774,9 +774,9 @@ ANIM.ferris = function (ctx, sx, sy, g, t, b) {
 
   /* the rim: two hoops with lattice between them, so it reads as built rather
      than drawn — a single circle looked like a hoop of wire */
-  ctx.strokeStyle = shade('#caa96a', -0.3); ctx.lineWidth = 3;
+  ctx.strokeStyle = shade('#cead6d', -0.3); ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(hx, hy, R + 3, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = '#caa96a'; ctx.lineWidth = 3;
+  ctx.strokeStyle = '#cead6d'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(hx, hy, R - 4, 0, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = 'rgba(160,134,86,.85)'; ctx.lineWidth = 1.4;
   for (let i = 0; i < 24; i++) {
@@ -817,7 +817,7 @@ ANIM.ferris = function (ctx, sx, sy, g, t, b) {
   for (let i = 0; i < N; i++) {
     const a = spin + (i / N) * Math.PI * 2;
     const gx = hx + Math.cos(a) * R, gy = hy + Math.sin(a) * R;
-    ctx.strokeStyle = '#8c7b5c'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#897a5e'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(gx - 6, gy); ctx.lineTo(gx - 6, gy + 7); ctx.moveTo(gx + 6, gy); ctx.lineTo(gx + 6, gy + 7); ctx.stroke();
     ctx.strokeStyle = PALETTE.boneDark; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(gx - 7, gy + 7); ctx.lineTo(gx + 7, gy + 7); ctx.stroke();
@@ -851,7 +851,7 @@ ANIM.ferris = function (ctx, sx, sy, g, t, b) {
 /* ------------------------------------------------------------ haunted cave */
 ART.cave = function (w, h, rot) {
   const g = spriteCtx(w, h, 104), ctx = g.ctx;
-  pad(g, '#7c705c', '#5d5243');
+  pad(g, '#786e5d', '#534c45');
   const [cx, cy] = g.mid;
   /* The mouth goes in the middle of the mound's front face. It used to be put
      at the middle of the front row of tiles, which in this projection is a
@@ -863,12 +863,12 @@ ART.cave = function (w, h, rot) {
      and the seams between them are drawn, which is what makes it read as stone
      rather than a grey hill. */
   const facets = [
-    { p: [[-1.28, 0.2], [-0.95, -0.62], [-0.45, -0.88], [-0.2, 0.25]], c: '#8b9199' },
+    { p: [[-1.28, 0.2], [-0.95, -0.62], [-0.45, -0.88], [-0.2, 0.25]], c: '#8f9499' },
     { p: [[-0.2, 0.25], [-0.45, -0.88], [0.08, -1.08], [0.3, 0.22]], c: '#7a8088' },
-    { p: [[0.3, 0.22], [0.08, -1.08], [0.66, -0.86], [1.0, 0.2]], c: '#6a7077' },
-    { p: [[1.0, 0.2], [0.66, -0.86], [1.05, -0.5], [1.3, 0.18]], c: '#5e646b' },
-    { p: [[-0.45, -0.88], [-0.22, -1.3], [0.2, -1.32], [0.08, -1.08]], c: '#a0a6ad' },
-    { p: [[0.08, -1.08], [0.2, -1.32], [0.62, -1.05], [0.66, -0.86]], c: '#878d95' }
+    { p: [[0.3, 0.22], [0.08, -1.08], [0.66, -0.86], [1.0, 0.2]], c: '#676e76' },
+    { p: [[1.0, 0.2], [0.66, -0.86], [1.05, -0.5], [1.3, 0.18]], c: '#59606a' },
+    { p: [[-0.45, -0.88], [-0.22, -1.3], [0.2, -1.32], [0.08, -1.08]], c: '#a8abad' },
+    { p: [[0.08, -1.08], [0.2, -1.32], [0.62, -1.05], [0.66, -0.86]], c: '#8a8f95' }
   ];
   for (const f of facets) {
     ctx.fillStyle = f.c;
@@ -902,10 +902,10 @@ ART.cave = function (w, h, rot) {
 
   /* the entrance, cut back into the mound */
   const ex = front[0], ey = front[1] - 2;
-  ctx.fillStyle = '#3f382f';
+  ctx.fillStyle = '#323031';
   ctx.beginPath(); ctx.ellipse(ex, ey - 17, 28, 30, 0, Math.PI, 0); ctx.rect(ex - 28, ey - 17, 56, 17); ctx.fill();
   const gr = ctx.createRadialGradient(ex, ey - 12, 2, ex, ey - 12, 34);
-  gr.addColorStop(0, '#000'); gr.addColorStop(0.7, '#15120f'); gr.addColorStop(1, '#241f1a');
+  gr.addColorStop(0, '#000'); gr.addColorStop(0.7, '#080c15'); gr.addColorStop(1, '#16171f');
   ctx.fillStyle = gr;
   ctx.beginPath(); ctx.ellipse(ex, ey - 15, 22, 24, 0, Math.PI, 0); ctx.rect(ex - 22, ey - 15, 44, 15); ctx.fill();
 
@@ -967,7 +967,7 @@ ART.cave = function (w, h, rot) {
     ctx.beginPath(); ctx.ellipse(tp[0], tp[1], 7, 3.4, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = shade(WOOD, -0.3); ctx.fillRect(tp[0] - 3, tp[1] - 28, 6, 28);
     ctx.fillStyle = WOOD; ctx.fillRect(tp[0] - 3, tp[1] - 28, 4, 28);
-    ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#b39d6b'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(tp[0] - 4, tp[1] - 24); ctx.lineTo(tp[0] + 4, tp[1] - 25); ctx.stroke();
     ctx.fillStyle = PALETTE.boneDark;
     ctx.beginPath(); ctx.ellipse(tp[0], tp[1] - 28, 5, 2.6, 0, 0, Math.PI * 2); ctx.fill();
@@ -1001,12 +1001,12 @@ ANIM.cave = function (ctx, sx, sy, g, t, b) {
     const blink = Math.sin(t * 1.7) > 0.72;
     const wob = Math.sin(t * 0.9) * 3;
     if (!blink) {
-      ctx.fillStyle = '#ffe066';
+      ctx.fillStyle = '#fcdf71';
       ctx.beginPath();
       ctx.arc(mx - 5 + wob, my - 4, 2.1, 0, Math.PI * 2);
       ctx.arc(mx + 5 + wob, my - 4, 2.1, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#2a1a0a';
+      ctx.fillStyle = '#191312';
       ctx.beginPath();
       ctx.arc(mx - 5 + wob, my - 4, 0.9, 0, Math.PI * 2);
       ctx.arc(mx + 5 + wob, my - 4, 0.9, 0, Math.PI * 2);
@@ -1041,7 +1041,7 @@ ART.tower = function (w, h) {
   isoBox(ctx, cx, cy, TILE_W * 1.02, TILE_H * 1.02, 11, PALETTE.rock,
     shade(PALETTE.rockDark, -0.14), PALETTE.rockDark);
   isoBox(ctx, cx, cy - 11, TILE_W * 0.74, TILE_H * 0.74, 7,
-    mixColor(PALETTE.rock, '#e6eaee', 0.3), shade(PALETTE.rockDark, -0.1), PALETTE.rockDark);
+    mixColor(PALETTE.rock, '#f4f1e6', 0.3), shade(PALETTE.rockDark, -0.1), PALETTE.rockDark);
 
   /* four legs rather than two, so it reads as a mast and not a ladder */
   const legX = (u, s) => cx + s * lerp(23, 7, u);
@@ -1075,7 +1075,7 @@ ART.tower = function (w, h) {
     ctx.strokeStyle = shade(WOOD, -0.14); ctx.lineWidth = 2.4;
   }
   /* bindings where the braces meet the legs */
-  ctx.strokeStyle = '#b09a68'; ctx.lineWidth = 1.8;
+  ctx.strokeStyle = '#b39d6b'; ctx.lineWidth = 1.8;
   for (let i = 1; i < 11; i += 2) {
     const u = i / 11;
     for (const s of [-1, 1]) {
@@ -1103,7 +1103,7 @@ ART.tower = function (w, h) {
   }
 
   skull(ctx, cx, topY - 16, 13);
-  ctx.fillStyle = '#c94f4f';
+  ctx.fillStyle = '#c45452';
   ctx.beginPath();
   ctx.moveTo(cx + 12, topY - 20); ctx.lineTo(cx + 31, topY - 26); ctx.lineTo(cx + 12, topY - 30);
   ctx.closePath(); ctx.fill();
@@ -1117,17 +1117,17 @@ ANIM.tower = function (ctx, sx, sy, g, t, b) {
   let f = run ? (ph < 0.72 ? ph / 0.72 : 1 - (ph - 0.72) / 0.28) : 0;
   f = clamp(f, 0, 1);
   const y = lerp(g.botY, g.topY, f) + sy, x = g.cx + sx;
-  ctx.strokeStyle = '#6b5a42'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#625544'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(x, g.topY + sy - 14); ctx.lineTo(x, y); ctx.stroke();
   /* the car: a bench slung under the mast with a bar across the riders' laps */
-  ctx.fillStyle = shade('#b5563f', -0.35);
+  ctx.fillStyle = shade('#ae5743', -0.35);
   roundRect(ctx, x - 17, y + 9, 34, 6, 2); ctx.fill();
   if (run) {
     const n = Math.min(3, b.riders.length);
     for (let i = 0; i < n; i++)
       drawMiniPerson(ctx, x - (n - 1) * 5.5 + i * 11, y + 4, CLOTH_TONES[i % 7], b.riders[i]);
   }
-  ctx.fillStyle = '#b5563f';
+  ctx.fillStyle = '#ae5743';
   roundRect(ctx, x - 17, y + 1, 34, 10, 3); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.22)';
   ctx.fillRect(x - 17, y + 1, 34, 2.4);
@@ -1141,7 +1141,7 @@ ANIM.tower = function (ctx, sx, sy, g, t, b) {
 /* ------------------------------------------------------------ water chute */
 ART.chute = function (w, h) {
   const g = spriteCtx(w, h, 120), ctx = g.ctx;
-  pad(g, '#86906d', '#646c50');
+  pad(g, '#7b8668', '#55604d');
   const top = g.C(w - 0.75, 0.45), bot = g.C(0.85, h - 1.15);
   const H = 74;
 
@@ -1169,7 +1169,7 @@ ART.chute = function (w, h) {
     ctx.fillStyle = shade(PALETTE.rock, 0.2);
     ctx.beginPath(); ctx.ellipse(rx2 - 1.5, ry2 - 2, 4.4, 2.6, 0, 0, Math.PI * 2); ctx.fill();
   }
-  ctx.strokeStyle = '#5d8f4a'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#568249'; ctx.lineWidth = 1.5;
   for (let i = 0; i < 9; i++) {
     const a = 2.5 + i * 0.36;
     const rx2 = bot[0] + Math.cos(a) * 33, ry2 = bot[1] + Math.sin(a) * 15;
@@ -1278,13 +1278,13 @@ ANIM.chute = function (ctx, sx, sy, g, t, b) {
   const x = lerp(g.rideA[0], g.rideB[0], p) + sx, y = lerp(g.rideA[1], g.rideB[1], p) + sy;
 
   /* a hollowed log boat with a carved prow */
-  ctx.fillStyle = '#5d3720';
+  ctx.fillStyle = '#4d3125';
   roundRect(ctx, x - 13, y - 6, 26, 10, 4.5); ctx.fill();
-  ctx.fillStyle = '#7a4a2a';
+  ctx.fillStyle = '#6c452f';
   roundRect(ctx, x - 13, y - 8, 26, 9, 4); ctx.fill();
-  ctx.fillStyle = '#4a2c18';
+  ctx.fillStyle = '#39251e';
   roundRect(ctx, x - 10, y - 7.5, 20, 4, 2); ctx.fill();
-  ctx.fillStyle = '#8a5a33';
+  ctx.fillStyle = '#805638';
   ctx.beginPath();
   ctx.moveTo(x + 12, y - 7); ctx.lineTo(x + 19, y - 11); ctx.lineTo(x + 14, y - 2);
   ctx.closePath(); ctx.fill();
@@ -1311,7 +1311,7 @@ ANIM.chute = function (ctx, sx, sy, g, t, b) {
     const f = (p - 0.80) / 0.20;
     ctx.save();
     ctx.globalAlpha = 1 - f;
-    ctx.fillStyle = '#e4f4fd';
+    ctx.fillStyle = '#f3f9f2';
     for (let i = 0; i < 12; i++) {
       const a = Math.PI + (i / 11) * Math.PI;
       ctx.beginPath();
@@ -1393,7 +1393,7 @@ ART.coaster = function (w, h) {
 
   /* the station: a decked platform under a thatched canopy, with a queue rail */
   const st = g.C(1.15, h - 0.85);
-  isoBox(ctx, st[0], st[1] + 4, TILE_W * 0.88, TILE_H * 0.88, 8, '#9c7a4f', '#5f4420', '#7b5a2f');
+  isoBox(ctx, st[0], st[1] + 4, TILE_W * 0.88, TILE_H * 0.88, 8, '#997952', '#503d26', '#705534');
   ctx.save();
   ctx.beginPath(); diamond(ctx, st[0], st[1] - 4, TILE_W * 0.88, TILE_H * 0.88); ctx.clip();
   ctx.strokeStyle = 'rgba(95,68,32,.5)'; ctx.lineWidth = 1;
@@ -1422,9 +1422,9 @@ ART.coaster = function (w, h) {
   ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2.2;
   ctx.beginPath(); ctx.moveTo(st[0] - 11, st[1] - 30); ctx.lineTo(st[0] - 11, st[1] - 23); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(st[0] + 11, st[1] - 30); ctx.lineTo(st[0] + 11, st[1] - 23); ctx.stroke();
-  ctx.fillStyle = shade('#c44a3f', -0.3);
+  ctx.fillStyle = shade('#bc4d43', -0.3);
   roundRect(ctx, st[0] - 16, st[1] - 41, 32, 12, 3.2); ctx.fill();
-  ctx.fillStyle = '#c44a3f';
+  ctx.fillStyle = '#bc4d43';
   roundRect(ctx, st[0] - 16, st[1] - 42.5, 32, 11, 3); ctx.fill();
   /* a daubed run of track rather than a word, since the tribe has no writing */
   ctx.strokeStyle = 'rgba(240,220,174,.85)'; ctx.lineWidth = 1.5;
@@ -1450,7 +1450,7 @@ ANIM.coaster = function (ctx, sx, sy, g, t, b) {
     ctx.save();
     ctx.translate(x, y); ctx.rotate(ang * 0.35);
     /* a hollowed log car with a bone bar across the riders */
-    const col = c === 0 ? '#c9453a' : '#e0a33c';
+    const col = c === 0 ? '#c0493f' : '#e0a33c';
     ctx.fillStyle = shade(col, -0.42);
     roundRect(ctx, -10, -4, 20, 6, 2.4); ctx.fill();
     ctx.fillStyle = col;
@@ -1460,7 +1460,7 @@ ANIM.coaster = function (ctx, sx, sy, g, t, b) {
     ctx.fillStyle = 'rgba(0,0,0,.26)';
     ctx.fillRect(-10, -4.5, 20, 2.4);
     /* wheels */
-    ctx.fillStyle = '#4a3320';
+    ctx.fillStyle = '#3a2c25';
     ctx.beginPath(); ctx.arc(-6, 2, 2.1, 0, Math.PI * 2); ctx.arc(6, 2, 2.1, 0, Math.PI * 2); ctx.fill();
     /* riders, arms up */
     for (let r = 0; r < 2; r++) {
@@ -1501,16 +1501,16 @@ function drawMiniPerson(ctx, x, y, cloth, who) {
   ctx.beginPath(); ctx.arc(x, y - 13, 3.4, Math.PI * 1.05, Math.PI * 2); ctx.fill();
 }
 function drawDinoMount(ctx, x, y, cloth) {
-  ctx.fillStyle = '#5b9449';
+  ctx.fillStyle = '#558748';
   ctx.beginPath(); ctx.moveTo(x - 9, y - 10); ctx.lineTo(x - 16, y - 17); ctx.lineTo(x - 8, y - 13); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#6fae5a';
+  ctx.fillStyle = '#6aa555';
   roundRect(ctx, x - 9, y - 13, 18, 10, 4.5); ctx.fill();
   ctx.beginPath(); ctx.arc(x + 9, y - 17, 5, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#8ac674';
+  ctx.fillStyle = '#87c36a';
   roundRect(ctx, x - 7, y - 13, 14, 3, 1.5); ctx.fill();
-  ctx.fillStyle = '#2f2f2f';
+  ctx.fillStyle = '#222731';
   ctx.beginPath(); ctx.arc(x + 11, y - 18, 1.1, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#4b7c3c';
+  ctx.fillStyle = '#426d3c';
   ctx.fillRect(x - 6, y - 4, 3.2, 5); ctx.fillRect(x + 3, y - 4, 3.2, 5);
   drawMiniPerson(ctx, x, y - 13, cloth);
 }
@@ -1518,12 +1518,12 @@ function drawFlame(ctx, x, y, t) {
   const s = 1 + Math.sin(t * 9 + x) * 0.18;
   ctx.save();
   ctx.globalAlpha = 0.35;
-  ctx.fillStyle = '#ff9d3c';
+  ctx.fillStyle = '#f7a24c';
   ctx.beginPath(); ctx.ellipse(x, y - 4 * s, 7 * s, 9 * s, 0, 0, Math.PI * 2); ctx.fill();
   ctx.globalAlpha = 0.95;
-  ctx.fillStyle = '#ff9d3c';
+  ctx.fillStyle = '#f7a24c';
   ctx.beginPath(); ctx.ellipse(x, y - 4 * s, 3.4 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#ffe07a';
+  ctx.fillStyle = '#ffe183';
   ctx.beginPath(); ctx.ellipse(x, y - 3 * s, 1.8 * s, 3.4 * s, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }

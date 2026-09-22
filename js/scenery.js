@@ -215,19 +215,19 @@ ART.lamppost = function () {
   ctx.beginPath(); ctx.ellipse(cx, cy, 34, 17, 0, 0, Math.PI * 2); ctx.fill();
   blob(ctx, cx + 1, cy + 1, 5, 2.4, .25);
   /* the post */
-  ctx.fillStyle = '#2f3338'; ctx.fillRect(cx - 2.2, cy - H, 4.4, H);
-  ctx.fillStyle = '#41464d'; ctx.fillRect(cx - 2.2, cy - H, 1.8, H);
-  ctx.fillStyle = '#23262a';
+  ctx.fillStyle = '#232b38'; ctx.fillRect(cx - 2.2, cy - H, 4.4, H);
+  ctx.fillStyle = '#373f4c'; ctx.fillRect(cx - 2.2, cy - H, 1.8, H);
+  ctx.fillStyle = '#161e2c';
   ctx.beginPath(); ctx.ellipse(cx, cy, 5.5, 2.6, 0, 0, Math.PI * 2); ctx.fill();
   /* the arm and the head */
-  ctx.strokeStyle = '#2f3338'; ctx.lineWidth = 3;
+  ctx.strokeStyle = '#232b38'; ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(cx, cy - H);
   ctx.quadraticCurveTo(cx + 7, cy - H - 5, cx + 12, cy - H - 3);
   ctx.stroke();
-  ctx.fillStyle = '#23262a';
+  ctx.fillStyle = '#161e2c';
   roundRect(ctx, cx + 8, cy - H - 4, 10, 4.5, 2); ctx.fill();
-  ctx.fillStyle = '#ffe9b0';
+  ctx.fillStyle = '#ffedb1';
   roundRect(ctx, cx + 9, cy - H - 1.5, 8, 2.6, 1.3); ctx.fill();
   /* the glow around the head */
   const hg = ctx.createRadialGradient(cx + 13, cy - H - 1, 0, cx + 13, cy - H - 1, 13);
@@ -241,7 +241,7 @@ ART.lamppost = function () {
 /* Cars left on the verge outside the gate. Four bodies so a row of them is
    not the same car repeated; scenery art is cached by name, so the colour
    cannot vary per instance the way a moving vehicle's does. */
-const PARKED_TONES = ['#c9453a', '#3f6fb5', '#e0a33c', '#4f9d6a'];
+const PARKED_TONES = ['#c0493f', '#416dad', '#e0a33c', '#4a905d'];
 PARKED_TONES.forEach((col, i) => {
   ART['parked' + i] = function () {
     const g = spriteCtx(1, 1, 34), ctx = g.ctx;
@@ -249,7 +249,7 @@ PARKED_TONES.forEach((col, i) => {
     const L = 34, H = 11;
     blob(ctx, cx, cy + 1, L * 0.46, 5, .26);
     /* wheels */
-    ctx.fillStyle = '#1d1f22';
+    ctx.fillStyle = '#101725';
     for (const wx of [-L * 0.3, L * 0.3]) {
       ctx.beginPath(); ctx.ellipse(cx + wx, cy - 2, 4, 3.4, 0, 0, Math.PI * 2); ctx.fill();
     }
@@ -267,9 +267,9 @@ PARKED_TONES.forEach((col, i) => {
     roundRect(ctx, cx - L * 0.24, cy - H - 7.5, L * 0.22, 5, 1.5); ctx.fill();
     roundRect(ctx, cx + L * 0.02, cy - H - 7.5, L * 0.22, 5, 1.5); ctx.fill();
     /* lamps */
-    ctx.fillStyle = '#ffe9b0';
+    ctx.fillStyle = '#ffedb1';
     ctx.beginPath(); ctx.ellipse(cx + L / 2 - 1.5, cy - H + 2, 1.6, 1.8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#c14a3c';
+    ctx.fillStyle = '#b84d40';
     ctx.beginPath(); ctx.ellipse(cx - L / 2 + 1.5, cy - H + 2, 1.4, 1.7, 0, 0, Math.PI * 2); ctx.fill();
     return g;
   };
@@ -282,12 +282,12 @@ ART.mushroom = function () {
   const g = spriteCtx(1, 1, 54), ctx = g.ctx;
   const [cx, cy] = g.mid;
   blob(ctx, cx + 1, cy + 1, 13, 6, .2);
-  const caps = [[-7, 0, 9, 13, '#b5453a'], [6, -2, 7, 10, '#c9573f'], [-1, -3, 11, 17, '#a63c33']];
+  const caps = [[-7, 0, 9, 13, '#ab473e'], [6, -2, 7, 10, '#c25a44'], [-1, -3, 11, 17, '#993d37']];
   for (const [dx, dy, rh, rw, col] of caps) {
     const bx = cx + dx, by = cy + dy;
     const h = rw * 1.5;
     /* stalk */
-    ctx.fillStyle = '#e4d9bd';
+    ctx.fillStyle = '#f0e0ba';
     ctx.beginPath();
     ctx.moveTo(bx - rw * 0.22, by);
     ctx.quadraticCurveTo(bx - rw * 0.15, by - h * 0.6, bx - rw * 0.18, by - h);
@@ -297,7 +297,7 @@ ART.mushroom = function () {
     ctx.fillStyle = 'rgba(120,104,72,.35)';
     ctx.fillRect(bx + rw * 0.05, by - h, rw * 0.17, h);
     /* the gills under the cap */
-    ctx.fillStyle = '#cbbb96';
+    ctx.fillStyle = '#d4c197';
     ctx.beginPath(); ctx.ellipse(bx, by - h + 2, rw, rh * 0.34, 0, 0, Math.PI * 2); ctx.fill();
     /* cap */
     ctx.fillStyle = col;
@@ -325,7 +325,7 @@ ART.cycad = function () {
   const [cx, cy] = g.mid;
   blob(ctx, cx + 1, cy + 1, 14, 6, .2);
   const H = 15;
-  ctx.fillStyle = '#6b5334';
+  ctx.fillStyle = '#604d38';
   ctx.beginPath();
   ctx.moveTo(cx - 6, cy); ctx.lineTo(cx - 4.5, cy - H); ctx.lineTo(cx + 4.5, cy - H); ctx.lineTo(cx + 6, cy);
   ctx.closePath(); ctx.fill();
@@ -358,7 +358,7 @@ ART.cycad = function () {
     const f = fronds[i];
     const shadeF = f.ey < crownY ? -0.2 : 0.05;        /* the far side sits in its own shade */
     const mx = lerp(cx, f.ex, 0.55), my = lerp(crownY, f.ey, 0.45) - 7;
-    ctx.fillStyle = shade(i % 2 ? '#3e7a3a' : '#4b8c42', shadeF);
+    ctx.fillStyle = shade(i % 2 ? '#386b3a' : '#467e42', shadeF);
     ctx.beginPath();
     ctx.moveTo(cx, crownY - 1);
     ctx.quadraticCurveTo(mx, my - 3.4, f.ex, f.ey);
@@ -377,7 +377,7 @@ ART.cycad = function () {
       ctx.beginPath(); ctx.moveTo(px, py - 2.6); ctx.lineTo(px, py + 2.6); ctx.stroke();
     }
   }
-  ctx.fillStyle = '#7a6a3e';
+  ctx.fillStyle = '#726542';
   ctx.beginPath(); ctx.ellipse(cx, cy - H - 1, 4.5, 3, 0, 0, Math.PI * 2); ctx.fill();
   return g;
 };
@@ -387,25 +387,25 @@ ART.logfall = function () {
   const g = spriteCtx(1, 1, 34), ctx = g.ctx;
   const [cx, cy] = g.mid;
   blob(ctx, cx, cy + 2, 22, 7, .22);
-  ctx.fillStyle = '#5c432a';
+  ctx.fillStyle = '#4e3c2e';
   roundRect(ctx, cx - 22, cy - 9, 44, 11, 5); ctx.fill();
-  ctx.fillStyle = '#6d5133';
+  ctx.fillStyle = '#614b37';
   roundRect(ctx, cx - 22, cy - 11, 44, 8, 4); ctx.fill();
   /* moss along the upper side */
-  ctx.fillStyle = '#4e7a3a';
+  ctx.fillStyle = '#446b3a';
   for (let i = 0; i < 9; i++) {
     const px = cx - 19 + i * 5;
     ctx.beginPath(); ctx.ellipse(px, cy - 11 + ((i * 3) % 2), 3.4, 2, 0, 0, Math.PI * 2); ctx.fill();
   }
   /* the cut end, with rings */
-  ctx.fillStyle = '#8a6a44';
+  ctx.fillStyle = '#836747';
   ctx.beginPath(); ctx.ellipse(cx - 22, cy - 5.5, 3.2, 5.5, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = 'rgba(70,48,26,.5)'; ctx.lineWidth = 0.8;
   for (const r of [0.35, 0.68]) {
     ctx.beginPath(); ctx.ellipse(cx - 22, cy - 5.5, 3.2 * r, 5.5 * r, 0, 0, Math.PI * 2); ctx.stroke();
   }
   /* bracket fungi */
-  ctx.fillStyle = '#d8c48a';
+  ctx.fillStyle = '#e0ca8c';
   for (const [dx, dy] of [[-6, -3], [7, -1], [14, -4]]) {
     ctx.beginPath(); ctx.ellipse(cx + dx, cy + dy, 4, 1.9, -0.2, Math.PI, 0); ctx.fill();
   }
@@ -425,7 +425,7 @@ ART.tallgrass = function () {
     const h = 20 + ((i * 11) % 9);
     const bx = cx + lean * 0.25, ex = cx + lean * 1.4, ey = cy - h;
     const w = 2.2;
-    ctx.fillStyle = i % 3 === 0 ? '#7f9a44' : (i % 3 === 1 ? '#6d8a38' : '#93a650');
+    ctx.fillStyle = i % 3 === 0 ? '#708d45' : (i % 3 === 1 ? '#5d7c3a' : '#849b4f');
     ctx.beginPath();
     ctx.moveTo(bx - w, cy);
     ctx.quadraticCurveTo(cx + lean * 0.7 - w * 0.5, cy - h * 0.6, ex, ey);
@@ -434,7 +434,7 @@ ART.tallgrass = function () {
     ctx.fill();
     /* a seed head on the taller ones */
     if (i % 4 === 1) {
-      ctx.fillStyle = '#bfa968';
+      ctx.fillStyle = '#c3ac6b';
       ctx.beginPath(); ctx.ellipse(ex, ey - 2, 2, 4.4, lean * 0.02, 0, Math.PI * 2); ctx.fill();
     }
   }
@@ -477,11 +477,11 @@ ART.blossom = function () {
   const g = spriteCtx(1, 1, 40), ctx = g.ctx;
   const [cx, cy] = g.mid;
   blob(ctx, cx + 1, cy + 1, 13, 5, .18);
-  ctx.fillStyle = '#3f6b33';
+  ctx.fillStyle = '#355c34';
   for (const [dx, dy, r] of [[-7, -7, 9], [6, -6, 8], [0, -13, 9], [-2, -4, 10]]) {
     ctx.beginPath(); ctx.ellipse(cx + dx, cy + dy, r, r * 0.82, 0, 0, Math.PI * 2); ctx.fill();
   }
-  ctx.fillStyle = '#4d8040';
+  ctx.fillStyle = '#457240';
   for (const [dx, dy, r] of [[-8, -9, 6], [5, -8, 5.5], [-1, -15, 6]]) {
     ctx.beginPath(); ctx.ellipse(cx + dx, cy + dy, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
   }
@@ -490,7 +490,7 @@ ART.blossom = function () {
     const a = i * 2.39;                       /* a rough phyllotaxis, so they spread evenly */
     const rr = 3 + (i / 16) * 10;
     const px = cx + Math.cos(a) * rr, py = cy - 8 + Math.sin(a) * rr * 0.75;
-    ctx.fillStyle = i % 3 === 0 ? '#e9d7e8' : (i % 3 === 1 ? '#d8a8cf' : '#f0e4c0');
+    ctx.fillStyle = i % 3 === 0 ? '#f7dfe2' : (i % 3 === 1 ? '#e3b0cd' : '#fbeabc');
     ctx.beginPath(); ctx.arc(px, py, 1.9, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(190,140,70,.7)';
     ctx.beginPath(); ctx.arc(px, py, 0.7, 0, Math.PI * 2); ctx.fill();
@@ -503,22 +503,56 @@ ART.conifer = function () {
   const g = spriteCtx(1, 1, 76), ctx = g.ctx;
   const [cx, cy] = g.mid;
   blob(ctx, cx + 2, cy + 1, 11, 5, .2);
-  ctx.fillStyle = '#5b4228';
-  ctx.fillRect(cx - 3, cy - 16, 6, 16);
-  const tiers = [[0, 20, 20], [-14, 16, 17], [-27, 12, 13], [-38, 8, 9]];
+  /* the bole, darker on the shaded side */
+  ctx.fillStyle = '#41301d';
+  ctx.fillRect(cx - 2.8, cy - 19, 5.6, 19);
+  ctx.fillStyle = '#56422a';
+  ctx.fillRect(cx - 2.8, cy - 19, 2.4, 19);
+
+  /* Five tiers of branches. The old tree was four smooth curves, which is a
+     Christmas card rather than a spruce: what says conifer is the ragged edge,
+     so each tier hangs a row of drooping tips below its own line, and the
+     tiers lighten as they climb out of the shade of the one beneath. */
+  const tiers = [
+    { y: -15, w: 21, h: 15 }, { y: -25, w: 18, h: 14 }, { y: -34, w: 15, h: 13 },
+    { y: -42, w: 11.5, h: 12 }, { y: -49, w: 8, h: 11 }
+  ];
   for (let i = 0; i < tiers.length; i++) {
-    const [dy, rw, hh] = tiers[i];
-    const top = cy - 18 + dy - hh;
-    ctx.fillStyle = ['#2f6b39', '#357740', '#3b8247', '#418d4d'][i];
+    const t = tiers[i], by = cy + t.y, top = by - t.h;
+    const dark = ['#24512c', '#285a31', '#2d6336', '#326c3b', '#377540'][i];
+    const lite = ['#336b3a', '#397540', '#3f7f46', '#45894c', '#4b9352'][i];
+    /* the drooping tips first, so the fan sits over where they spring from */
+    ctx.fillStyle = dark;
+    for (let j = -4; j <= 4; j++) {
+      if (!j) continue;
+      const f = Math.abs(j) / 4.2;
+      const hx = cx + (j / 4.2) * t.w;
+      const drop = 3 + hash2(i * 13 + j + 9, i * 7 - j + 3) * 5 * (1 - f * 0.4);
+      ctx.beginPath();
+      ctx.moveTo(hx - 2.6, by - 2);
+      ctx.lineTo(hx + (j > 0 ? 1.6 : -1.6), by + drop);
+      ctx.lineTo(hx + 2.6, by - 2);
+      ctx.closePath(); ctx.fill();
+    }
+    /* the fan itself: the shaded mass, then the sunward half laid over it */
+    ctx.fillStyle = dark;
     ctx.beginPath();
-    ctx.moveTo(cx, top);
-    ctx.lineTo(cx + rw, cy - 14 + dy);
-    ctx.quadraticCurveTo(cx, cy - 10 + dy, cx - rw, cy - 14 + dy);
+    ctx.moveTo(cx, top); ctx.lineTo(cx + t.w, by - 1);
+    ctx.quadraticCurveTo(cx, by + 2.5, cx - t.w, by - 1);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.09)';
+    ctx.fillStyle = lite;
     ctx.beginPath();
-    ctx.moveTo(cx, top); ctx.lineTo(cx - rw, cy - 14 + dy); ctx.lineTo(cx - rw * 0.2, cy - 12 + dy);
+    ctx.moveTo(cx - 0.5, top + 1); ctx.lineTo(cx - t.w * 0.94, by - 2);
+    ctx.quadraticCurveTo(cx - t.w * 0.3, by - 4.5, cx - 0.5, by - 5.5);
     ctx.closePath(); ctx.fill();
+    /* a couple of gaps, so the canopy lets some light through it */
+    ctx.fillStyle = 'rgba(0,0,0,.16)';
+    for (let j = 0; j < 2; j++) {
+      const a = hash2(i * 31 + j * 17, i * 5 + j * 23);
+      ctx.beginPath();
+      ctx.ellipse(cx + (a - 0.5) * t.w * 1.5, by - 3 - a * 4, 2.2 + a * 1.6, 1.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   return g;
 };
@@ -527,18 +561,50 @@ ART.broadleaf = function () {
   const g = spriteCtx(1, 1, 70), ctx = g.ctx;
   const [cx, cy] = g.mid;
   blob(ctx, cx + 3, cy + 1, 13, 6, .2);
-  ctx.strokeStyle = '#6b4a2a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.quadraticCurveTo(cx - 3, cy - 20, cx + 1, cy - 32); ctx.stroke();
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(cx - 1, cy - 24); ctx.lineTo(cx - 10, cy - 32);
-  ctx.moveTo(cx + 1, cy - 28); ctx.lineTo(cx + 10, cy - 35); ctx.stroke();
-  const puffs = [[0, -46, 17], [-13, -38, 12], [13, -40, 13], [-6, -52, 11], [8, -52, 10]];
-  for (const [dx, dy, r] of puffs) {
-    ctx.fillStyle = dy < -46 ? '#5aa04c' : '#468a3d';
-    ctx.beginPath(); ctx.ellipse(cx + dx, cy + dy, r, r * 0.82, 0, 0, Math.PI * 2); ctx.fill();
+  /* trunk and boughs */
+  ctx.strokeStyle = '#4a3521'; ctx.lineWidth = 6.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.quadraticCurveTo(cx - 3, cy - 20, cx + 1, cy - 31); ctx.stroke();
+  ctx.strokeStyle = '#5e452b'; ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  ctx.moveTo(cx - 1, cy - 23); ctx.quadraticCurveTo(cx - 7, cy - 28, cx - 11, cy - 34);
+  ctx.moveTo(cx + 1, cy - 27); ctx.quadraticCurveTo(cx + 7, cy - 31, cx + 11, cy - 37);
+  ctx.stroke();
+
+  /* The canopy used to be five clean ellipses in two greens, which is the
+     shape a tree has in a diagram. A real one is a mass of leaf clumps at
+     every depth: dark where the mass shades itself, bright only where the sky
+     reaches it, ragged at the edge. Twenty-odd puffs on a rough dome, laid
+     darkest first so the lit ones finish on top. */
+  const puffs = [];
+  for (let i = 0; i < 22; i++) {
+    const a = hash2(i * 17 + 5, i * 7 + 11) * Math.PI * 2;
+    const r = Math.sqrt(hash2(i * 29 + 3, i * 13 + 19));
+    puffs.push({
+      x: cx + Math.cos(a) * r * 17,
+      y: cy - 45 + Math.sin(a) * r * 11,
+      rad: 5.5 + hash2(i * 41 + 7, i * 3 + 23) * 5.5
+    });
   }
-  ctx.fillStyle = 'rgba(255,255,255,.13)';
-  ctx.beginPath(); ctx.ellipse(cx - 6, cy - 54, 8, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+  /* how lit a clump is: how far up it sits, and how far round to the sun */
+  for (const p of puffs) p.k = clamp(((cy - 40 - p.y) / 16) * 0.68 + ((cx - p.x) / 20) * 0.32 + 0.5, 0, 1);
+  puffs.sort((a, b) => a.k - b.k);
+  for (const p of puffs) {
+    ctx.fillStyle = p.k < 0.34 ? '#2f6b31' : p.k < 0.58 ? '#3b7e3b' : p.k < 0.8 ? '#4a9246' : '#5aa752';
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rad, p.rad * 0.84, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  /* a scatter of clumps beyond the mass, so the edge is leaves and not a line */
+  for (let i = 0; i < 9; i++) {
+    const a = hash2(i * 53 + 1, i * 11 + 31) * Math.PI * 2;
+    const rr = 17 + hash2(i * 23 + 9, i * 37 + 2) * 4;
+    const px = cx + Math.cos(a) * rr, py = cy - 45 + Math.sin(a) * rr * 0.66;
+    ctx.fillStyle = py < cy - 47 ? '#54a04c' : '#357134';
+    ctx.beginPath();
+    ctx.ellipse(px, py, 2.6 + hash2(i * 7, i * 19) * 2.2, 2.2 + hash2(i * 3, i * 29) * 1.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  /* the one place the sun actually lands */
+  ctx.fillStyle = 'rgba(255,250,214,.15)';
+  ctx.beginPath(); ctx.ellipse(cx - 7, cy - 53, 7.5, 4.6, -0.3, 0, Math.PI * 2); ctx.fill();
   return g;
 };
 
@@ -549,7 +615,7 @@ ART.fernclump = function () {
   for (let i = 0; i < 7; i++) {
     const a = -Math.PI / 2 + (i - 3) * 0.42;
     const len = 16 + (i % 3) * 5;
-    ctx.strokeStyle = i % 2 ? '#3f8138' : '#4d9a42';
+    ctx.strokeStyle = i % 2 ? '#3a7139' : '#4a8b42';
     ctx.lineWidth = 3.4;
     ctx.beginPath();
     ctx.moveTo(cx, cy - 1);
@@ -564,13 +630,13 @@ ART.bigrock = function () {
   const g = spriteCtx(1, 1, 40), ctx = g.ctx;
   const [cx, cy] = g.mid;
   blob(ctx, cx + 2, cy + 2, 16, 7, .22);
-  ctx.fillStyle = '#868d95';
+  ctx.fillStyle = '#898f95';
   ctx.beginPath();
   ctx.moveTo(cx - 17, cy + 3); ctx.lineTo(cx - 10, cy - 18); ctx.lineTo(cx + 3, cy - 24);
   ctx.lineTo(cx + 16, cy - 8); ctx.lineTo(cx + 12, cy + 4); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#a2a9b1';
+  ctx.fillStyle = '#abafb1';
   ctx.beginPath(); ctx.moveTo(cx - 10, cy - 18); ctx.lineTo(cx + 3, cy - 24); ctx.lineTo(cx - 1, cy - 11); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#6a7179';
+  ctx.fillStyle = '#676f78';
   ctx.beginPath(); ctx.moveTo(cx + 3, cy - 24); ctx.lineTo(cx + 16, cy - 8); ctx.lineTo(cx + 5, cy - 6); ctx.closePath(); ctx.fill();
   ctx.fillStyle = 'rgba(90,140,70,.4)';
   ctx.beginPath(); ctx.ellipse(cx - 6, cy - 2, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
@@ -581,7 +647,7 @@ ART.deadwood = function () {
   const g = spriteCtx(1, 1, 44), ctx = g.ctx;
   const [cx, cy] = g.mid;
   blob(ctx, cx + 2, cy + 1, 10, 4, .18);
-  ctx.strokeStyle = '#8b7355'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.strokeStyle = '#877157'; ctx.lineWidth = 5; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 3, cy - 26); ctx.stroke();
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -598,14 +664,14 @@ ART.reeds = function () {
   const [cx, cy] = g.mid;
   for (let i = 0; i < 9; i++) {
     const dx = (i - 4) * 3.2, len = 12 + (i % 4) * 5;
-    ctx.strokeStyle = i % 2 ? '#7a9b4a' : '#93b25c';
+    ctx.strokeStyle = i % 2 ? '#6e8f4a' : '#8aac55';
     ctx.lineWidth = 1.8;
     ctx.beginPath();
     ctx.moveTo(cx + dx, cy + 2);
     ctx.quadraticCurveTo(cx + dx + 2, cy - len * 0.6, cx + dx + 5, cy - len);
     ctx.stroke();
     if (i % 3 === 0) {
-      ctx.fillStyle = '#7a5a33';
+      ctx.fillStyle = '#6f5537';
       ctx.beginPath(); ctx.ellipse(cx + dx + 5, cy - len, 1.8, 3.6, 0.3, 0, Math.PI * 2); ctx.fill();
     }
   }
@@ -632,7 +698,7 @@ ART.volcano = function () {
     ctx.closePath();
   };
   const grd = ctx.createLinearGradient(cx - W, cy - H * 0.2, cx + W, cy - H * 0.9);
-  grd.addColorStop(0, '#6f6a63'); grd.addColorStop(0.45, '#5d564e'); grd.addColorStop(1, '#433d37');
+  grd.addColorStop(0, '#6a6763'); grd.addColorStop(0.45, '#54504f'); grd.addColorStop(1, '#373538');
   ctx.fillStyle = grd;
   outline(); ctx.fill();
 
@@ -670,17 +736,17 @@ ART.volcano = function () {
   ctx.restore();
 
   /* crater */
-  ctx.fillStyle = '#332d28';
+  ctx.fillStyle = '#25252b';
   ctx.beginPath(); ctx.ellipse(cx, cy - H + 2, 27, 8, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#b03c1c';
+  ctx.fillStyle = '#9e3d25';
   ctx.beginPath(); ctx.ellipse(cx, cy - H + 3, 19, 5.4, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#f2a83f';
+  ctx.fillStyle = '#edab4b';
   ctx.beginPath(); ctx.ellipse(cx, cy - H + 3, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
 
   /* forest skirt */
   for (let i = -5; i <= 5; i++) {
     const px = cx + i * 24 + (i % 2) * 9, py = cy + 12 + Math.abs(i) * 1.2;
-    ctx.fillStyle = i % 2 ? '#2b6134' : '#31703b';
+    ctx.fillStyle = i % 2 ? '#215130' : '#286036';
     ctx.beginPath();
     ctx.moveTo(px, py - 24); ctx.lineTo(px + 9, py); ctx.lineTo(px - 9, py); ctx.closePath(); ctx.fill();
   }
@@ -700,13 +766,13 @@ ANIM.volcano = function (ctx, sx, sy, g, t) {
     const ph = (t * 0.08 + i / 7) % 1;
     const r = 12 + ph * 46;
     ctx.globalAlpha = (1 - ph) * 0.32;
-    ctx.fillStyle = '#b8b0a6';
+    ctx.fillStyle = '#c1b6a6';
     ctx.beginPath();
     ctx.arc(x + Math.sin(ph * 3 + i) * ph * 40, y - 10 - ph * 120, r, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 0.45 + Math.sin(t * 2) * 0.12;
-  ctx.fillStyle = '#ff7a3c';
+  ctx.fillStyle = '#f5844c';
   ctx.beginPath(); ctx.ellipse(x, y, 12, 3.6, 0, 0, Math.PI * 2); ctx.fill();
   ctx.globalAlpha = 0.18 + Math.sin(t * 2) * 0.06;
   ctx.beginPath(); ctx.ellipse(x, y - 4, 26, 12, 0, 0, Math.PI * 2); ctx.fill();
@@ -723,7 +789,7 @@ function fenceBay(dx, dy) {
   ctx.save();
   blob(ctx, cx, cy + 1, 15, 5, .13);
   /* rails first, then the stakes on top */
-  ctx.strokeStyle = '#7d6647'; ctx.lineWidth = 2.6;
+  ctx.strokeStyle = '#76624a'; ctx.lineWidth = 2.6;
   for (const h of [H - 5, H - 12]) {
     ctx.beginPath();
     ctx.moveTo(cx - ax, cy - ay - h); ctx.lineTo(cx + ax, cy + ay - h);

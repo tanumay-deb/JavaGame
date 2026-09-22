@@ -3,7 +3,7 @@
 /* generic stone-age hut used by most stalls: log walls, thatch roof, counter */
 function hutArt(w, h, opts) {
   const g = spriteCtx(w, h, opts.extra || 60), ctx = g.ctx;
-  pad(g, opts.pad || '#a4906a', shade(opts.pad || '#a4906a', -.2));
+  pad(g, opts.pad || '#a6926c', shade(opts.pad || '#a6926c', -.2));
   const [cx, cy] = g.mid;
   const bw = TILE_W * (w * 0.42 + h * 0.42) * 0.5, bh = TILE_H * (w * 0.42 + h * 0.42) * 0.5;
   const wallH = opts.wallH || 20;
@@ -54,7 +54,7 @@ function hutArt(w, h, opts) {
     const peak = opts.peak || 22;
     const bwid = 26, bhig = 17;
     const top = cy - wallH - peak - bhig - 6;
-    ctx.strokeStyle = '#6b5233'; ctx.lineWidth = 2;
+    ctx.strokeStyle = '#5f4c37'; ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(cx, cy - wallH - peak + 4); ctx.lineTo(cx, top - 6);
     ctx.moveTo(cx - bwid / 2 - 3, top - 6); ctx.lineTo(cx + bwid / 2 + 3, top - 6);
@@ -65,9 +65,9 @@ function hutArt(w, h, opts) {
     }
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     roundRect(ctx, cx - bwid / 2 + 1.5, top + 2.5, bwid, bhig, 3); ctx.fill();
-    ctx.fillStyle = opts.emblemBg || '#e8d5a8';
+    ctx.fillStyle = opts.emblemBg || '#f2dba7';
     roundRect(ctx, cx - bwid / 2, top, bwid, bhig, 3); ctx.fill();
-    ctx.strokeStyle = '#6b5233'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#5f4c37'; ctx.lineWidth = 1.5;
     roundRect(ctx, cx - bwid / 2, top, bwid, bhig, 3); ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,.32)';
     ctx.fillRect(cx - bwid / 2 + 2, top + 1.6, bwid - 4, 2.2);
@@ -82,13 +82,13 @@ function hutArt(w, h, opts) {
 /* a spit of meat over coals, off to one side of the snack bar */
 function detailSpit(ctx, g, cx, cy, bw) {
   const x = cx - bw * 0.95, y = cy + 4;
-  ctx.fillStyle = '#3b3129';
+  ctx.fillStyle = '#2d292c';
   ctx.beginPath(); ctx.ellipse(x, y, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
   for (let i = 0; i < 4; i++) {
-    ctx.fillStyle = i % 2 ? '#d9662f' : '#f0a442';
+    ctx.fillStyle = i % 2 ? '#d16a38' : '#eca74e';
     ctx.beginPath(); ctx.ellipse(x - 4 + i * 2.6, y - 0.5, 1.6, 1, 0, 0, Math.PI * 2); ctx.fill();
   }
-  ctx.strokeStyle = '#7d5a35'; ctx.lineWidth = 1.8;
+  ctx.strokeStyle = '#735539'; ctx.lineWidth = 1.8;
   for (const px of [x - 7, x + 7]) {
     ctx.beginPath(); ctx.moveTo(px, y - 1); ctx.lineTo(px, y - 13); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(px - 2.5, y - 16); ctx.lineTo(px, y - 13); ctx.lineTo(px + 2.5, y - 16); ctx.stroke();
@@ -96,7 +96,7 @@ function detailSpit(ctx, g, cx, cy, bw) {
   ctx.strokeStyle = PALETTE.bone; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.moveTo(x - 9, y - 13); ctx.lineTo(x + 9, y - 13); ctx.stroke();
   for (const mx of [-4, 1]) {
-    ctx.fillStyle = '#a8503a';
+    ctx.fillStyle = '#9f503e';
     ctx.beginPath(); ctx.ellipse(x + mx, y - 12, 3.4, 2.6, 0.2, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,220,180,.25)';
     ctx.beginPath(); ctx.ellipse(x + mx - 0.8, y - 13, 1.6, 1, 0.2, 0, Math.PI * 2); ctx.fill();
@@ -108,11 +108,11 @@ function detailSpit(ctx, g, cx, cy, bw) {
 function detailGourds(ctx, g, cx, cy, bw) {
   const x = cx - bw * 0.9, y = cy + 5;
   for (const [ox, oy, r] of [[0, 0, 5], [8, -1, 4], [4, -7, 4.2]]) {
-    ctx.fillStyle = '#9a7c3f';
+    ctx.fillStyle = '#957a44';
     ctx.beginPath(); ctx.ellipse(x + ox, y + oy, r, r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#b89a55';
+    ctx.fillStyle = '#b99c59';
     ctx.beginPath(); ctx.ellipse(x + ox - r * 0.3, y + oy - r * 0.35, r * 0.45, r * 0.32, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#5f4a2a';
+    ctx.fillStyle = '#52432e';
     ctx.fillRect(x + ox - 1, y + oy - r - 1.5, 2, 2.5);
   }
   g.tap = [cx + bw * 0.5, cy - 12];
@@ -121,7 +121,7 @@ function detailGourds(ctx, g, cx, cy, bw) {
 /* a plank door with a bone handle, and no counter — it is a privy */
 function detailDoor(ctx, g, cx, cy, bw, bh, wallH) {
   const dw = bw * 0.44, dh = wallH * 0.82;
-  ctx.fillStyle = '#5d5448';
+  ctx.fillStyle = '#534e49';
   roundRect(ctx, cx - dw / 2, cy - dh - 1, dw, dh, 1.5); ctx.fill();
   ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 0.9;
   for (let i = 1; i < 3; i++) {
@@ -140,56 +140,56 @@ function detailDoor(ctx, g, cx, cy, bw, bh, wallH) {
 function detailHerbs(ctx, g, cx, cy, bw, bh, wallH) {
   for (let i = 0; i < 3; i++) {
     const x = cx + (i - 1) * bw * 0.45, y = cy - wallH - 2;
-    ctx.strokeStyle = '#8a7a52'; ctx.lineWidth = 1;
+    ctx.strokeStyle = '#867855'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 4); ctx.stroke();
-    ctx.strokeStyle = i % 2 ? '#6f9e5a' : '#588a4c'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = i % 2 ? '#699257' : '#517d4a'; ctx.lineWidth = 1.5;
     for (let k = -1; k <= 1; k++) {
       ctx.beginPath();
       ctx.moveTo(x, y + 4); ctx.lineTo(x + k * 2.4, y + 10);
       ctx.stroke();
     }
-    ctx.fillStyle = '#c9b27a';
+    ctx.fillStyle = '#cfb77c';
     ctx.fillRect(x - 2, y + 3.4, 4, 1.6);
   }
 }
 
 const goodsMeat = (ctx, x, y) => {
-  ctx.fillStyle = '#b5563f';
+  ctx.fillStyle = '#ae5743';
   ctx.beginPath(); ctx.ellipse(x, y - 3, 4, 3, 0.3, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = PALETTE.bone; ctx.lineWidth = 1.6;
   ctx.beginPath(); ctx.moveTo(x + 3, y - 1); ctx.lineTo(x + 6, y + 1); ctx.stroke();
 };
 const goodsCup = (ctx, x, y) => {
-  ctx.fillStyle = '#e0c9a0';
+  ctx.fillStyle = '#ead0a0';
   ctx.beginPath(); ctx.moveTo(x - 3, y - 7); ctx.lineTo(x + 3, y - 7); ctx.lineTo(x + 2, y); ctx.lineTo(x - 2, y); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#5fb0d8';
+  ctx.fillStyle = '#69b3d4';
   ctx.beginPath(); ctx.ellipse(x, y - 7, 3, 1.4, 0, 0, Math.PI * 2); ctx.fill();
 };
 const goodsPot = (ctx, x, y) => {
-  ctx.fillStyle = '#6b5a45';
+  ctx.fillStyle = '#625547';
   ctx.beginPath(); ctx.ellipse(x, y - 3, 4.5, 3.4, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#c98f5e';
+  ctx.fillStyle = '#cb9362';
   ctx.beginPath(); ctx.ellipse(x, y - 4.5, 4.5, 2, 0, 0, Math.PI * 2); ctx.fill();
 };
 
-ART.snack   = (w, h) => hutArt(w, h, { wall: '#9b6b40', roof: PALETTE.thatch, counter: true, emblem: '🍖',
-                                       awning: ['#c44a3f', '#f0dcae'], goods: goodsMeat, detail: detailSpit,
-                                       emblemBg: '#e8b98a' });
-ART.drinks  = (w, h) => hutArt(w, h, { wall: '#4f8a86', roof: '#d0b45e', counter: true, emblem: '🥤', peak: 26,
-                                       awning: ['#3f7d9b', '#f0dcae'], goods: goodsCup, detail: detailGourds,
-                                       emblemBg: '#a8d8d2' });
-ART.balloon = (w, h) => hutArt(w, h, { wall: '#a8567e', roof: '#e2c15c', counter: true, emblem: '🎈', peak: 18,
-                                       awning: ['#a8567e', '#f0dcae'] });
-ART.toilet  = (w, h) => hutArt(w, h, { wall: '#8e8778', roof: '#b3a279', emblem: '🚻', peak: 14, wallH: 30,
-                                       detail: detailDoor, emblemBg: '#c8d2dc' });
-ART.aid     = (w, h) => hutArt(w, h, { wall: '#7f6aa8', roof: '#e0d6b4', emblem: '🌿', peak: 18, counter: true,
-                                       goods: goodsPot, detail: detailHerbs, emblemBg: '#cdbde8' });
-ART.gate    = (w, h) => hutArt(w, h, { wall: '#8a6a45', roof: '#c2953f', counter: true, emblem: '🎟️', peak: 18,
-                                       awning: ['#c2953f', '#f0dcae'] });
+ART.snack   = (w, h) => hutArt(w, h, { wall: '#956944', roof: PALETTE.thatch, counter: true, emblem: '🍖',
+                                       awning: ['#bc4d43', '#fae2ad'], goods: goodsMeat, detail: detailSpit,
+                                       emblemBg: '#efc08d' });
+ART.drinks  = (w, h) => hutArt(w, h, { wall: '#4e8786', roof: '#d3b763', counter: true, emblem: '🥤', peak: 26,
+                                       awning: ['#3f7997', '#fae2ad'], goods: goodsCup, detail: detailGourds,
+                                       emblemBg: '#a4d7c2' });
+ART.balloon = (w, h) => hutArt(w, h, { wall: '#a4577d', roof: '#e4c463', counter: true, emblem: '🎈', peak: 18,
+                                       awning: ['#a4577d', '#fae2ad'] });
+ART.toilet  = (w, h) => hutArt(w, h, { wall: '#8f8879', roof: '#b8a67b', emblem: '🚻', peak: 14, wallH: 30,
+                                       detail: detailDoor, emblemBg: '#d6dad8' });
+ART.aid     = (w, h) => hutArt(w, h, { wall: '#806ba4', roof: '#ecddb2', emblem: '🌿', peak: 18, counter: true,
+                                       goods: goodsPot, detail: detailHerbs, emblemBg: '#dcc7e4' });
+ART.gate    = (w, h) => hutArt(w, h, { wall: '#836748', roof: '#c09645', counter: true, emblem: '🎟️', peak: 18,
+                                       awning: ['#c09645', '#fae2ad'] });
 
 ART.cafe = function (w, h) {
-  const g = hutArt(w, h, { wall: '#8b5e3c', roof: PALETTE.thatch, counter: true, emblem: '🍲', extra: 56, wallH: 26, peak: 26,
-                           awning: ['#8a5a33', '#f0dcae'], goods: goodsPot });
+  const g = hutArt(w, h, { wall: '#825b40', roof: PALETTE.thatch, counter: true, emblem: '🍲', extra: 56, wallH: 26, peak: 26,
+                           awning: ['#805638', '#fae2ad'], goods: goodsPot });
   const ctx = g.ctx, [cx, cy] = g.mid;
   /* outdoor tables */
   const t1 = g.C(0.1, h - 0.6);
@@ -207,7 +207,7 @@ ANIM.cafe = function (ctx, sx, sy, g, t, b) {
     const ph = (t * 0.5 + i / 3) % 1;
     ctx.save();
     ctx.globalAlpha = (1 - ph) * 0.4;
-    ctx.fillStyle = '#d8d8d8';
+    ctx.fillStyle = '#e6e0d4';
     ctx.beginPath();
     ctx.arc(g.smoke[0] + sx + Math.sin(ph * 5 + i) * 5, g.smoke[1] + sy - ph * 26, 3 + ph * 5, 0, Math.PI * 2);
     ctx.fill(); ctx.restore();
@@ -222,14 +222,14 @@ ANIM.snack = function (ctx, sx, sy, g, t, b) {
   for (let i = 0; i < 4; i++) {
     const p = ((t * 0.42 + i * 0.25) % 1);
     ctx.globalAlpha = (1 - p) * 0.3;
-    ctx.fillStyle = '#d8d2c6';
+    ctx.fillStyle = '#e5dac3';
     const r = 2 + p * 5.5;
     ctx.beginPath();
     ctx.ellipse(x + Math.sin(p * 4 + i) * 4.5, y - p * 26, r, r * 0.8, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 0.3 + Math.sin(t * 3) * 0.12;
-  ctx.fillStyle = '#ff9a3c';
+  ctx.fillStyle = '#f7a04c';
   ctx.beginPath(); ctx.ellipse(x, y + 16, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 };
@@ -241,7 +241,7 @@ ANIM.drinks = function (ctx, sx, sy, g, t, b) {
   const p = (t * 1.3) % 1;
   ctx.save();
   ctx.globalAlpha = 1 - p * 0.8;
-  ctx.fillStyle = '#7fc9e8';
+  ctx.fillStyle = '#8ecee3';
   ctx.beginPath();
   ctx.ellipse(sx + x0, sy + y0 + p * 11, 1.3, 2 + p, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -251,7 +251,7 @@ ANIM.drinks = function (ctx, sx, sy, g, t, b) {
 ANIM.balloon = function (ctx, sx, sy, g, t, b) {
   if (!b.worker) return;
   const [cx, cy] = [g.mid[0] + sx, g.mid[1] + sy];
-  const cols = ['#e05a5a', '#5a8fe0', '#e0c25a', '#6fd06f'];
+  const cols = ['#dd635f', '#6593d8', '#e2c461', '#70cc64'];
   for (let i = 0; i < 4; i++) {
     const a = t * 0.6 + i * 1.7;
     const bx = cx + Math.sin(a) * 9 + (i - 1.5) * 6, by = cy - 40 + Math.cos(a * 1.3) * 3;
@@ -267,27 +267,27 @@ ANIM.balloon = function (ctx, sx, sy, g, t, b) {
 /* ------------------------------------------------------- dino treadmill */
 ART.engine = function (w, h) {
   const g = spriteCtx(w, h, 66), ctx = g.ctx;
-  pad(g, '#a2865c', '#7a6441');
+  pad(g, '#a1875f', '#726044');
   const [cx, cy] = g.mid;
   /* timber deck */
-  isoBox(ctx, cx, cy, TILE_W * 1.25, TILE_H * 1.25, 10, '#a3835a', '#6a5335', '#82663f');
+  isoBox(ctx, cx, cy, TILE_W * 1.25, TILE_H * 1.25, 10, '#a2845d', '#5f4d38', '#7a6242');
   /* the treadmill drum the dinosaur walks on */
-  ctx.fillStyle = '#6f5636';
+  ctx.fillStyle = '#645039';
   roundRect(ctx, cx - 24, cy - 26, 48, 18, 6); ctx.fill();
-  ctx.fillStyle = '#8a6b43';
+  ctx.fillStyle = '#836846';
   roundRect(ctx, cx - 24, cy - 26, 48, 6, 3); ctx.fill();
   ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1;
   for (let i = -3; i <= 3; i++) {
     ctx.beginPath(); ctx.moveTo(cx + i * 6, cy - 26); ctx.lineTo(cx + i * 6, cy - 8); ctx.stroke();
   }
   /* drive shaft across to the wheel */
-  ctx.strokeStyle = '#5f4a2e'; ctx.lineWidth = 3;
+  ctx.strokeStyle = '#524332'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(cx + 20, cy - 20); ctx.lineTo(cx + 30, cy - 24); ctx.stroke();
   /* wheel frame */
   g.wheel = [cx + 34, cy - 26];
-  ctx.fillStyle = '#5f4a2e';
+  ctx.fillStyle = '#524332';
   ctx.fillRect(g.wheel[0] - 2.5, g.wheel[1], 5, 26);
-  ctx.fillStyle = '#c9a86a';
+  ctx.fillStyle = '#cdac6d';
   ctx.beginPath(); ctx.arc(g.wheel[0], g.wheel[1], 5, 0, Math.PI * 2); ctx.fill();
   g.dino = [cx - 2, cy - 26];
   return g;
@@ -296,12 +296,12 @@ ANIM.engine = function (ctx, sx, sy, g, t, b) {
   const wx = g.wheel[0] + sx, wy = g.wheel[1] + sy;
   const spin = b.worker ? t * 2.0 : 0;
   ctx.save(); ctx.translate(wx, wy); ctx.rotate(spin);
-  ctx.strokeStyle = '#b08a4e'; ctx.lineWidth = 3;
+  ctx.strokeStyle = '#af8b52'; ctx.lineWidth = 3;
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 15, Math.sin(a) * 15); ctx.stroke();
   }
-  ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 3.5;
+  ctx.strokeStyle = '#836747'; ctx.lineWidth = 3.5;
   ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1.2;
   ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.stroke();
@@ -311,7 +311,7 @@ ANIM.engine = function (ctx, sx, sy, g, t, b) {
   ctx.save();
   ctx.translate(g.dino[0] + sx, g.dino[1] + sy - bob);
   ctx.scale(1.35, 1.35);
-  drawDinoMount(ctx, 0, 0, '#c2604a');
+  drawDinoMount(ctx, 0, 0, '#be634e');
   ctx.restore();
   if (!b.worker) {
     ctx.font = '13px system-ui, sans-serif';
@@ -325,18 +325,18 @@ ART.palm = function () {
   const g = spriteCtx(1, 1, 60), ctx = g.ctx;
   const [cx, cy] = g.mid;
   blob(ctx, cx + 3, cy + 2, 11, 5, .18);
-  ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 5;
+  ctx.strokeStyle = '#836747'; ctx.lineWidth = 5;
   ctx.beginPath(); ctx.moveTo(cx, cy); ctx.quadraticCurveTo(cx - 4, cy - 24, cx + 2, cy - 42); ctx.stroke();
-  ctx.strokeStyle = shade('#8a6a44', -.2); ctx.lineWidth = 1;
+  ctx.strokeStyle = shade('#836747', -.2); ctx.lineWidth = 1;
   for (let i = 0; i < 5; i++) { const yy = cy - 6 - i * 7; ctx.beginPath(); ctx.moveTo(cx - 3, yy); ctx.lineTo(cx + 3, yy - 1); ctx.stroke(); }
   const fronds = 7;
   for (let i = 0; i < fronds; i++) {
     const a = (i / fronds) * Math.PI * 2;
     const ex = cx + 2 + Math.cos(a) * 20, ey = cy - 42 + Math.sin(a) * 9;
-    ctx.strokeStyle = i % 2 ? '#4f9a46' : '#3f8138'; ctx.lineWidth = 4;
+    ctx.strokeStyle = i % 2 ? '#4c8c46' : '#3a7139'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(cx + 2, cy - 42); ctx.quadraticCurveTo((cx + ex) / 2, ey - 10, ex, ey); ctx.stroke();
   }
-  ctx.fillStyle = '#b5772f';
+  ctx.fillStyle = '#ae7636';
   ctx.beginPath(); ctx.arc(cx + 4, cy - 39, 3, 0, Math.PI * 2); ctx.arc(cx - 2, cy - 37, 2.6, 0, Math.PI * 2); ctx.fill();
   return g;
 };
@@ -346,7 +346,7 @@ ART.bush = function () {
   const [cx, cy] = g.mid;
   blob(ctx, cx + 2, cy + 2, 10, 4, .16);
   for (const p of [[-6, -6, 8], [6, -5, 7], [0, -12, 9], [-2, -4, 8]]) {
-    ctx.fillStyle = p[2] > 8 ? '#4c9440' : '#3f7d36';
+    ctx.fillStyle = p[2] > 8 ? '#488540' : '#396d37';
     ctx.beginPath(); ctx.ellipse(cx + p[0], cy + p[1], p[2], p[2] * 0.8, 0, 0, Math.PI * 2); ctx.fill();
   }
   ctx.fillStyle = 'rgba(255,255,255,.12)';
@@ -357,17 +357,17 @@ ART.bush = function () {
 ART.flowers = function () {
   const g = spriteCtx(1, 1, 24), ctx = g.ctx;
   const [cx, cy] = g.mid;
-  ctx.fillStyle = '#3f7d36';
+  ctx.fillStyle = '#396d37';
   ctx.beginPath(); ctx.ellipse(cx, cy - 2, 12, 6, 0, 0, Math.PI * 2); ctx.fill();
-  const cols = ['#e8556d', '#f0c04a', '#d98ae0', '#f2f2f2'];
+  const cols = ['#e46071', '#eec155', '#e193dc', '#fff8e8'];
   for (let i = 0; i < 7; i++) {
     const a = (i / 7) * Math.PI * 2 + 0.6;
     const fx = cx + Math.cos(a) * 8, fy = cy - 3 + Math.sin(a) * 4;
-    ctx.strokeStyle = '#3f7d36'; ctx.lineWidth = 1.2;
+    ctx.strokeStyle = '#396d37'; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 5); ctx.stroke();
     ctx.fillStyle = cols[i % cols.length];
     ctx.beginPath(); ctx.arc(fx, fy - 6, 2.6, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff2a8';
+    ctx.fillStyle = '#fff3aa';
     ctx.beginPath(); ctx.arc(fx, fy - 6, 1, 0, Math.PI * 2); ctx.fill();
   }
   return g;
@@ -398,9 +398,9 @@ ART.bench = function () {
 
   /* stone blocks holding it up */
   for (const sx of [-W + 4, W - 4]) {
-    ctx.fillStyle = '#8b8377';
+    ctx.fillStyle = '#8b8378';
     roundRect(ctx, cx + sx - 3, cy - 5, 6, 8, 1.5); ctx.fill();
-    ctx.fillStyle = '#a49b8c';
+    ctx.fillStyle = '#a99f8d';
     roundRect(ctx, cx + sx - 3, cy - 5, 2.4, 8, 1.2); ctx.fill();
   }
 
@@ -435,7 +435,7 @@ ART.sign = function () {
   const [cx, cy] = g.mid;
   blob(ctx, cx, cy + 2, 8, 4, .16);
   ctx.fillStyle = PALETTE.woodDark; ctx.fillRect(cx - 2, cy - 26, 4, 26);
-  const arrows = [['#c9a24a', -22, -10], ['#9b7b3c', -14, 12]];
+  const arrows = [['#c9a450', -22, -10], ['#957941', -14, 12]];
   for (const a of arrows) {
     ctx.fillStyle = a[0];
     ctx.beginPath();
@@ -455,7 +455,7 @@ ART.torch = function () {
   ctx.fillStyle = PALETTE.rockDark;
   ctx.beginPath(); ctx.ellipse(cx, cy, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = PALETTE.woodDark; ctx.fillRect(cx - 2.5, cy - 28, 5, 28);
-  ctx.fillStyle = '#5a4630';
+  ctx.fillStyle = '#4d3f33';
   ctx.beginPath(); ctx.ellipse(cx, cy - 28, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
   g.flame = [cx, cy - 28];
   return g;
@@ -464,11 +464,11 @@ ANIM.torch = function (ctx, sx, sy, g, t) { drawFlame(ctx, g.flame[0] + sx, g.fl
 
 ART.fountain = function (w, h) {
   const g = spriteCtx(w, h, 44), ctx = g.ctx;
-  pad(g, '#8d8470', '#6d6555');
+  pad(g, '#8d8471', '#666156');
   const [cx, cy] = g.mid;
   ctx.fillStyle = PALETTE.rockDark;
   ctx.beginPath(); ctx.ellipse(cx, cy, TILE_W * 0.62, TILE_H * 0.62, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#211d1a';
+  ctx.fillStyle = '#13161e';
   ctx.beginPath(); ctx.ellipse(cx, cy - 2, TILE_W * 0.52, TILE_H * 0.52, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.08)';
   ctx.beginPath(); ctx.ellipse(cx - 8, cy - 5, 9, 4, 0, 0, Math.PI * 2); ctx.fill();
@@ -479,7 +479,7 @@ ART.fountain = function (w, h) {
 };
 ANIM.fountain = function (ctx, sx, sy, g, t) {
   const x = g.spout[0] + sx, y = g.spout[1] + sy;
-  ctx.save(); ctx.globalAlpha = .75; ctx.fillStyle = '#2b2622';
+  ctx.save(); ctx.globalAlpha = .75; ctx.fillStyle = '#1d1e25';
   for (let i = 0; i < 9; i++) {
     const ph = (t * 0.9 + i / 9) % 1;
     const a = (i / 9) * Math.PI * 2;
@@ -500,7 +500,7 @@ ART.parkgate = function () {
   const H = 82;
 
   /* stone threshold across the opening */
-  ctx.fillStyle = '#b0aa9c';
+  ctx.fillStyle = '#b8af9c';
   ctx.beginPath();
   ctx.moveTo(l[0] - 6, l[1] + 4); ctx.lineTo(r[0] + 6, r[1] + 4);
   ctx.lineTo(r[0] + 2, r[1] + 12); ctx.lineTo(l[0] - 2, l[1] + 12);
@@ -513,7 +513,7 @@ ART.parkgate = function () {
 
   /* ticket booths just outside each totem */
   for (const [bx, by] of [[l[0] - 40, l[1] - 14], [r[0] + 40, r[1] + 22]]) {
-    isoBox(ctx, bx, by, TILE_W * 0.52, TILE_H * 0.52, 20, '#9b6b40', '#5f4227', '#7c5432');
+    isoBox(ctx, bx, by, TILE_W * 0.52, TILE_H * 0.52, 20, '#956944', '#513b2c', '#714f36');
     thatchRoof(ctx, bx, by - 20, 20, 7, 13, PALETTE.thatch);
     ctx.fillStyle = shade(PALETTE.wood, .12);
     roundRect(ctx, bx - 13, by - 12, 26, 6, 2); ctx.fill();
@@ -535,7 +535,7 @@ ART.parkgate = function () {
       const yy = p[1] - (H * i) / 5;
       ctx.beginPath(); ctx.moveTo(p[0] - 9, yy); ctx.lineTo(p[0] + 9, yy); ctx.stroke();
     }
-    ctx.fillStyle = '#c9a24a';
+    ctx.fillStyle = '#c9a450';
     for (let i = 0; i < 4; i++) {
       const yy = p[1] - 10 - i * 17;
       ctx.beginPath();
@@ -569,14 +569,14 @@ ART.parkgate = function () {
   ctx.save();
   ctx.translate(c[0], c[1] - H + 24);
   ctx.rotate(Math.atan2((r[1] - l[1]), (r[0] - l[0])));
-  ctx.fillStyle = '#5b3a22';
+  ctx.fillStyle = '#4b3327';
   ctx.font = 'bold 13px Georgia, serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('FUN PARK', 0, 0);
   ctx.restore();
 
   /* bunting between the totems */
-  ctx.strokeStyle = '#8a7350'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#857152'; ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(l[0], l[1] - H - 8);
   ctx.quadraticCurveTo(c[0], c[1] - H + 2, r[0], r[1] - H - 8);
@@ -585,7 +585,7 @@ ART.parkgate = function () {
     const f = i / 6;
     const bx = lerp(l[0], r[0], f);
     const by = lerp(l[1] - H - 8, r[1] - H - 8, f) + Math.sin(f * Math.PI) * 10;
-    ctx.fillStyle = i % 2 ? '#c44a3f' : '#e8d7a8';
+    ctx.fillStyle = i % 2 ? '#bc4d43' : '#f2dda7';
     ctx.beginPath();
     ctx.moveTo(bx - 4, by); ctx.lineTo(bx + 4, by); ctx.lineTo(bx, by + 8); ctx.closePath(); ctx.fill();
   }

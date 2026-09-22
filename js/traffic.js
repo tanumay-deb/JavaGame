@@ -7,8 +7,8 @@ const VEHICLES = {
   bus: { name: 'Coach', cap: 16, speed: 1.9, len: 62 }
 };
 
-const CAR_COLOURS = ['#c9453a', '#3f6fb5', '#e0a33c', '#e9eaec', '#3d4249', '#4f9d6a', '#8e6fc0'];
-const BUS_COLOURS = ['#e0a33c', '#c9453a', '#3f8bbf', '#5aa85a'];
+const CAR_COLOURS = ['#c0493f', '#416dad', '#e0a33c', '#f7f1e4', '#323b48', '#4a905d', '#9273bc'];
+const BUS_COLOURS = ['#e0a33c', '#c0493f', '#4389b9', '#5a9d56'];
 
 const traffic = {
   vehicles: [],
@@ -133,21 +133,21 @@ const traffic = {
 
 /* ------------------------------------------------------------------ art */
 function wheel(ctx, x, y, r, phase) {
-  ctx.fillStyle = '#1d1f22';
+  ctx.fillStyle = '#101725';
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#c9ccd1';
+  ctx.fillStyle = '#d6d4ce';
   ctx.beginPath(); ctx.arc(x, y, r * 0.52, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#8b9096'; ctx.lineWidth = 1.2;
+  ctx.strokeStyle = '#8f9296'; ctx.lineWidth = 1.2;
   for (let i = 0; i < 4; i++) {
     const a = phase + (i / 4) * Math.PI * 2;
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5); ctx.stroke();
   }
-  ctx.fillStyle = '#5c6167';
+  ctx.fillStyle = '#565d66';
   ctx.beginPath(); ctx.arc(x, y, r * 0.16, 0, Math.PI * 2); ctx.fill();
 }
 
 function windowStrip(ctx, x, y, w, h, r) {
-  ctx.fillStyle = '#9fd3e8';
+  ctx.fillStyle = '#aedae4';
   roundRect(ctx, x, y, w, h, r || 2); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.45)';
   ctx.beginPath();
@@ -199,15 +199,15 @@ function drawVehicle(ctx, v, t) {
     ctx.fillStyle = 'rgba(0,0,0,.25)';
     roundRect(ctx, -L / 2 + 16, -H + 4, 7, 16, 2); ctx.fill();
     /* destination board */
-    ctx.fillStyle = '#26282c';
+    ctx.fillStyle = '#19202e';
     roundRect(ctx, L / 2 - 20, -H - 5, 15, 5, 2); ctx.fill();
-    ctx.fillStyle = '#f0c24a';
+    ctx.fillStyle = '#eec355';
     ctx.font = 'bold 4px system-ui, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('FUN PARK', L / 2 - 12.5, -H - 1.2);
     /* lights */
-    ctx.fillStyle = '#ffe9a8';
+    ctx.fillStyle = '#ffecaa';
     roundRect(ctx, L / 2 - 3, -13, 3, 4, 1); ctx.fill();
-    ctx.fillStyle = '#d94a3a';
+    ctx.fillStyle = '#d05041';
     roundRect(ctx, -L / 2, -13, 3, 4, 1); ctx.fill();
     /* passengers behind the glass */
     for (let i = 0; i < 4; i++) {
@@ -233,9 +233,9 @@ function drawVehicle(ctx, v, t) {
     windowStrip(ctx, L / 2 - 6, -H - 1, 7, 8, 2);
     ctx.fillStyle = 'rgba(0,0,0,.22)';
     roundRect(ctx, -2, -H + 3, 6, 13, 2); ctx.fill();
-    ctx.fillStyle = '#ffe9a8';
+    ctx.fillStyle = '#ffecaa';
     roundRect(ctx, L / 2 + 2, -11, 4, 3.5, 1); ctx.fill();
-    ctx.fillStyle = '#d94a3a';
+    ctx.fillStyle = '#d05041';
     roundRect(ctx, -L / 2, -11, 3, 3.5, 1); ctx.fill();
     for (let i = 0; i < 3; i++) {
       if (v.state === 'out' && i > 0) break;
@@ -258,7 +258,7 @@ function drawVehicle(ctx, v, t) {
     ctx.closePath();
     ctx.fillStyle = shade(col, 0.08); ctx.fill();
     /* glass */
-    ctx.fillStyle = '#9fd3e8';
+    ctx.fillStyle = '#aedae4';
     ctx.beginPath();
     ctx.moveTo(-L / 2 + 8, -13.5); ctx.lineTo(-L / 2 + 11.5, -20.5);
     ctx.lineTo(-1, -20.5); ctx.lineTo(-1, -13.5);
@@ -273,9 +273,9 @@ function drawVehicle(ctx, v, t) {
     /* trim, lights, wheels */
     ctx.fillStyle = shade(col, -0.35);
     roundRect(ctx, -L / 2, -6.5, L, 3, 2); ctx.fill();
-    ctx.fillStyle = '#ffe9a8';
+    ctx.fillStyle = '#ffecaa';
     roundRect(ctx, L / 2 - 3.5, -11, 3.5, 3, 1); ctx.fill();
-    ctx.fillStyle = '#d94a3a';
+    ctx.fillStyle = '#d05041';
     roundRect(ctx, -L / 2, -11, 3, 3, 1); ctx.fill();
     ctx.fillStyle = SKIN_TONES[Math.floor(v.bob) % SKIN_TONES.length];
     ctx.beginPath(); ctx.arc(-4, -17, 2.3, 0, Math.PI * 2); ctx.fill();

@@ -129,7 +129,7 @@ const renderer = {
          the fence it is rough country: moss in the hollows, thin scrub over
          the stony rises, bare earth worn through here and there. */
       if (park.owns(x, y)) {
-        col = mixColor(base, (x + y) % 2 === 0 ? PALETTE.grassPale : PALETTE.grassRich, 0.55);
+        col = mixColor(base, (x + y) % 2 === 0 ? PALETTE.grassPale : PALETTE.grassRich, 0.12);
       } else {
         /* Two scales of variation, or the valley reads as one flat green. The
            coarse one gives whole stretches their own character — a boggy
@@ -147,9 +147,17 @@ const renderer = {
         const bare = clamp((fbm(x * 0.29 + 88, y * 0.29 + 7) - 0.5) * 3 + 0.5, 0, 1);
         if (bare > 0.74) col = mixColor(col, PALETTE.earth, Math.min(0.6, (bare - 0.74) * 2.2));
       }
-    } else if (g === GROUND.SAND) col = mixColor(PALETTE.sand, '#c2ad78', n);
-    else if (g === GROUND.WATER) col = mixColor(PALETTE.water, '#286c9b', n);
-    else col = g === GROUND.STONE ? PALETTE.stone : PALETTE.gravel;
+    } else if (g === GROUND.SAND) col = mixColor(PALETTE.sand, '#c8b17a', n);
+    else if (g === GROUND.WATER) col = mixColor(PALETTE.water, '#286693', n);
+    else if (g === GROUND.GRAVEL || g === GROUND.STONE) {
+      /* Paving used to be one exact colour across a whole plaza, which is what
+         made a paved area read as a dead field. Two scales of drift, the same
+         trick the meadow uses: broad patches that have taken more weather, and
+         a finer break-up so the tile seams do not show through it. */
+      const base = g === GROUND.STONE ? PALETTE.stone : PALETTE.gravel;
+      const wear = fbm(x * 0.13 + 71, y * 0.13 + 19) * 0.65 + fbm(x * 0.44 + 9, y * 0.44 + 53) * 0.35;
+      col = mixColor(shade(base, (wear - 0.5) * 0.30), PALETTE.earth, clamp((wear - 0.56) * 1.1, 0, 0.22));
+    } else col = PALETTE.gravel;
 
     diamond(ctx, cx, cy, TILE_W, TILE_H);
     ctx.fillStyle = col;
@@ -231,12 +239,12 @@ const renderer = {
         const sx2 = cx + (n - 0.5) * 20, sy2 = cy + (m - 0.5) * 8;
         if (n > 0.5) {
           /* a weathered stone, half sunk in the turf rather than sitting on it */
-          ctx.fillStyle = mixColor('#8d9298', col, 0.3);
+          ctx.fillStyle = mixColor('#919598', col, 0.3);
           ctx.beginPath(); ctx.ellipse(sx2, sy2, 2.4, 1.5, 0, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = 'rgba(255,255,255,.16)';
           ctx.beginPath(); ctx.ellipse(sx2 - .5, sy2 - .6, 1.1, .7, 0, 0, Math.PI * 2); ctx.fill();
         } else {
-          ctx.fillStyle = n > 0.3 ? '#e8d24a' : '#e8556d';
+          ctx.fillStyle = n > 0.3 ? '#e7d153' : '#e46071';
           for (let f = 0; f < 3; f++) {
             ctx.beginPath();
             ctx.arc(sx2 + (f - 1) * 3.5, sy2 - (f === 1 ? 2 : 0), 1.7, 0, Math.PI * 2); ctx.fill();
@@ -274,7 +282,7 @@ const renderer = {
       const n = isRoad(x, y - 1), so = isRoad(x, y + 1), e = isRoad(x + 1, y), w = isRoad(x - 1, y);
 
       /* tarmac — drawn a shade oversized so no seam shows between tiles */
-      ctx.fillStyle = '#3b3e44';
+      ctx.fillStyle = '#303644';
       diamond(ctx, cx, cy, TILE_W + 1.5, TILE_H + 1); ctx.fill();
       ctx.save();
       diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.clip();
@@ -308,7 +316,7 @@ const renderer = {
       /* kerb and a strip of worn verge wherever the tarmac meets open ground */
       for (const [dx, dy, has] of [[0, -1, n], [0, 1, so], [1, 0, e], [-1, 0, w]]) {
         if (has) continue;
-        this.edgeStroke(ctx, x, y, dx, dy, 0.03, 0, 1, 5, '#8e9299');
+        this.edgeStroke(ctx, x, y, dx, dy, 0.03, 0, 1, 5, '#929599');
         this.edgeStroke(ctx, x, y, dx, dy, 0.10, 0, 1, 2, 'rgba(0,0,0,.28)');
         this.edgeStroke(ctx, x, y, dx, dy, 0.17, 0.05, 0.95, 2.2, 'rgba(236,236,230,.75)');
       }
@@ -339,7 +347,7 @@ const renderer = {
       let open = 0;
       const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]];
       for (const d of sides) if (park.terrainAt(x + d[0], y + d[1]) === GROUND.WATER) open++;
-      ctx.fillStyle = mixColor('#3f92c4', '#1d5e8c', open / 4);
+      ctx.fillStyle = mixColor('#4491be', '#1c5683', open / 4);
       diamond(ctx, cx, cy, TILE_W, TILE_H); ctx.fill();
       /* a pale shallow band on each side that meets land, which hides the
          staircase edge tiles make on a diagonal shore */
@@ -528,7 +536,7 @@ const renderer = {
       if (p.x < r.x0 - 2 || p.x > r.x1 + 2 || p.y < r.y0 - 2 || p.y > r.y1 + 2) continue;
       if (near && Math.abs(p.x - near.x) + Math.abs(p.y - near.y) > 4) continue;
       const spr = p.spr || (p.spr = getSprite(p.art, 1, 1, 0));
-      const sil = spriteSilhouette(spr, '#0b1408');
+      const sil = spriteSilhouette(spr, '#000c10');
       const sc = p.s || 1;
       const gy = p.wy;
       ctx.save();
@@ -602,8 +610,8 @@ const renderer = {
     if (this._gradKey !== key) {
       this._gradKey = key;
       const sky = ctx.createLinearGradient(0, 0, 0, this.H);
-      sky.addColorStop(0, mixColor('#0d1630', '#8fd0e8', light));
-      sky.addColorStop(1, mixColor('#1d2a44', '#b9dcb0', light));
+      sky.addColorStop(0, mixColor('#04102f', '#9ed6e3', light));
+      sky.addColorStop(1, mixColor('#132241', '#b8db9f', light));
       this._sky = sky;
       const g = ctx.createLinearGradient(0, 0, this.W * 0.9, this.H);
       g.addColorStop(0, 'rgba(255,226,168,.15)');
@@ -672,9 +680,9 @@ const renderer = {
      valley feels like it continues past the edge of the land. */
   drawHorizon(ctx, light) {
     const layers = [
-      { amp: 34, base: 0.40, seed: 2.3, par: 0.035, col: mixColor('#243049', '#b3cddc', light) },
-      { amp: 26, base: 0.46, seed: 7.1, par: 0.065, col: mixColor('#28374a', '#a2c1b8', light) },
-      { amp: 20, base: 0.52, seed: 4.7, par: 0.10, col: mixColor('#2b3a3a', '#8fb493', light) }
+      { amp: 34, base: 0.40, seed: 2.3, par: 0.035, col: mixColor('#1a2846', '#c1d5d9', light) },
+      { amp: 26, base: 0.46, seed: 7.1, par: 0.065, col: mixColor('#1e2f48', '#9ebeab', light) },
+      { amp: 20, base: 0.52, seed: 4.7, par: 0.10, col: mixColor('#20313b', '#89af85', light) }
     ];
     for (const L of layers) {
       const yBase = this.H * L.base - (view.y - 600) * L.par * view.zoom;
@@ -712,7 +720,7 @@ const renderer = {
 
     /* glints, batched into one path */
     ctx.globalAlpha = 0.2;
-    ctx.fillStyle = '#dff2fb';
+    ctx.fillStyle = '#eef8f1';
     ctx.beginPath();
     for (let i = 0; i < this.waterTiles.length; i += 2) {
       const x = this.waterTiles[i], y = this.waterTiles[i + 1];
@@ -727,7 +735,7 @@ const renderer = {
     /* foam washing against the shore — small enough to stay inside its tile,
        so no clipping is needed */
     ctx.globalAlpha = 0.5;
-    ctx.fillStyle = '#f2fbff';
+    ctx.fillStyle = '#fffff2';
     ctx.beginPath();
     for (let i = 0; i < this.waterShore.length; i += 4) {
       const x = this.waterShore[i], y = this.waterShore[i + 1];
@@ -781,7 +789,7 @@ const renderer = {
           const w = ctx.measureText(label).width + 20;
           ctx.fillStyle = 'rgba(20,16,12,.82)';
           roundRect(ctx, c[0] - w / 2, c[1] - 13, w, 24, 11); ctx.fill();
-          ctx.fillStyle = afford ? '#bff0c8' : '#f0b9a6';
+          ctx.fillStyle = afford ? '#b9f0af' : '#fac3a7';
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           ctx.fillText(label, c[0], c[1]);
         } else {
@@ -996,7 +1004,7 @@ const renderer = {
        are already baked into the ground; the crowd goes into a single path. */
     ctx.save();
     ctx.globalAlpha = SUN.alpha;
-    ctx.fillStyle = '#0b1408';
+    ctx.fillStyle = '#000c10';
     ctx.beginPath();
     for (const e of list) {
       if (e.v || e.s) this.personShadowPath(ctx, e.v || e.s);
@@ -1038,7 +1046,7 @@ const renderer = {
 
   /* project a sprite flat onto the ground, leaning away from the sun */
   spriteShadow(ctx, spr, sx, sy, groundY) {
-    const sil = spriteSilhouette(spr, '#0b1408');
+    const sil = spriteSilhouette(spr, '#000c10');
     ctx.save();
     ctx.transform(1, 0, -SUN.lx, -SUN.ly, SUN.lx * groundY, groundY * (1 + SUN.ly));
     ctx.drawImage(sil, sx, sy);
@@ -1148,7 +1156,7 @@ const renderer = {
         const qx = isoX(a.x + 0.5, a.y + 0.5), qy = isoY(a.x + 0.5, a.y + 0.5);
         ctx.fillStyle = 'rgba(0,0,0,.5)';
         roundRect(ctx, qx - 13, qy - 36, 26, 13, 6); ctx.fill();
-        ctx.fillStyle = b.queue.length > b.item.cap * 1.5 ? '#f0b9a6' : '#fff';
+        ctx.fillStyle = b.queue.length > b.item.cap * 1.5 ? '#fac3a7' : '#fff';
         ctx.fillText('⏳' + b.queue.length, qx, qy - 26.5);
         ctx.restore();
       }
@@ -1242,13 +1250,13 @@ const renderer = {
         ctx.fillStyle = 'rgba(0,0,0,.55)';
         const tw = ctx.measureText(p.def.name).width + 8;
         roundRect(ctx, cx - tw / 2, cy + 3, tw, 11, 5); ctx.fill();
-        ctx.fillStyle = '#ffe9b8';
+        ctx.fillStyle = '#ffedb8';
         ctx.fillText(p.def.name, cx, cy + 9);
       }
     } else {
       /* mood pip */
       const m = p.happiness;
-      ctx.fillStyle = m > 66 ? '#5fd06a' : m > 33 ? '#e8c44a' : '#e0574a';
+      ctx.fillStyle = m > 66 ? '#5fd06a' : m > 33 ? '#e7c553' : '#e0574a';
       ctx.beginPath(); ctx.arc(cx + 7 * k, bodyY + 2, 2.2, 0, Math.PI * 2); ctx.fill();
     }
 
@@ -1282,7 +1290,7 @@ const renderer = {
         ctx.fillStyle = 'rgba(214,198,160,.8)';
         ctx.beginPath(); ctx.arc(cx, cy - 6, e.r * (1.4 - f * 0.4), 0, Math.PI * 2); ctx.fill();
       } else {
-        ctx.fillStyle = e.color || '#ffd54a';
+        ctx.fillStyle = e.color || '#f9d359';
         ctx.beginPath(); ctx.arc(cx, cy - 20 - (1 - f) * 30, e.r, 0, Math.PI * 2); ctx.fill();
       }
       ctx.restore();
@@ -1383,7 +1391,7 @@ const renderer = {
     const w = ctx.measureText(text).width + 16;
     ctx.fillStyle = 'rgba(20,16,12,.8)';
     roundRect(ctx, sx - w / 2, sy - 52, w, 20, 9); ctx.fill();
-    ctx.fillStyle = '#ffe9b8';
+    ctx.fillStyle = '#ffedb8';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(text, sx, sy - 42);
     ctx.restore();
@@ -1394,18 +1402,18 @@ const renderer = {
     const ctx = c.getContext('2d');
     const s = Math.min(c.width / GRID_W, c.height / GRID_H);
     ctx.clearRect(0, 0, c.width, c.height);
-    ctx.fillStyle = '#2f4a22';
+    ctx.fillStyle = '#213b25';
     ctx.fillRect(0, 0, c.width, c.height);
     for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) {
       const g = park.ground[park.idx(x, y)];
       if (g === GROUND.GRASS) continue;
-      ctx.fillStyle = g === GROUND.WATER ? '#2f7fb5' : g === GROUND.SAND ? '#d9c48a'
-        : g === GROUND.STONE ? '#b9bcc4' : g === GROUND.ROAD ? '#3b3e44' : '#b39a6c';
+      ctx.fillStyle = g === GROUND.WATER ? '#337bad' : g === GROUND.SAND ? '#e1ca8c'
+        : g === GROUND.STONE ? '#c5c4c3' : g === GROUND.ROAD ? '#303644' : '#b69d6e';
       ctx.fillRect(x * s, y * s, s, s);
     }
     for (const b of park.buildings.values()) {
       ctx.fillStyle = b.item.cat === 'ride' ? '#e0574a' : b.item.cat === 'stall' ? '#e0a33c'
-        : b.item.cat === 'engine' ? '#4aa3e0' : b.item.cat === 'service' ? '#9b7be0' : '#5fd06a';
+        : b.item.cat === 'engine' ? '#4aa3e0' : b.item.cat === 'service' ? '#a483da' : '#5fd06a';
       ctx.fillRect(b.x * s, b.y * s, b.w * s, b.h * s);
     }
     ctx.fillStyle = '#fff';

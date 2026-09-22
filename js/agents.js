@@ -16,7 +16,7 @@ let _agentId = 1;
    without bound across a long session — and canvas memory never shows up in
    the JS heap, so the tab just dies. The crowd draws from a fixed wardrobe
    instead, which is ample variety at the size a visitor is actually drawn. */
-const HAT_TONES = ['#c9a24a', '#8a5a33', '#c94f4f'];
+const HAT_TONES = ['#c9a450', '#805638', '#c45452'];
 const LOOKS = (() => {
   const out = [];
   for (let i = 0; i < 32; i++) out.push({
